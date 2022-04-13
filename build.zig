@@ -23,5 +23,14 @@ pub fn build(b: *std.build.Builder) void {
     pcd68.linkLibrary(moiraLib);
     pcd68.linkSystemLibrary("sdl2");
     pcd68.linkLibCpp();
-    pcd68.addCSourceFiles(&.{ "src/CPU.cpp", "src/Screen.cpp", "src/main.cpp" }, &.{ "-std=c++17", "-D_WASI_EMULATED_SIGNAL", "-lwasi-emulated-signal", "-DUSE_PTHREADS=1" });
+
+    if (pcd68.target.getCpuArch() == .wasm32) {
+        pcd68.defineCMacro("USE_SDL", "0");
+        pcd68.addCSourceFiles(&.{ "src/CPU.cpp", "src/main.cpp" }, &.{ "-std=c++17", "-D_WASI_EMULATED_SIGNAL", "-lwasi-emulated-signal", "-DUSE_PTHREADS=1" });
+        pcd68.addCSourceFile("src/Screen_Memory.cpp", &[_][]const u8{});
+    } else {
+        pcd68.defineCMacro("USE_SDL", "1");
+        pcd68.addCSourceFiles(&.{ "src/CPU.cpp", "src/main.cpp" }, &.{ "-std=c++17" });
+        pcd68.addCSourceFile("src/Screen_SDL.cpp", &[_][]const u8{});
+    }
 }

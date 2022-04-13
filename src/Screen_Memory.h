@@ -1,6 +1,5 @@
 #pragma once
 
-#include "SDL2/SDL.h"
 #include <stdint.h>
 
 class Screen {
@@ -9,7 +8,7 @@ public:
 
     /**
      * Initialize Screen peripheral
-     * (Set up SDL layers/textures/etc.)
+     * (Set up layers/textures/etc.)
      */
     int init();
 
@@ -24,9 +23,6 @@ public:
     uint8_t framebufferMem[400 * 300]; // 8bpp (RGB332)
 
 private:
-    SDL_Window *window;
-    SDL_Renderer *renderer;
-    SDL_Texture *texture;
 
 };
 

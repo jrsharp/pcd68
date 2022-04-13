@@ -1,10 +1,16 @@
 #include <iostream>
 #include <fstream>
-#include "CPU.h"
-#include "Screen.h"
-#include <chrono>
 #include <thread>
 #include <stdlib.h>
+
+#include "CPU.h"
+
+#if(USE_SDL==1)
+#include "Screen_SDL.h"
+#include <chrono>
+#else
+#include "Screen_Memory.h"
+#endif
 
 u8 systemRom[CPU::ROM_SIZE];    // ROM
 u8 systemRam[CPU::RAM_SIZE];    // RAM
@@ -49,34 +55,37 @@ int main(int argc, char **argv) {
     pcdCpu->reset();
 
     bool exit = false;
-    SDL_Event event;
-    int pixelPos = 0;
 
     // Initial screen:
     updateScreen();
 
     while (!exit) {
+
+#if(USE_SDL == 1)
+        SDL_Event event;
         while (SDL_PollEvent(&event)) {
             switch (event.type) {
                 case SDL_QUIT:
                     exit = true;
                     break;
             }
-            SDL_Delay(20);
         }
+#endif
 
         // Update screen:
         if (pcdCpu->getClock() % 50000 == 0) {
             updateScreen();
         }
 
-        //std::cout << "\n\nBefore Instruction: \n\n" << std::endl;
-        //pcdCpu->printState();
+        std::cout << "\n\nBefore Instruction: \n\n" << std::endl;
+        pcdCpu->printState();
         
         // Advance CPU:
         pcdCpu->execute();
+#if(USE_SDL==1)
         // Throttle:
-        std::this_thread::sleep_for(std::chrono::nanoseconds(125 / 2)); // ~16Mhz
+        std::this_thread::sleep_for(std::chrono::nanoseconds(1));
+#endif
         
         //std::cout << "\n\nAfter: \n\n" << std::endl;
         //pcdCpu->printState();

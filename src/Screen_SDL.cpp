@@ -1,4 +1,4 @@
-#include "Screen.h"
+#include "Screen_SDL.h"
 #include <iostream>
 
 // Init SDL
