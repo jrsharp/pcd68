@@ -2,6 +2,9 @@
 
 #include "Moira/Moira.h"
 #include <iostream>
+#include <vector>
+#include <list>
+#include "Peripheral.h"
 
 using namespace moira;
 
@@ -19,6 +22,16 @@ class CPU : public Moira {
 public:
 
     /**
+     * Constructor
+     */
+    CPU();
+
+    /**
+     * Destructor
+     */
+    ~CPU();
+
+    /**
      * Prints the internal state of CPU 
      */
     void printState();
@@ -31,8 +44,6 @@ public:
     static constexpr int RAM_BASE = 0x800000;
     /** Size of RAM (4MB) */
     static constexpr int RAM_SIZE = 0x400000;
-
-private:
 
     /**
      * Synchronizes emulated connected hardware with CPU
@@ -108,5 +119,16 @@ private:
      * Internal buffer for storage of single-instruction disassembly
      */
     char disasm[64];
+
+    /**
+     * Adds a peripheral on the buses
+     *
+     * @param peripheral peripheral to add
+     */
+    int attachPeripheral(Peripheral* peripheral);
+
+private:
+    std::vector<Peripheral*> peripherals;
+
 };
 
