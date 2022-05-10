@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
     */
 
     // Init screen:
-    pcdScreen = new Screen(0x4000000, 8);
+    pcdScreen = new Screen(0x400000, 8);
     int result = pcdScreen->init();
 
     CPU* pcdCpu = new CPU();

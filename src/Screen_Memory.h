@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Peripheral.h"
 #include <stdint.h>
 
 class Screen : public Peripheral {
@@ -29,6 +30,11 @@ public:
     static constexpr int SCREEN_HEIGHT = 300;
 
     uint8_t framebufferMem[400 * 300]; // 8bpp (RGB332)
+
+    u8 read8(u32 addr) override;
+    u16 read16(u32 addr) override;
+    void write8(u32 addr, u8 val) override;
+    void write16(u32 addr, u16 val) override;
 
 private:
 

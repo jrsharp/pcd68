@@ -15,6 +15,11 @@ void CPU::sync(int cycles) {
 
 // Read Byte
 u8 CPU::read8(u32 addr) {
+    for (Peripheral* p : peripherals) {
+        if (p->isValidFor(addr)) {
+            return p->read8(addr);
+        }
+    }
     if (addr >= ROM_BASE && addr < ROM_SIZE) {
         return get8(systemRom, addr - ROM_BASE);
     } else if (addr >= RAM_BASE && addr < (RAM_BASE + RAM_SIZE)) {
@@ -27,6 +32,11 @@ u8 CPU::read8(u32 addr) {
 
 // Read Word
 u16 CPU::read16(u32 addr) {
+    for (Peripheral* p : peripherals) {
+        if (p->isValidFor(addr)) {
+            return p->read16(addr);
+        }
+    }
     if (addr >= ROM_BASE && addr < ROM_SIZE) {
         return get16(systemRom, addr - ROM_BASE);
     } else if (addr >= RAM_BASE && addr < (RAM_BASE + RAM_SIZE)) {
@@ -68,7 +78,7 @@ u16 CPU::read16OnReset(u32 addr) {
 void CPU::write8(u32 addr, u8 val) {
     for (Peripheral* p : peripherals) {
         if (p->isValidFor(addr)) {
-            std::cout << "addr(" << std::hex << addr << ") is valid." << std::endl;
+            p->write8(addr, val);
         }
     }
     if (addr >= ROM_BASE && addr < (ROM_BASE + ROM_SIZE)) {
@@ -84,6 +94,11 @@ void CPU::write8(u32 addr, u8 val) {
 
 // Write Word
 void CPU::write16(u32 addr, u16 val) {
+    for (Peripheral* p : peripherals) {
+        if (p->isValidFor(addr)) {
+            p->write16(addr, val);
+        }
+    }
     if (addr >= ROM_BASE && addr < (ROM_BASE + ROM_SIZE)) {
         set16(systemRom, addr - ROM_BASE, val);
         //std::cout << "Writing WORD to (ROM!) " << std::hex << addrAdj << std::endl;

@@ -16,11 +16,11 @@ class Peripheral {
 
         virtual u8 read8(u32 addr) = 0;
         virtual u16 read16(u32 addr) = 0;
-        virtual void write8(u32 addr) = 0;
-        virtual void write16(u32 addr) = 0;
+        virtual void write8(u32 addr, u8 val) = 0;
+        virtual void write16(u32 addr, u16 val) = 0;
 
         bool isValidFor(uint32_t addr) {
-            return baseAddress <= addr <= endAddress;
+            return baseAddress <= addr && addr <= endAddress;
         }
 
     private:
