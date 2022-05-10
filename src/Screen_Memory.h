@@ -2,9 +2,17 @@
 
 #include <stdint.h>
 
-class Screen {
+class Screen : public Peripheral {
 
 public:
+
+    /**
+     * Constructor
+     *
+     * @param start base address
+     * @param size size of memory
+     */
+    Screen(uint32_t start, uint32_t size) : Peripheral(start, size) { }
 
     /**
      * Initialize Screen peripheral

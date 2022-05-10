@@ -30,7 +30,19 @@ pub fn build(b: *std.build.Builder) void {
         pcd68.addCSourceFile("src/Screen_Memory.cpp", &[_][]const u8{});
     } else {
         pcd68.defineCMacro("USE_SDL", "1");
-        pcd68.addCSourceFiles(&.{ "src/CPU.cpp", "src/main.cpp" }, &.{ "-std=c++17" });
+        pcd68.addCSourceFiles(&.{ "src/CPU.cpp", "src/main.cpp" }, &.{"-std=c++17"});
         pcd68.addCSourceFile("src/Screen_SDL.cpp", &[_][]const u8{});
+    }
+
+    const test_step = b.step("test", "Runs the test suite");
+    {
+        //const test_suite = b.addTest("src/tests.zig");
+        const test_suite = b.addTest("src/TestPeripheral.cpp");
+        test_suite.addCSourceFiles(&.{"src/CPU.cpp"}, &.{"-std=c++17"});
+        test_suite.linkSystemLibrary("gtest");
+        test_suite.linkLibrary(moiraLib);
+        test_suite.linkLibC();
+        test_suite.linkLibCpp();
+        test_step.dependOn(&test_suite.step);
     }
 }

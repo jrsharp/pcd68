@@ -42,16 +42,19 @@ int main(int argc, char **argv) {
     programBinaryFile.read(reinterpret_cast<char *>(systemRom + 0x1000), size);
 
     // Random pixels to system ram used for fb:
+    /*
     uint8_t * ptr = (uint8_t*)systemRam + 0x10000;
     for (int i = 0; i < (400 * 300); i++) {
         *ptr++ = rand();
     }
+    */
 
     // Init screen:
-    pcdScreen = new Screen();
+    pcdScreen = new Screen(0x4000000, 8);
     int result = pcdScreen->init();
 
     CPU* pcdCpu = new CPU();
+    pcdCpu->attachPeripheral(pcdScreen);
     pcdCpu->reset();
 
     bool exit = false;
@@ -77,14 +80,14 @@ int main(int argc, char **argv) {
             updateScreen();
         }
 
-        std::cout << "\n\nBefore Instruction: \n\n" << std::endl;
-        pcdCpu->printState();
+        //std::cout << "\n\nBefore Instruction: \n\n" << std::endl;
+        //pcdCpu->printState();
         
         // Advance CPU:
         pcdCpu->execute();
 #if(USE_SDL==1)
         // Throttle:
-        std::this_thread::sleep_for(std::chrono::nanoseconds(1));
+        //std::this_thread::sleep_for(std::chrono::nanoseconds(1));
 #endif
         
         //std::cout << "\n\nAfter: \n\n" << std::endl;

@@ -1,5 +1,13 @@
 #include "CPU.h"
 
+// C'tor
+CPU::CPU() {
+}
+
+// D'tor
+CPU::~CPU() {
+}
+
 // Sync
 void CPU::sync(int cycles) {
     clock += cycles;
@@ -58,6 +66,11 @@ u16 CPU::read16OnReset(u32 addr) {
 
 // Write Byte
 void CPU::write8(u32 addr, u8 val) {
+    for (Peripheral* p : peripherals) {
+        if (p->isValidFor(addr)) {
+            std::cout << "addr(" << std::hex << addr << ") is valid." << std::endl;
+        }
+    }
     if (addr >= ROM_BASE && addr < (ROM_BASE + ROM_SIZE)) {
         set8(systemRom, addr - ROM_BASE, val);
         //std::cout << "Writing BYTE to (ROM!) " << std::hex << (addr - ROM_BASE) << std::endl;
@@ -83,15 +96,20 @@ void CPU::write16(u32 addr, u16 val) {
 }
 
 // Read Interrupt
-u16 CPU::readIrqUserVector(moira::u8 level) const {
+u16 CPU::readIrqUserVector(u8 level) const {
     return 0;
 }
 
 // Breakpoint handler
-void CPU::breakpointReached(moira::u32 addr) { }
+void CPU::breakpointReached(u32 addr) { }
 
 // Watchpoint handler
-void CPU::watchpointReached(moira::u32 addr) { }
+void CPU::watchpointReached(u32 addr) { }
+
+int CPU::attachPeripheral(Peripheral* p) {
+    peripherals.push_back(p);
+    return 0;
+}
 
 // Print CPU state
 void CPU::printState() {
@@ -116,7 +134,7 @@ void CPU::printState() {
     std::cout << "disasm: " << disasm << std::endl;
    
     u16 op = get16(systemRom, pc);
-    moira::Instr instr = getInfo(op).I;
+    Instr instr = getInfo(op).I;
     std::cout << "Op: " << op << std::endl;
     std::cout << "Instr: " << instr << std::endl;
 

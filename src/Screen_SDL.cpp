@@ -32,6 +32,18 @@ int Screen::init() {
     return 0;
 }
 
+u8 Screen::read8(u32 addr) {
+}
+
+u16 Screen::read16(u32 addr) {
+}
+
+void Screen::write8(u32 addr) {
+}
+
+void Screen::write16(u32 addr) {
+}
+
 // Refresh screen (memcpy + SDL refresh)
 int Screen::refresh() {
     void *outPixels;
