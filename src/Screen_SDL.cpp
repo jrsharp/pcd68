@@ -3,6 +3,8 @@
 
 // Init SDL
 int Screen::init() {
+    busy = false;
+    
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
         std::cerr << "Could not init SDL: " << SDL_GetError() << std::endl;
         return -1;
@@ -33,9 +35,19 @@ int Screen::init() {
 }
 
 u8 Screen::read8(u32 addr) {
+    // ignore addr for now
+    if (busy) {
+        return 1;
+    }
+    return 0;
 }
 
 u16 Screen::read16(u32 addr) {
+    // ignore addr for now
+    if (busy) {
+        return 1;
+    }
+    return 0;
 }
 
 void Screen::write8(u32 addr, u8 val) {
@@ -50,7 +62,8 @@ int Screen::refresh() {
     int outPitch;
 
     //SDL_UpdateTexture(texture, NULL, framebufferMem, SCREEN_WIDTH * sizeof(uint8_t));
-    
+    busy = true;
+
     if (SDL_LockTexture(texture, NULL, &outPixels, &outPitch) < 0) {
         return -1;
     }
@@ -62,6 +75,8 @@ int Screen::refresh() {
     SDL_RenderClear(renderer);
     SDL_RenderCopy(renderer, texture, NULL, NULL);
     SDL_RenderPresent(renderer);
+
+    busy = false;
 
     return 0;
 }
