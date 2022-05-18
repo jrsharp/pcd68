@@ -44,6 +44,10 @@ public:
     static constexpr int RAM_BASE = 0x800000;
     /** Size of RAM (4MB) */
     static constexpr int RAM_SIZE = 0x400000;
+    /** Memory location of Framebuffer */
+    static constexpr int FRAMEBUFFER_BASE = RAM_BASE + 0x10000;
+    /** Size of Framebuffer */
+    static constexpr int FRAMEBUFFER_SIZE = 400 * 300; // 8bpp
 
     /**
      * Synchronizes emulated connected hardware with CPU

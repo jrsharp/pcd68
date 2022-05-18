@@ -14,6 +14,7 @@ class Peripheral {
             endAddress = start + size;
         }
 
+        virtual void reset() = 0;
         virtual u8 read8(u32 addr) = 0;
         virtual u16 read16(u32 addr) = 0;
         virtual void write8(u32 addr, u8 val) = 0;

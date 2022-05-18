@@ -14,9 +14,8 @@ public:
      * @param start base address
      * @param size size of memory
      */
-    Screen(uint32_t start, uint32_t size) : Peripheral(start, size) {
-    }
-
+    Screen(uint32_t start, uint32_t size);
+    
     /**
      * Initialize Screen peripheral
      * (Set up layers/textures/etc.)
@@ -35,6 +34,7 @@ public:
 
     uint8_t reg_STAT;
 
+    void reset() override;
     u8 read8(u32 addr) override;
     u16 read16(u32 addr) override;
     void write8(u32 addr, u8 val) override;

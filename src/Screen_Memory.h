@@ -31,6 +31,7 @@ public:
 
     uint8_t framebufferMem[400 * 300]; // 8bpp (RGB332)
 
+    void reset() override;
     u8 read8(u32 addr) override;
     u16 read16(u32 addr) override;
     void write8(u32 addr, u8 val) override;
