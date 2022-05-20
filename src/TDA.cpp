@@ -6,26 +6,8 @@ TDA::TDA(CPU* cpu, uint32_t start, uint32_t size) : Peripheral(start, size) {
 }
 
 void TDA::reset() {
-    // Default to 80-column font
-    mode = COL50;
-    memset(textMapMem, ' ', 80 * 23);
-
-    // For testing... populate text buffer
-    /*
-    char c = ' ';
-    for (int i = 0; i < 80 * 23; i++) {
-        if (i < 96) {
-            textMapMem[i] = 32 + i;
-        } else {
-            textMapMem[i] = c;
-        }
-    }
-    strncpy(&textMapMem[(2 * 80) + 0], "Hello World!", 12);
-    strncpy(&textMapMem[(12 * 80) + 0], "Hello World!", 12);
-    strncpy(&textMapMem[(18 * 80) + 40], "Hello World!", 12);
-    strncpy(&textMapMem[(22 * 80) + 0], "Hello World!", 12);
-    strncpy(&textMapMem[(22 * 80) + 66], "Hello World!", 12);
-    */
+    mode = COL50; // Default to 80-column font
+    memset(textMapMem, ' ', 80 * 37);
 }
 
 // transfer / flush the character map to the frame buffer
@@ -56,29 +38,36 @@ void TDA::update() {
                     } else {
                         *framebufferPtr = 0xFF;
                     }
+                } else {
+                    // Fill white:
+                    *framebufferPtr = 0xFF;
                 }
             } else {
                 // Fill white:
                 *framebufferPtr = 0xFF;
             }
         } else if (mode == COL50) {
-            int charX = xPos / 8;
-            int charY = yPos / 8;
-            int charXPos = xPos % 8;
-            int charYPos = yPos % 8;
-            char c = textMapMem[(charY * 50) + charX];
-            //printf("%d: (%d, %d), (%d, %d): %c -- (%d, %d)\n", fromStart, xPos, yPos, charX, charY, c, charXPos, charYPos);
-            if (c >= 32 && c <= 128) {
-                u8 lineValue = font8x8_basic[c][charYPos];
-                u8 newLineValue = 0x00;
-                for (int b = 0; b < 8; b++) {
-                    newLineValue |= ((lineValue >> b) & 0b1) << (7 - b);
+            if (yPos < 296) { // in 50-col mode, do not render text on bottom, left-over lines
+                int charX = xPos / 8;
+                int charY = yPos / 8;
+                int charXPos = xPos % 8;
+                int charYPos = yPos % 8;
+                unsigned char c = textMapMem[(charY * 50) + charX];
+                //printf("%d: (%d, %d), (%d, %d): %c -- (%d, %d)\n", fromStart, xPos, yPos, charX, charY, c, charXPos, charYPos);
+                u8 lineValue = 0x00;
+                if (c >= 0 && c < 128) {
+                    lineValue = font8x8_basic[c][charYPos];
+                } else if (c >= 128 && c < 160) {
+                    lineValue = font8x8_block[c - 128][charYPos];
                 }
-                if (newLineValue & (1 << charXPos)) {
+                if (lineValue & (1 << charXPos)) {
                     *framebufferPtr = 0x00;
                 } else {
                     *framebufferPtr = 0xFF;
                 }
+            } else {
+                // Fill white:
+                *framebufferPtr = 0xFF;
             }
         }
     }
