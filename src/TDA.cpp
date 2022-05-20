@@ -1,18 +1,13 @@
-#define STB_TRUETYPE_IMPLEMENTATION
-#define STBTT_STATIC
-
 #include "TDA.h"
 #include <iostream>
 
 TDA::TDA(CPU* cpu, uint32_t start, uint32_t size) : Peripheral(start, size) {
     this->cpu = cpu;
-    //stbtt_InitFont(&font, VT323_Regular_ttf, stbtt_GetFontOffsetForIndex(VT323_Regular_ttf, 0));
-    stbtt_InitFont(&font, noto_sans, stbtt_GetFontOffsetForIndex(noto_sans, 0));
 }
 
 void TDA::reset() {
     // Default to 80-column font
-    mode = COL80;
+    mode = COL50;
     memset(textMapMem, ' ', 80 * 23);
 
     // For testing... populate text buffer
@@ -66,33 +61,24 @@ void TDA::update() {
                 // Fill white:
                 *framebufferPtr = 0xFF;
             }
-        } else if (mode == COL40) {
-            int charX = xPos / 10;
-            int charY = yPos / 15;
-            int charXPos = xPos % 10;
-            int charYPos = yPos % 15;
-            char c = textMapMem[(charY * 40) + charX];
+        } else if (mode == COL50) {
+            int charX = xPos / 8;
+            int charY = yPos / 8;
+            int charXPos = xPos % 8;
+            int charYPos = yPos % 8;
+            char c = textMapMem[(charY * 50) + charX];
             //printf("%d: (%d, %d), (%d, %d): %c -- (%d, %d)\n", fromStart, xPos, yPos, charX, charY, c, charXPos, charYPos);
             if (c >= 32 && c <= 128) {
-                unsigned char *bitmap;
-                int w, h, s = 22;
-
-                bitmap = stbtt_GetCodepointBitmap(&font, 0, stbtt_ScaleForPixelHeight(&font, s), c, &w, &h, 0, 0);
-                if (charYPos < h && charXPos < w) {
-                    if ((bitmap[charYPos * w + charXPos] >> 5) > 0) {
-                        *framebufferPtr = 0x00;
-                    } else {
-                        *framebufferPtr = 0xFF;
-                    }
+                u8 lineValue = font8x8_basic[c][charYPos];
+                u8 newLineValue = 0x00;
+                for (int b = 0; b < 8; b++) {
+                    newLineValue |= ((lineValue >> b) & 0b1) << (7 - b);
                 }
-                /*
-                for (int j = 0; j < h; ++j) {
-                    for (int i = 0; i < w; ++i) {
-                        putchar(" .:ioVM@"[bitmap[j * w + i] >> 5]);
-                    }
-                    putchar('\n');
+                if (newLineValue & (1 << charXPos)) {
+                    *framebufferPtr = 0x00;
+                } else {
+                    *framebufferPtr = 0xFF;
                 }
-                */
             }
         }
     }

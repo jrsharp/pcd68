@@ -9,7 +9,7 @@
             "request": "launch",
             "name": "Debug",
             "program": "${workspaceFolder}/zig-out/bin/pcd68",
-            "args": ["program.bin"],
+            "args": ["text_demo.bin"],
             "cwd": "${workspaceFolder}"
         }
     ]
