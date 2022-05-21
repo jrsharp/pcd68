@@ -6,7 +6,7 @@ TDA::TDA(CPU* cpu, uint32_t start, uint32_t size) : Peripheral(start, size) {
 }
 
 void TDA::reset() {
-    mode = COL50; // Default to 80-column font
+    registers.mode = COL80; // Default to 80-column font
     memset(textMapMem, ' ', 80 * 37);
 }
 
@@ -18,7 +18,7 @@ void TDA::update() {
         int fromStart = (long)framebufferPtr - (long)framebufferStart;
         int xPos = fromStart % 400;
         int yPos = fromStart / 400;
-        if (mode == COL80) {
+        if (registers.mode == COL80) {
             if (yPos < 299) { // in 80-col mode, do not render text on bottom, left-over line
                 int charX = xPos / 5;
                 int charY = yPos / 13;
@@ -46,7 +46,7 @@ void TDA::update() {
                 // Fill white:
                 *framebufferPtr = 0xFF;
             }
-        } else if (mode == COL50) {
+        } else if (registers.mode == COL50) {
             if (yPos < 296) { // in 50-col mode, do not render text on bottom, left-over lines
                 int charX = xPos / 8;
                 int charY = yPos / 8;
@@ -74,31 +74,35 @@ void TDA::update() {
 }
 
 u8 TDA::read8(u32 addr) {
-    // TODO: memory for registers
-    if (addr >= BASE_ADDR && addr < BASE_ADDR + sizeof(textMapMem)) {
-        return get8((u8*)textMapMem, addr - BASE_ADDR);
+    if (addr >= BASE_ADDR && addr < BASE_ADDR + sizeof(registers)) {
+        return get8((u8*)&registers, addr - BASE_ADDR);
+    } else if (addr >= (BASE_ADDR + sizeof(registers)) && addr < BASE_ADDR + sizeof(textMapMem)) {
+        return get8((u8*)textMapMem, addr - (BASE_ADDR + sizeof(registers)));
     }
     return 0;
 }
 
 u16 TDA::read16(u32 addr) {
-    // TODO: memory for registers
-    if (addr >= BASE_ADDR && addr < BASE_ADDR + sizeof(textMapMem)) {
-        return get16((u8*)textMapMem, addr - BASE_ADDR);
+    if (addr >= BASE_ADDR && addr < BASE_ADDR + sizeof(registers)) {
+        return get16((u8*)&registers, addr - BASE_ADDR);
+    } else if (addr >= (BASE_ADDR + sizeof(registers)) && addr < BASE_ADDR + sizeof(textMapMem)) {
+        return get16((u8*)textMapMem, addr - (BASE_ADDR + sizeof(registers)));
     }
     return 0;
 }
 
 void TDA::write8(u32 addr, u8 val) {
-    // TODO: memory for registers
-    if (addr >= BASE_ADDR && addr < BASE_ADDR + sizeof(textMapMem)) {
-        set8((u8*)textMapMem, addr - BASE_ADDR, val);
+    if (addr >= BASE_ADDR && addr < BASE_ADDR + sizeof(registers)) {
+        set8((u8*)&registers, addr - BASE_ADDR, val);
+    } else if (addr >= (BASE_ADDR + sizeof(registers)) && addr < BASE_ADDR + sizeof(textMapMem)) {
+        set8((u8*)textMapMem, addr - (BASE_ADDR + sizeof(registers)), val);
     }
 }
 
 void TDA::write16(u32 addr, u16 val) {
-    // TODO: memory for registers
-    if (addr >= BASE_ADDR && addr < BASE_ADDR + sizeof(textMapMem)) {
-        set16((u8*)textMapMem, addr - BASE_ADDR, val);
+    if (addr >= BASE_ADDR && addr < BASE_ADDR + sizeof(registers)) {
+        set16((u8*)&registers, addr - BASE_ADDR, val);
+    } else if (addr >= (BASE_ADDR + sizeof(registers)) && addr < BASE_ADDR + sizeof(textMapMem)) {
+        set16((u8*)textMapMem, addr - (BASE_ADDR + sizeof(registers)), val);
     }
 }

@@ -13,9 +13,16 @@ public:
     /**
      * Video/Text mode
      */
-    enum Mode {
-        COL50,
-        COL80,
+    enum Mode : u8 {
+        COL50 = 0x01,
+        COL80 = 0x02,
+    };
+
+    /**
+     * Struct for TDA's registers
+     */
+    struct Registers {
+        Mode mode;
     };
 
     static constexpr u32 BASE_ADDR = 0x410000;
@@ -39,7 +46,7 @@ public:
 private:
     unsigned char textMapMem[80 * 37];
     CPU *cpu;
-    Mode mode;
+    Registers registers;
     int five_by_thirteen[(16 * (128 - 32))] = {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //    32 ' '
         0x00, 0x00, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, //    33 '!'
