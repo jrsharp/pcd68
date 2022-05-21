@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 #include "CPU.h"
+#include "TDA.h"
 
 #if(USE_SDL==1)
 #include "Screen_SDL.h"
@@ -49,12 +50,17 @@ int main(int argc, char **argv) {
     }
     */
 
+    CPU* pcdCpu = new CPU();
+
     // Init screen:
     pcdScreen = new Screen(0x400000, 8);
     int result = pcdScreen->init();
+    TDA* textDisplayAdapter = new TDA(pcdCpu, TDA::BASE_ADDR, ((80 * 23) + 8));
 
-    CPU* pcdCpu = new CPU();
     pcdCpu->attachPeripheral(pcdScreen);
+    pcdCpu->attachPeripheral(textDisplayAdapter);
+
+    textDisplayAdapter->reset();
     pcdCpu->reset();
 
     bool exit = false;
@@ -76,7 +82,8 @@ int main(int argc, char **argv) {
 #endif
 
         // Update screen:
-        if (pcdCpu->getClock() % 50000 == 0) {
+        if (pcdCpu->getClock() % 5000 == 0) {
+            textDisplayAdapter->update();
             updateScreen();
         }
 
@@ -85,9 +92,10 @@ int main(int argc, char **argv) {
         
         // Advance CPU:
         pcdCpu->execute();
+        
 #if(USE_SDL==1)
         // Throttle:
-        //std::this_thread::sleep_for(std::chrono::nanoseconds(1));
+        std::this_thread::sleep_for(std::chrono::nanoseconds(5));
 #endif
         
         //std::cout << "\n\nAfter: \n\n" << std::endl;

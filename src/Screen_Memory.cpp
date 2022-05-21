@@ -12,6 +12,9 @@ int Screen::refresh() {
     return 0;
 }
 
+void Screen::reset() {
+}
+
 u8 Screen::read8(u32 addr) {
 }
 

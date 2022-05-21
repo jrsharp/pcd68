@@ -1,6 +1,10 @@
 #include "Screen_SDL.h"
 #include <iostream>
 
+// C'tor
+Screen::Screen(uint32_t start, uint32_t size) : Peripheral(start, size) {
+}
+
 // Init SDL
 int Screen::init() {
     busy = false;
@@ -11,7 +15,7 @@ int Screen::init() {
     }
 
     window = SDL_CreateWindow("Screen", SDL_WINDOWPOS_UNDEFINED,
-            SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH * 2, SCREEN_HEIGHT * 2, SDL_WINDOW_SHOWN);
+            SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH * 4, SCREEN_HEIGHT * 4, SDL_WINDOW_SHOWN);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
 
@@ -32,6 +36,9 @@ int Screen::init() {
     }
 
     return 0;
+}
+
+void Screen::reset() {
 }
 
 u8 Screen::read8(u32 addr) {

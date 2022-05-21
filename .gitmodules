@@ -1,0 +1,3 @@
+[submodule "font8x8"]
+	path = font8x8
+	url = git@github.com:jrsharp/font8x8.git
