@@ -5,6 +5,7 @@
 
 #include "CPU.h"
 #include "TDA.h"
+#include "KCTL.h"
 
 #if(USE_SDL==1)
 #include "Screen_SDL.h"
@@ -56,10 +57,13 @@ int main(int argc, char **argv) {
     pcdScreen = new Screen(0x400000, 8);
     int result = pcdScreen->init();
     TDA* textDisplayAdapter = new TDA(pcdCpu, TDA::BASE_ADDR, ((80 * 23) + 8));
+    KCTL* keyboardController = new KCTL(pcdCpu, KCTL::BASE_ADDR, 8);
 
     pcdCpu->attachPeripheral(pcdScreen);
     pcdCpu->attachPeripheral(textDisplayAdapter);
+    pcdCpu->attachPeripheral(keyboardController);
 
+    keyboardController->reset();
     textDisplayAdapter->reset();
     pcdCpu->reset();
 
