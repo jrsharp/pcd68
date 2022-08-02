@@ -1,5 +1,4 @@
 #include "KCTL.h"
-#include <iostream>
 
 KCTL::KCTL(CPU* cpu, uint32_t start, uint32_t size) : Peripheral(start, size) {
     this->cpu = cpu;
@@ -9,8 +8,13 @@ void KCTL::reset() {
     registers.status = Status::CONNECTED;
 }
 
-// Check system inputs -> update registers
-void KCTL::update() {
+void KCTL::update(u16 keycode) {
+    registers.keycode = keycode;
+}
+
+void KCTL::update(char asciiValue) {
+    registers.asciiValue = asciiValue;
+    this->cpu->setIPL(KBD_INT_LEVEL);
 }
 
 u8 KCTL::read8(u32 addr) {

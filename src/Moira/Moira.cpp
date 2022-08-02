@@ -303,8 +303,8 @@ Moira::setFC()
 void
 Moira::setIPL(u8 val)
 {
-    if (ipl != val) {
-        ipl = val;
+    if (reg.ipl != val) {
+        reg.ipl = val;
         flags |= CPU_CHECK_IRQ;
     }
 }

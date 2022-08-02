@@ -17,6 +17,45 @@
 u8 systemRom[CPU::ROM_SIZE];    // ROM
 u8 systemRam[CPU::RAM_SIZE];    // RAM
 Screen* pcdScreen;              // Screen instance
+u32 keydownDebounceMs = 0;      // debounce period (in ms) for keyboard input
+u16 keyCode = 0;
+char asciiValue;
+
+#if(USE_SDL==1)
+bool handleEvents(u16 *keycode) {
+    SDL_Event event;
+    SDL_PollEvent(&event);
+    if (event.type == SDL_QUIT) {
+        return false;
+    }
+    if (event.type == SDL_KEYDOWN) {
+        u32 ticksNow = SDL_GetTicks();
+        if (SDL_TICKS_PASSED(ticksNow, keydownDebounceMs)) {
+            // Throttle keydown events for 20ms.
+            keydownDebounceMs = ticksNow + 20;
+            keyCode = event.key.keysym.sym;
+            keyCode = event.key.keysym.unicode;
+            std::cout << "code:" << event.key.keysym.sym << std::endl;
+        }
+    } else if (event.type == SDL_TEXTINPUT) {
+        std::cout << "TextEvent: >" << event.text.text << "<" << std::endl;
+        asciiValue = event.text.text[0];
+    } else {
+        *keycode = 0;
+    }
+
+    return true;
+}
+
+void runMainLoop() {
+#ifdef __EMSCRIPTEN__
+    emscripten_set_main_loop([]() { handleEvents(&keyCode); }, 0, true);
+#else
+    while (handleEvents(&keyCode));
+#endif
+}
+
+#endif
 
 // from system RAM to Screen's memory
 void updateScreen() {
@@ -41,15 +80,13 @@ int main(int argc, char **argv) {
 
     std::cout << "Loading file: " << argv[1] << "(" << size << ")" << std::endl;
 
-    programBinaryFile.read(reinterpret_cast<char *>(systemRom + 0x1000), size);
+    programBinaryFile.read(reinterpret_cast<char *>(systemRom + 0x00), size);
 
     // Random pixels to system ram used for fb:
-    /*
     uint8_t * ptr = (uint8_t*)systemRam + 0x10000;
     for (int i = 0; i < (400 * 300); i++) {
         *ptr++ = rand();
     }
-    */
 
     CPU* pcdCpu = new CPU();
 
@@ -63,6 +100,8 @@ int main(int argc, char **argv) {
     pcdCpu->attachPeripheral(textDisplayAdapter);
     pcdCpu->attachPeripheral(keyboardController);
 
+    pcdCpu->debugger.enableLogging();
+
     keyboardController->reset();
     textDisplayAdapter->reset();
     pcdCpu->reset();
@@ -75,18 +114,20 @@ int main(int argc, char **argv) {
     while (!exit) {
 
 #if(USE_SDL == 1)
-        SDL_Event event;
-        while (SDL_PollEvent(&event)) {
-            switch (event.type) {
-                case SDL_QUIT:
-                    exit = true;
-                    break;
-            }
-        }
+        exit = !handleEvents(&keyCode);
+        // Throttle:
+        std::this_thread::sleep_for(std::chrono::nanoseconds(5));
 #endif
 
         // Update screen:
         if (pcdCpu->getClock() % 5000 == 0) {
+            textDisplayAdapter->update();
+            updateScreen();
+        }
+        
+        if (keyCode > 0) {
+            keyboardController->update(keyCode);
+            keyboardController->update(asciiValue);
             textDisplayAdapter->update();
             updateScreen();
         }
@@ -96,14 +137,6 @@ int main(int argc, char **argv) {
         
         // Advance CPU:
         pcdCpu->execute();
-        
-#if(USE_SDL==1)
-        // Throttle:
-        std::this_thread::sleep_for(std::chrono::nanoseconds(5));
-#endif
-        
-        //std::cout << "\n\nAfter: \n\n" << std::endl;
-        //pcdCpu->printState();
     }
 
     return 0;

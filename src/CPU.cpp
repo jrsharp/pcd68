@@ -59,12 +59,6 @@ u16 CPU::read16Dasm(u32 addr) {
 
 // Read Word
 u16 CPU::read16OnReset(u32 addr) {
-    switch (addr) {
-        case 0: return 0x0000;
-        case 2: return 0x2000;
-        case 4: return 0x0000;
-        case 6: return 0x1000;
-    }
     if (addr >= ROM_BASE && addr < ROM_SIZE) {
         return get16(systemRom, addr - ROM_BASE);
     } else if (addr >= RAM_BASE && addr < (RAM_BASE + RAM_SIZE)) {
@@ -116,10 +110,14 @@ u16 CPU::readIrqUserVector(u8 level) const {
 }
 
 // Breakpoint handler
-void CPU::breakpointReached(u32 addr) { }
+void CPU::breakpointReached(u32 addr) {
+    std::cout << "bp: " << addr << std::endl;
+}
 
 // Watchpoint handler
-void CPU::watchpointReached(u32 addr) { }
+void CPU::watchpointReached(u32 addr) {
+    std::cout << "wp: " << addr << std::endl;
+}
 
 int CPU::attachPeripheral(Peripheral* p) {
     peripherals.push_back(p);
