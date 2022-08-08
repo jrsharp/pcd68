@@ -8,13 +8,14 @@ void KCTL::reset() {
     registers.status = Status::CONNECTED;
 }
 
-void KCTL::update(u16 keycode) {
+void KCTL::update(u16 keycode, u16 mod) {
     registers.keycode = keycode;
+    registers.mod = mod;
+    this->cpu->setIPL(KBD_INT_LEVEL);
 }
 
-void KCTL::update(char asciiValue) {
-    registers.asciiValue = asciiValue;
-    this->cpu->setIPL(KBD_INT_LEVEL);
+void KCTL::clear() {
+    this->cpu->setIPL(0x00);
 }
 
 u8 KCTL::read8(u32 addr) {

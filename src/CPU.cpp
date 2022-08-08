@@ -73,6 +73,7 @@ void CPU::write8(u32 addr, u8 val) {
     for (Peripheral* p : peripherals) {
         if (p->isValidFor(addr)) {
             p->write8(addr, val);
+            return;
         }
     }
     if (addr >= ROM_BASE && addr < (ROM_BASE + ROM_SIZE)) {
@@ -91,13 +92,14 @@ void CPU::write16(u32 addr, u16 val) {
     for (Peripheral* p : peripherals) {
         if (p->isValidFor(addr)) {
             p->write16(addr, val);
+            return;
         }
     }
     if (addr >= ROM_BASE && addr < (ROM_BASE + ROM_SIZE)) {
         set16(systemRom, addr - ROM_BASE, val);
-        //std::cout << "Writing WORD to (ROM!) " << std::hex << addrAdj << std::endl;
+        //std::cout << "Writing WORD to (ROM!) " << std::hex << addr - ROM_BASE << std::endl;
     } else if (addr >= RAM_BASE && addr < (RAM_BASE + RAM_SIZE)) {
-        //std::cout << "Writing WORD to " << std::hex << addrAdj << std::endl;
+        //std::cout << "Writing WORD to " << std::hex << addr - RAM_BASE << std::endl;
         set16(systemRam, addr - RAM_BASE, val);
     } else {
         //std::cout << "Writing NOWHERE. (" << std::hex << addr << ")" << std::endl;
