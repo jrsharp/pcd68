@@ -27,11 +27,11 @@ pub fn build(b: *std.build.Builder) void {
 
     if (pcd68.target.getCpuArch() == .wasm32) {
         pcd68.defineCMacro("USE_SDL", "0");
-        pcd68.addCSourceFiles(&.{ "src/CPU.cpp", "src/main.cpp", "src/TDA.cpp" }, &.{ "-std=c++17", "-D_WASI_EMULATED_SIGNAL", "-lwasi-emulated-signal", "-DUSE_PTHREADS=1" });
+        pcd68.addCSourceFiles(&.{ "src/CPU.cpp", "src/main.cpp", "src/TDA.cpp", "src/KCTL.cpp" }, &.{ "-std=c++17", "-D_WASI_EMULATED_SIGNAL", "-lwasi-emulated-signal", "-DUSE_PTHREADS=1" });
         pcd68.addCSourceFile("src/Screen_Memory.cpp", &[_][]const u8{});
     } else {
         pcd68.defineCMacro("USE_SDL", "1");
-        pcd68.addCSourceFiles(&.{ "src/CPU.cpp", "src/main.cpp", "src/TDA.cpp" }, &.{"-std=c++17", "-Wno-narrowing"});
+        pcd68.addCSourceFiles(&.{ "src/CPU.cpp", "src/main.cpp", "src/TDA.cpp", "src/KCTL.cpp" }, &.{"-std=c++17", "-Wno-narrowing"});
         pcd68.addCSourceFile("src/Screen_SDL.cpp", &[_][]const u8{});
     }
 

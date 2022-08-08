@@ -54,7 +54,7 @@ Moira::reset()
     reg.sr.z = 0;
     reg.sr.v = 0;
     reg.sr.c = 0;
-    reg.sr.ipl = 7;
+    reg.sr.ipl = 0;
 
     sync(16);
 
@@ -305,6 +305,7 @@ Moira::setIPL(u8 val)
 {
     if (ipl != val) {
         ipl = val;
+        reg.ipl = val;
         flags |= CPU_CHECK_IRQ;
     }
 }
