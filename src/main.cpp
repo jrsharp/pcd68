@@ -7,6 +7,8 @@
 #include "TDA.h"
 #include "KCTL.h"
 
+#include "text_demo.h"
+
 #if(USE_SDL==1)
 #include "Screen_SDL.h"
 #include <chrono>
@@ -68,24 +70,25 @@ void updateScreen() {
 int main(int argc, char **argv) {
     // Load program:
     if (argc < 2) {
-        std::cout << "Usage: pcd68 <program.bin>" << std::endl;
-        exit(-1);
+        memcpy(systemRom, text_demo_bin, text_demo_bin_len);
+    } else {
+        std::ifstream programBinaryFile(argv[1], std::ios::binary);
+        programBinaryFile.seekg(0, programBinaryFile.end);
+        int size = programBinaryFile.tellg();
+        programBinaryFile.seekg(0, programBinaryFile.beg);
+
+        std::cout << "Loading file: " << argv[1] << "(" << size << ")" << std::endl;
+
+        programBinaryFile.read(reinterpret_cast<char *>(systemRom + 0x00), size);
     }
 
-    std::ifstream programBinaryFile(argv[1], std::ios::binary);
-    programBinaryFile.seekg(0, programBinaryFile.end);
-    int size = programBinaryFile.tellg();
-    programBinaryFile.seekg(0, programBinaryFile.beg);
-
-    std::cout << "Loading file: " << argv[1] << "(" << size << ")" << std::endl;
-
-    programBinaryFile.read(reinterpret_cast<char *>(systemRom + 0x00), size);
-
     // Random pixels to system ram used for fb:
+    /*
     uint8_t * ptr = (uint8_t*)systemRam + 0x10000;
     for (int i = 0; i < (400 * 300); i++) {
         *ptr++ = rand();
     }
+    */
 
     CPU* pcdCpu = new CPU();
 
@@ -107,8 +110,8 @@ int main(int argc, char **argv) {
     // Clear all interrupts:
     pcdCpu->setIPL(0x00);
 
-    //pcdCpu->debugger.watchpoints.addAt(0x103a);
-    //pcdCpu->debugger.watchpoints.addAt(0x2002);
+    pcdCpu->debugger.watchpoints.addAt(0x103a);
+    pcdCpu->debugger.watchpoints.addAt(0x2002);
 
     bool exit, clearKbdInt = false;
 
@@ -126,7 +129,7 @@ int main(int argc, char **argv) {
         i64 clocks = pcdCpu->getClock();
 
         // Update screen:
-        if (clocks % 5000 == 0) {
+        if (clocks % 500 == 0) {
             textDisplayAdapter->update();
             updateScreen();
         }
