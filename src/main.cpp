@@ -9,10 +9,16 @@
 
 #include "text_demo.h"
 
-#if(USE_SDL==1)
+#ifdef __EMSCRIPTEN__
+#include "emscripten.h"
+#endif
+
+#if(USE_SDL)
+#pragma message("Including SDL screen")
 #include "Screen_SDL.h"
 #include <chrono>
 #else
+#pragma message("Including memory screen")
 #include "Screen_Memory.h"
 #endif
 
@@ -25,7 +31,7 @@ i64 lastClock = 0;
 u16 keyCode = 0;
 u16 mod = 0;
 
-#if (USE_SDL == 1)
+#if (USE_SDL)
 bool handleEvents(u16 *kc) {
     SDL_Event event;
     SDL_PollEvent(&event);
@@ -96,22 +102,22 @@ int main(int argc, char **argv) {
     pcdScreen = new Screen(0x400000, 8);
     int result = pcdScreen->init();
     TDA* textDisplayAdapter = new TDA(pcdCpu, TDA::BASE_ADDR, ((80 * 23) + 8));
-    KCTL* keyboardController = new KCTL(pcdCpu, KCTL::BASE_ADDR, 8);
+    //KCTL* keyboardController = new KCTL(pcdCpu, KCTL::BASE_ADDR, 8);
 
     pcdCpu->attachPeripheral(pcdScreen);
     pcdCpu->attachPeripheral(textDisplayAdapter);
-    pcdCpu->attachPeripheral(keyboardController);
+    //pcdCpu->attachPeripheral(keyboardController);
 
     //pcdCpu->debugger.enableLogging();
 
-    keyboardController->reset();
+    //keyboardController->reset();
     textDisplayAdapter->reset();
     pcdCpu->reset();
     // Clear all interrupts:
     pcdCpu->setIPL(0x00);
 
-    pcdCpu->debugger.watchpoints.addAt(0x103a);
-    pcdCpu->debugger.watchpoints.addAt(0x2002);
+    //pcdCpu->debugger.watchpoints.addAt(0x103a);
+    //pcdCpu->debugger.watchpoints.addAt(0x2002);
 
     bool exit, clearKbdInt = false;
 
@@ -120,20 +126,21 @@ int main(int argc, char **argv) {
 
     while (!exit) {
 
-#if (USE_SDL == 1)
+#if (USE_SDL)
         exit = !handleEvents(&keyCode);
         // Throttle:
-        //std::this_thread::sleep_for(std::chrono::nanoseconds(2));
+        std::this_thread::sleep_for(std::chrono::nanoseconds(2));
 #endif
 
         i64 clocks = pcdCpu->getClock();
 
         // Update screen:
-        if (clocks % 500 == 0) {
+        if (clocks % 5000 == 0) {
             textDisplayAdapter->update();
             updateScreen();
         }
         
+        /*
         if (keyCode > 0) {
             if (clocks > lastClock + interruptDebounceClocks) {
                 keyboardController->update(keyCode, mod);
@@ -145,16 +152,19 @@ int main(int argc, char **argv) {
                 clearKbdInt = true;
             }
         }
+        */
 
         //std::cout << "\n\nBefore Instruction: \n\n" << std::endl;
         //pcdCpu->printState();
         
         // Advance CPU:
         pcdCpu->execute();
+        /*
         if (clearKbdInt) {
             keyboardController->clear();
             clearKbdInt = false;
         }
+        */
     }
 
     return 0;

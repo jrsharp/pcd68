@@ -1,4 +1,8 @@
 const std = @import("std");
+const Builder = std.build.Builder;
+const CrossTarget = std.zig.CrossTarget;
+const Mode = std.builtin.Mode;
+const fs = std.fs;
 
 pub fn build(b: *std.build.Builder) void {
     b.enable_wasmtime = true;
@@ -26,14 +30,38 @@ pub fn build(b: *std.build.Builder) void {
     pcd68.linkLibCpp();
 
     if (pcd68.target.getCpuArch() == .wasm32) {
-        pcd68.defineCMacro("USE_SDL", "0");
+        pcd68.defineCMacro("USE_SDL", "1");
         pcd68.addCSourceFiles(&.{ "src/CPU.cpp", "src/main.cpp", "src/TDA.cpp", "src/KCTL.cpp" }, &.{ "-std=c++17", "-D_WASI_EMULATED_SIGNAL", "-lwasi-emulated-signal", "-DUSE_PTHREADS=1" });
         pcd68.addCSourceFile("src/Screen_Memory.cpp", &[_][]const u8{});
+
+        // call the emcc linker step as a 'system command' zig build step which
+        // depends on the libsokol and libgame build steps
+        std.fs.cwd().makePath("zig-out/web") catch |err| {
+            std.log.err("{s}", .{ err });
+        };
+
+        const emcc = b.addSystemCommand(&.{
+            "/mnt2/src/emsdk/upstream/emscripten/emcc",
+            "-Os",
+            "--closure", "1",
+            "src/emscripten/entry.c",
+            "-ozig-out/web/pcd-68.html",
+            "--shell-file", "src/emscripten/shell.html",
+            "-Lzig-out/lib/",
+            "-sNO_FILESYSTEM=1",
+            "-sMALLOC='emmalloc'",
+            "-sASSERTIONS=0",
+            "-sEXPORTED_FUNCTIONS=['_malloc','_free','_main']",
+        });
+        
+        // get the emcc step to run on 'zig build'
+        b.getInstallStep().dependOn(&emcc.step);
     } else {
         pcd68.defineCMacro("USE_SDL", "1");
         pcd68.addCSourceFiles(&.{ "src/CPU.cpp", "src/main.cpp", "src/TDA.cpp", "src/KCTL.cpp" }, &.{"-std=c++17", "-Wno-narrowing"});
         pcd68.addCSourceFile("src/Screen_SDL.cpp", &[_][]const u8{});
     }
+
 
     const test_step = b.step("test", "Runs the test suite");
     {
@@ -46,4 +74,57 @@ pub fn build(b: *std.build.Builder) void {
         test_suite.linkLibCpp();
         test_step.dependOn(&test_suite.step);
     }
+}
+
+//fn buildWasm(b: *Builder, target: CrossTarget, mode: Mode) !void {
+fn buildWasm(b: *Builder, target: CrossTarget) !void {
+    if (b.sysroot == null) {
+        std.log.err("Please build with 'zig build -Dtarget=wasm32-emscripten --sysroot [path/to/emsdk]/upstream/emscripten/cache/sysroot", .{});
+        return error.SysRootExpected;
+    }
+
+    // derive the emcc and emrun paths from the provided sysroot:
+    const emcc_path = try fs.path.join(b.allocator, &.{ b.sysroot.?, "../../emcc" });
+    defer b.allocator.free(emcc_path);
+    const emrun_path = try fs.path.join(b.allocator, &.{ b.sysroot.?, "../../emrun" });
+    defer b.allocator.free(emrun_path);
+    
+    // for some reason, the sysroot/include path must be provided separately
+    const include_path = try fs.path.join(b.allocator, &.{ b.sysroot.?, "include"});
+    defer b.allocator.free(include_path);
+
+    // sokol must be built with wasm32-emscripten
+    var wasm32_emscripten_target = target;
+    wasm32_emscripten_target.os_tag = .emscripten;
+    
+    // the game code must be build as library with wasm32-freestanding
+    var wasm32_freestanding_target = target;
+    wasm32_freestanding_target.os_tag = .freestanding;
+    
+    // call the emcc linker step as a 'system command' zig build step which
+    // depends on the libsokol and libgame build steps
+    try fs.cwd().makePath("zig-out/web");
+    const emcc = b.addSystemCommand(&.{
+        emcc_path,
+        "-Os",
+        "--closure", "1",
+        "src/emscripten/entry.c",
+        "-ozig-out/web/pacman.html",
+        "--shell-file", "src/emscripten/shell.html",
+        "-Lzig-out/lib/",
+        "-lgame",
+        "-lsokol",
+        "-sNO_FILESYSTEM=1",
+        "-sMALLOC='emmalloc'",
+        "-sASSERTIONS=0",
+        "-sEXPORTED_FUNCTIONS=['_malloc','_free','_main']",
+    });
+    
+    // get the emcc step to run on 'zig build'
+    b.getInstallStep().dependOn(&emcc.step);
+    
+    // a seperate run step using emrun
+    const emrun = b.addSystemCommand(&.{ emrun_path, "zig-out/web/pcd68.html" });
+    emrun.step.dependOn(&emcc.step);
+    b.step("run", "Run pcd68").dependOn(&emrun.step);
 }
