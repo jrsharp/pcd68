@@ -23,7 +23,7 @@ TDA* textDisplayAdapter;        // Graphics adapter
 KCTL* keyboardController;       // Keyboard controller
 Screen* pcdScreen;              // Screen instance
 u32 keydownDebounceMs = 0;      // debounce period (in ms) for keyboard input
-i64 interruptDebounceClocks = 5000;// debounce period (in clocks) for keyboard input interrupt
+i64 interruptDebounceClocks = 0;// debounce period (in clocks) for keyboard input interrupt
 i64 lastClock = 0;
 u16 keyCode = 0;
 u16 mod = 0;
@@ -43,8 +43,6 @@ bool handleEvents(u16 *kc) {
             mod = event.key.keysym.mod;
             //std::cout << "code:" << keyCode << std::endl;
         }
-    } else if (event.type == SDL_KEYUP) {
-        keyCode = 0;
     }
 
     return true;
@@ -65,26 +63,24 @@ bool mainLoop() {
     exit = !handleEvents(&keyCode);
 
     // Throttle:
-    std::this_thread::sleep_for(std::chrono::nanoseconds(2));
+    //std::this_thread::sleep_for(std::chrono::nanoseconds(2));
 
     i64 clocks = pcdCpu->getClock();
 
     // Update screen:
-    if (clocks % 5000 == 0) {
+    if (clocks % 10 == 0) {
         textDisplayAdapter->update();
         updateScreen();
+        //std::cout << clocks << std::endl;
     }
     
     if (keyCode > 0) {
-        if (clocks > lastClock + interruptDebounceClocks) {
-            keyboardController->update(keyCode, mod);
-            textDisplayAdapter->update();
-            updateScreen();
-            keyCode = 0;
-            mod = 0;
-            lastClock = clocks;
-            clearKbdInt = true;
-        }
+        keyboardController->update(keyCode, mod);
+        textDisplayAdapter->update();
+        updateScreen();
+        keyCode = 0;
+        mod = 0;
+        clearKbdInt = true;
     }
 
     //std::cout << "\n\nBefore Instruction: \n\n" << std::endl;
@@ -151,7 +147,7 @@ int main(int argc, char **argv) {
 #ifdef __EMSCRIPTEN__
     emscripten_set_main_loop([]() { mainLoop(); }, 0, true);
 #else
-    while (mainLoop());
+    while (!mainLoop());
 #endif
     return 0;
 }

@@ -1,0 +1,13 @@
+body {
+    background-image: url("FRST1_Homepage_bg.png");
+    background-repeat: no-repeat;
+    background-position: -662px -180px;
+    background-size: 2800px;
+    background-color: #cccccc;
+}
+
+#canvas {
+    margin-top: 30px;
+    margin-left: auto;
+    margin-right: auto;
+}
