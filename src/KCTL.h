@@ -10,7 +10,6 @@ extern u8 systemRam[];
 class KCTL : public Peripheral {
 
 public:
-
     /**
      * Video/Text mode
      */
@@ -39,7 +38,7 @@ public:
      * @param start base address
      * @param size size of memory
      */
-    KCTL(CPU *cpu, uint32_t start, uint32_t size);
+    KCTL(CPU* cpu, uint32_t start, uint32_t size);
 
     void update(u16 keycode, u16 mod);
     void clear();
@@ -51,6 +50,6 @@ public:
     void write16(u32 addr, u16 val) override;
 
 private:
-    CPU *cpu;
+    CPU* cpu;
     Registers registers;
 };

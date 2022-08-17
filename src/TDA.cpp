@@ -1,7 +1,8 @@
 #include "TDA.h"
 #include <iostream>
 
-TDA::TDA(CPU* cpu, uint32_t start, uint32_t size) : Peripheral(start, size) {
+TDA::TDA(CPU* cpu, uint32_t start, uint32_t size) :
+    Peripheral(start, size) {
     this->cpu = cpu;
 }
 

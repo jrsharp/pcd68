@@ -1,13 +1,12 @@
 #pragma once
 
-#include "SDL2/SDL.h"
 #include "Peripheral.h"
+#include "SDL2/SDL.h"
 #include <stdint.h>
 
 class Screen : public Peripheral {
 
 public:
-
     /**
      * Constructor
      *
@@ -15,7 +14,7 @@ public:
      * @param size size of memory
      */
     Screen(uint32_t start, uint32_t size);
-    
+
     /**
      * Initialize Screen peripheral
      * (Set up layers/textures/etc.)
@@ -41,10 +40,8 @@ public:
     void write16(u32 addr, u16 val) override;
 
 private:
-    SDL_Window *window;
-    SDL_Renderer *renderer;
-    SDL_Texture *texture;
+    SDL_Window* window;
+    SDL_Renderer* renderer;
+    SDL_Texture* texture;
     bool busy;
-
 };
-

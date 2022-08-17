@@ -1,6 +1,7 @@
 #include "KCTL.h"
 
-KCTL::KCTL(CPU* cpu, uint32_t start, uint32_t size) : Peripheral(start, size) {
+KCTL::KCTL(CPU* cpu, uint32_t start, uint32_t size) :
+    Peripheral(start, size) {
     this->cpu = cpu;
 }
 
