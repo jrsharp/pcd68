@@ -29,6 +29,10 @@ pub fn build(b: *std.build.Builder) void {
     pcd68.linkSystemLibrary("sdl2");
     pcd68.linkLibCpp();
 
+    std.fs.cwd().makePath("zig-out/web") catch |err| {
+        std.log.err("{s}", .{err});
+    };
+
     // Invoke em++ entirely externally
     const empp = b.addSystemCommand(&.{ "em++", "-Wno-c++11-narrowing", "-O3", "src/CPU.cpp", "src/KCTL.cpp", "src/Screen_SDL.cpp", "src/TDA.cpp", "src/main.cpp", "src/Moira/Moira.cpp", "src/Moira/MoiraDebugger.cpp", "--shell-file", "src/emscripten/shell.html", "-ozig-out/web/pcd68.html", "-sUSE_SDL=2", "-sUSE_WEBGL2=1", "-sUSE_PTHREADS=1", "-sASYNCIFY" });
 
