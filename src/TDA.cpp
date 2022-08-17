@@ -26,7 +26,7 @@ void TDA::update() {
                 int charXPos = xPos % 5;
                 int charYPos = yPos % 13;
                 char c = textMapMem[(charY * 80) + charX];
-                if (c >= 32 && c <= 128) { // 80-col charset is limited
+                if (c >= 32 && c <= 127) { // 80-col charset is limited
                     //printf("%d: (%d, %d), (%d, %d): %c -- (%d, %d)\n", fromStart, xPos, yPos, charX, charY, c, charXPos, charYPos);
                     int charOffset = c - 32;
                     u8 lineValue = five_by_thirteen[(charOffset * 16) + charYPos];
