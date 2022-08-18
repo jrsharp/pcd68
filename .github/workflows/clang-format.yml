@@ -11,5 +11,6 @@ jobs:
       with:
         clang-format-version: '14'
         check-path: 'src'
+        exclude-regex: 'src/Moira.*'
         fallback-style: 'LLVM' # optional
 
