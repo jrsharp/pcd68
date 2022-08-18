@@ -18,7 +18,7 @@
 
 u8 systemRom[CPU::ROM_SIZE];     // ROM
 u8 systemRam[CPU::RAM_SIZE];     // RAM
-CPU * pcdCpu;                    // CPU
+CPU* pcdCpu;                     // CPU
 TDA* textDisplayAdapter;         // Graphics adapter
 KCTL* keyboardController;        // Keyboard controller
 Screen* pcdScreen;               // Screen instance
@@ -149,7 +149,7 @@ int main(int argc, char** argv) {
     updateScreen();
 
 #ifdef __EMSCRIPTEN__
-    emscripten_set_main_loop([]() { mainLoop(); }, 0, true);
+    emscripten_set_main_loop([]() { mainLoop(); }, -1, true);
 #else
     while (!mainLoop()) continue;
 #endif
