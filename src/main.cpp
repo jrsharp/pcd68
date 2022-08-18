@@ -41,7 +41,7 @@ bool handleEvents(u16* kc) {
             keydownDebounceMs = ticksNow + 5;
             keyCode = event.key.keysym.sym;
             mod = event.key.keysym.mod;
-            //std::cout << "code:" << keyCode << std::endl;
+            std::cout << "code:" << keyCode << ", mod:" << mod << std::endl;
         }
     }
 
@@ -92,6 +92,10 @@ bool mainLoop() {
         keyboardController->clear();
         clearKbdInt = false;
     }
+
+#ifdef __EMSCRIPTEN__
+    emscripten_sleep(0);
+#endif
 
     return exit;
 }
