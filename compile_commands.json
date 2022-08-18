@@ -1,0 +1,37 @@
+[
+    {
+        "command": "c++ -c -target wasm32-unknown-emscripten -fignore-exceptions -fvisibility=default -mllvm -combiner-global-alias-analysis=false -mllvm -enable-emscripten-sjlj -mllvm -disable-lsr -D__EMSCRIPTEN_SHARED_MEMORY__=1 -DEMSCRIPTEN -D__EMSCRIPTEN_major__=3 -D__EMSCRIPTEN_minor__=1 -D__EMSCRIPTEN_tiny__=18 -Werror=implicit-function-declaration -I/home/jrsharp/src/emsdk/upstream/emscripten/cache/sysroot/include/SDL2 --sysroot=/home/jrsharp/src/emsdk/upstream/emscripten/cache/sysroot -Xclang -iwithsysroot/include/compat -Wno-c++11-narrowing -O3 -std=c++17 -Wno-c++11-narrowing -DUSE_SDL=2 -g3 -O2 -pthread -o /tmp/emscripten_temp_laxr4hyq/CPU_0.o src/CPU.cpp",
+        "directory": "/home/jrsharp/src/pcd68-cpp",
+        "file": "/home/jrsharp/src/pcd68-cpp/src/CPU.cpp"
+    },
+    {
+        "command": "c++ -c -target wasm32-unknown-emscripten -fignore-exceptions -fvisibility=default -mllvm -combiner-global-alias-analysis=false -mllvm -enable-emscripten-sjlj -mllvm -disable-lsr -D__EMSCRIPTEN_SHARED_MEMORY__=1 -DEMSCRIPTEN -D__EMSCRIPTEN_major__=3 -D__EMSCRIPTEN_minor__=1 -D__EMSCRIPTEN_tiny__=18 -Werror=implicit-function-declaration -I/home/jrsharp/src/emsdk/upstream/emscripten/cache/sysroot/include/SDL2 --sysroot=/home/jrsharp/src/emsdk/upstream/emscripten/cache/sysroot -Xclang -iwithsysroot/include/compat -Wno-c++11-narrowing -O3 -std=c++17 -Wno-c++11-narrowing -DUSE_SDL=2 -g3 -O2 -pthread -o /tmp/emscripten_temp_laxr4hyq/KCTL_1.o src/KCTL.cpp",
+        "directory": "/home/jrsharp/src/pcd68-cpp",
+        "file": "/home/jrsharp/src/pcd68-cpp/src/KCTL.cpp"
+    },
+    {
+        "command": "c++ -c -target wasm32-unknown-emscripten -fignore-exceptions -fvisibility=default -mllvm -combiner-global-alias-analysis=false -mllvm -enable-emscripten-sjlj -mllvm -disable-lsr -D__EMSCRIPTEN_SHARED_MEMORY__=1 -DEMSCRIPTEN -D__EMSCRIPTEN_major__=3 -D__EMSCRIPTEN_minor__=1 -D__EMSCRIPTEN_tiny__=18 -Werror=implicit-function-declaration -I/home/jrsharp/src/emsdk/upstream/emscripten/cache/sysroot/include/SDL2 --sysroot=/home/jrsharp/src/emsdk/upstream/emscripten/cache/sysroot -Xclang -iwithsysroot/include/compat -Wno-c++11-narrowing -O3 -std=c++17 -Wno-c++11-narrowing -DUSE_SDL=2 -g3 -O2 -pthread -o /tmp/emscripten_temp_laxr4hyq/Screen_SDL_2.o src/Screen_SDL.cpp",
+        "directory": "/home/jrsharp/src/pcd68-cpp",
+        "file": "/home/jrsharp/src/pcd68-cpp/src/Screen_SDL.cpp"
+    },
+    {
+        "command": "c++ -c -target wasm32-unknown-emscripten -fignore-exceptions -fvisibility=default -mllvm -combiner-global-alias-analysis=false -mllvm -enable-emscripten-sjlj -mllvm -disable-lsr -D__EMSCRIPTEN_SHARED_MEMORY__=1 -DEMSCRIPTEN -D__EMSCRIPTEN_major__=3 -D__EMSCRIPTEN_minor__=1 -D__EMSCRIPTEN_tiny__=18 -Werror=implicit-function-declaration -I/home/jrsharp/src/emsdk/upstream/emscripten/cache/sysroot/include/SDL2 --sysroot=/home/jrsharp/src/emsdk/upstream/emscripten/cache/sysroot -Xclang -iwithsysroot/include/compat -Wno-c++11-narrowing -O3 -std=c++17 -Wno-c++11-narrowing -DUSE_SDL=2 -g3 -O2 -pthread -o /tmp/emscripten_temp_laxr4hyq/TDA_3.o src/TDA.cpp",
+        "directory": "/home/jrsharp/src/pcd68-cpp",
+        "file": "/home/jrsharp/src/pcd68-cpp/src/TDA.cpp"
+    },
+    {
+        "command": "c++ -c -target wasm32-unknown-emscripten -fignore-exceptions -fvisibility=default -mllvm -combiner-global-alias-analysis=false -mllvm -enable-emscripten-sjlj -mllvm -disable-lsr -D__EMSCRIPTEN_SHARED_MEMORY__=1 -DEMSCRIPTEN -D__EMSCRIPTEN_major__=3 -D__EMSCRIPTEN_minor__=1 -D__EMSCRIPTEN_tiny__=18 -Werror=implicit-function-declaration -I/home/jrsharp/src/emsdk/upstream/emscripten/cache/sysroot/include/SDL2 --sysroot=/home/jrsharp/src/emsdk/upstream/emscripten/cache/sysroot -Xclang -iwithsysroot/include/compat -Wno-c++11-narrowing -O3 -std=c++17 -Wno-c++11-narrowing -DUSE_SDL=2 -g3 -O2 -pthread -o /tmp/emscripten_temp_laxr4hyq/main_4.o src/main.cpp",
+        "directory": "/home/jrsharp/src/pcd68-cpp",
+        "file": "/home/jrsharp/src/pcd68-cpp/src/main.cpp"
+    },
+    {
+        "command": "c++ -c -target wasm32-unknown-emscripten -fignore-exceptions -fvisibility=default -mllvm -combiner-global-alias-analysis=false -mllvm -enable-emscripten-sjlj -mllvm -disable-lsr -D__EMSCRIPTEN_SHARED_MEMORY__=1 -DEMSCRIPTEN -D__EMSCRIPTEN_major__=3 -D__EMSCRIPTEN_minor__=1 -D__EMSCRIPTEN_tiny__=18 -Werror=implicit-function-declaration -I/home/jrsharp/src/emsdk/upstream/emscripten/cache/sysroot/include/SDL2 --sysroot=/home/jrsharp/src/emsdk/upstream/emscripten/cache/sysroot -Xclang -iwithsysroot/include/compat -Wno-c++11-narrowing -O3 -std=c++17 -Wno-c++11-narrowing -DUSE_SDL=2 -g3 -O2 -pthread -o /tmp/emscripten_temp_laxr4hyq/Moira_5.o src/Moira/Moira.cpp",
+        "directory": "/home/jrsharp/src/pcd68-cpp",
+        "file": "/home/jrsharp/src/pcd68-cpp/src/Moira/Moira.cpp"
+    },
+    {
+        "command": "c++ -c -target wasm32-unknown-emscripten -fignore-exceptions -fvisibility=default -mllvm -combiner-global-alias-analysis=false -mllvm -enable-emscripten-sjlj -mllvm -disable-lsr -D__EMSCRIPTEN_SHARED_MEMORY__=1 -DEMSCRIPTEN -D__EMSCRIPTEN_major__=3 -D__EMSCRIPTEN_minor__=1 -D__EMSCRIPTEN_tiny__=18 -Werror=implicit-function-declaration -I/home/jrsharp/src/emsdk/upstream/emscripten/cache/sysroot/include/SDL2 --sysroot=/home/jrsharp/src/emsdk/upstream/emscripten/cache/sysroot -Xclang -iwithsysroot/include/compat -Wno-c++11-narrowing -O3 -std=c++17 -Wno-c++11-narrowing -DUSE_SDL=2 -g3 -O2 -pthread -o /tmp/emscripten_temp_laxr4hyq/MoiraDebugger_6.o src/Moira/MoiraDebugger.cpp",
+        "directory": "/home/jrsharp/src/pcd68-cpp",
+        "file": "/home/jrsharp/src/pcd68-cpp/src/Moira/MoiraDebugger.cpp"
+    }
+]
