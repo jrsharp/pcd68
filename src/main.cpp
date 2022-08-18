@@ -18,7 +18,7 @@
 
 u8 systemRom[CPU::ROM_SIZE];     // ROM
 u8 systemRam[CPU::RAM_SIZE];     // RAM
-CPU* pcdCpu;                     // CPU
+CPU * pcdCpu;                    // CPU
 TDA* textDisplayAdapter;         // Graphics adapter
 KCTL* keyboardController;        // Keyboard controller
 Screen* pcdScreen;               // Screen instance
