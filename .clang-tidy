@@ -39,7 +39,7 @@ Checks: >
   -readability-uppercase-literal-suffix,
   -readability-use-anyofallof,
 WarningsAsErrors: ''
-FormatStyle: none
+FormatStyle: llvm
 CheckOptions:
   - key: misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic
     value: true
