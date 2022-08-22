@@ -48,6 +48,9 @@ shell's PATH.
 > BUILD_WEB=true zig build
 
 Emscripten will compile pcd68-cpp, placing the output in ```zig-out/web````.
+A convenient python script is provided for testing:
+
+> python3 ./src/emscripten/serve2.py
 
 ## TODO / Issues
 
