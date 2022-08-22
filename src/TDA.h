@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CPU.h"
+#include "Screen_SDL.h"
 #include "Peripheral.h"
 #include <cstring>
 #include <stdint.h>
@@ -25,15 +26,17 @@ public:
         Mode mode;
     };
 
-    static constexpr u32 BASE_ADDR = 0x410000;
+    static constexpr u32 BASE_ADDR = 0x430000;
 
     /**
      * Constructor
      *
+     * @param cpu CPU instance
+     * @param screen Screen instance
      * @param start base address
      * @param size size of memory
      */
-    TDA(CPU* cpu, uint32_t start, uint32_t size);
+    TDA(CPU* cpu, Screen* screen, uint32_t start, uint32_t size);
 
     void update();
 
@@ -43,10 +46,13 @@ public:
     void write8(u32 addr, u8 val) override;
     void write16(u32 addr, u16 val) override;
 
+    unsigned char textMapMem[50 * 37];
+
 private:
-    unsigned char textMapMem[80 * 37];
     CPU* cpu;
+    Screen* screen;
     Registers registers;
+    bool refreshFlag;
     int five_by_thirteen[(16 * (128 - 32))] = {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //    32 ' '
         0x00, 0x00, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, //    33 '!'

@@ -3,12 +3,13 @@
 
 // C'tor
 Screen::Screen(uint32_t start, uint32_t size) :
-    Peripheral(start, size) {
+        Peripheral(start, size) {
+    refreshFlag = false;
 }
 
 // Init SDL
 int Screen::init() {
-    busy = false;
+    registers.busy = false;
 
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
         std::cerr << "Could not init SDL: " << SDL_GetError() << std::endl;
@@ -40,51 +41,70 @@ int Screen::init() {
 }
 
 void Screen::reset() {
+    refreshFlag = true;
 }
 
 u8 Screen::read8(u32 addr) {
-    // ignore addr for now
-    if (busy) {
-        return 1;
+    if (addr >= BASE_ADDR && addr < BASE_ADDR + sizeof(registers)) {
+        return get8((u8*)&registers, addr - BASE_ADDR);
+    } else if (addr >= (BASE_ADDR + sizeof(registers)) && addr < BASE_ADDR + sizeof(framebufferMem)) {
+        return get8((u8*)framebufferMem, addr - (BASE_ADDR + sizeof(registers)));
     }
     return 0;
 }
 
 u16 Screen::read16(u32 addr) {
-    // ignore addr for now
-    if (busy) {
-        return 1;
+    if (addr >= BASE_ADDR && addr < BASE_ADDR + sizeof(registers)) {
+        return get16((u8*)&registers, addr - BASE_ADDR);
+    } else if (addr >= (BASE_ADDR + sizeof(registers)) && addr < BASE_ADDR + sizeof(framebufferMem)) {
+        return get16((u8*)framebufferMem, addr - (BASE_ADDR + sizeof(registers)));
     }
     return 0;
 }
 
 void Screen::write8(u32 addr, u8 val) {
+    if (addr >= BASE_ADDR && addr < BASE_ADDR + sizeof(registers)) {
+        set8((u8*)&registers, addr - BASE_ADDR, val);
+        refreshFlag = true;
+    } else if (addr >= (BASE_ADDR + sizeof(registers)) && addr < BASE_ADDR + sizeof(framebufferMem)) {
+        set8((u8*)framebufferMem, addr - (BASE_ADDR + sizeof(registers)), val);
+        refreshFlag = true;
+    }
 }
 
 void Screen::write16(u32 addr, u16 val) {
+    if (addr >= BASE_ADDR && addr < BASE_ADDR + sizeof(registers)) {
+        set16((u8*)&registers, addr - BASE_ADDR, val);
+        refreshFlag = true;
+    } else if (addr >= (BASE_ADDR + sizeof(registers)) && addr < BASE_ADDR + sizeof(framebufferMem)) {
+        set16((u8*)framebufferMem, addr - (BASE_ADDR + sizeof(registers)), val);
+        refreshFlag = true;
+    }
 }
 
 // Refresh screen (memcpy + SDL refresh)
 int Screen::refresh() {
-    void* outPixels;
-    int outPitch;
+    if (refreshFlag) {
+        void* outPixels;
+        int outPitch;
 
-    //SDL_UpdateTexture(texture, NULL, framebufferMem, SCREEN_WIDTH * sizeof(uint8_t));
-    busy = true;
+        registers.busy = true;
 
-    if (SDL_LockTexture(texture, NULL, &outPixels, &outPitch) < 0) {
-        return -1;
+        if (SDL_LockTexture(texture, NULL, &outPixels, &outPitch) < 0) {
+            return -1;
+        }
+        SDL_ConvertPixels(SCREEN_WIDTH, SCREEN_HEIGHT,
+            SDL_PIXELFORMAT_RGB332, framebufferMem, SCREEN_WIDTH * sizeof(uint8_t),
+            SDL_PIXELFORMAT_RGBA8888, outPixels, outPitch);
+        SDL_UnlockTexture(texture);
+
+        SDL_RenderClear(renderer);
+        SDL_RenderCopy(renderer, texture, nullptr, nullptr);
+        SDL_RenderPresent(renderer);
+
+        registers.busy = false;
+        refreshFlag = false;
     }
-    SDL_ConvertPixels(SCREEN_WIDTH, SCREEN_HEIGHT,
-        SDL_PIXELFORMAT_RGB332, framebufferMem, SCREEN_WIDTH * sizeof(uint8_t),
-        SDL_PIXELFORMAT_RGBA8888, outPixels, outPitch);
-    SDL_UnlockTexture(texture);
-
-    SDL_RenderClear(renderer);
-    SDL_RenderCopy(renderer, texture, NULL, NULL);
-    SDL_RenderPresent(renderer);
-
-    busy = false;
 
     return 0;
 }
