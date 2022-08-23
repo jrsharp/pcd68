@@ -5,5 +5,7 @@
         "__node_handle": "cpp",
         "iostream": "cpp",
         "ostream": "cpp"
-    }
+    },
+    "clang-format.executable": "/opt/homebrew/bin/clang-format",
+    "C_Cpp.errorSquiggles": "Disabled"
 }

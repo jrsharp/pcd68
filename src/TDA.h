@@ -1,8 +1,8 @@
 #pragma once
 
 #include "CPU.h"
-#include "Screen_SDL.h"
 #include "Peripheral.h"
+#include "Screen_SDL.h"
 #include <cstring>
 #include <stdint.h>
 

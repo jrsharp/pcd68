@@ -4,6 +4,7 @@ BasedOnStyle: WebKit
 SpaceAfterTemplateKeyword: true
 AlignEscapedNewlines: Left
 AlignTrailingComments: true
+AlignAfterOpenBracket: Align
 BreakInheritanceList: AfterComma
 BreakConstructorInitializers: AfterColon
 IndentPPDirectives: AfterHash

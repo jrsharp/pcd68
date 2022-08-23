@@ -38,13 +38,15 @@ pub fn build(b: *std.build.Builder) void {
             std.log.err("{s}", .{err});
         };
 
-        // Need CSS
+        // Need CSS and image
         const cpCss = b.addSystemCommand(&.{ "cp", "src/emscripten/pcd68-home.css", "zig-out/web" });
         b.getInstallStep().dependOn(&cpCss.step);
+        const cpImg = b.addSystemCommand(&.{ "cp", "src/emscripten/FRST1_Homepage_bg.png", "zig-out/web" });
+        b.getInstallStep().dependOn(&cpImg.step);
 
         std.log.info("Building web build of PCD-68 since BUILD_WEB is set to ({s})", .{bw});
         // Invoke em++ entirely externally
-        const emcc = b.addSystemCommand(&.{ "em++", "-Wno-c++11-narrowing", "-O3", "-std=c++17", "src/CPU.cpp", "src/KCTL.cpp", "src/Screen_SDL.cpp", "src/TDA.cpp", "src/main.cpp", "src/Moira/Moira.cpp", "src/Moira/MoiraDebugger.cpp", "--shell-file", "src/emscripten/shell.html", "-ozig-out/web/pcd68.html", "-sUSE_SDL=2", "-sUSE_WEBGL2=1", "-sUSE_PTHREADS=1", "-sASYNCIFY" });
+        const emcc = b.addSystemCommand(&.{ "em++", "-Wno-c++11-narrowing", "-O2", "-flto", "-std=c++17", "src/CPU.cpp", "src/KCTL.cpp", "src/Screen_SDL.cpp", "src/TDA.cpp", "src/main.cpp", "src/Moira/Moira.cpp", "src/Moira/MoiraDebugger.cpp", "--shell-file", "src/emscripten/shell.html", "-ozig-out/web/pcd68.html", "-sUSE_SDL=2", "-sUSE_WEBGL2=1", "-sUSE_PTHREADS=1", "-sASYNCIFY" });
 
         // get the emcc step to run on 'zig build'
         b.getInstallStep().dependOn(&emcc.step);

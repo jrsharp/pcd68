@@ -52,7 +52,7 @@ bool handleEvents(u16* kc) {
 bool mainLoop() {
     bool exit, clearKbdInt = false;
 
-    // Process input and update screen:
+    // Process input and update screen
     i64 clocks = pcdCpu->getClock();
     if (clocks % 25 == 0) {
         exit = !handleEvents(&keyCode);
@@ -77,7 +77,7 @@ bool mainLoop() {
     //std::cout << "\n\nBefore Instruction: \n\n" << std::endl;
     //pcdCpu->printState();
 
-    // Advance CPU:
+    // Advance CPU
     pcdCpu->execute();
     if (clearKbdInt) {
         keyboardController->clear();
@@ -89,7 +89,7 @@ bool mainLoop() {
 
 // Main (Load a program binary, set up I/O and begin execution)
 int main(int argc, char** argv) {
-    // Load program into systemRom memory: 
+    // Load program into systemRom memory
     if (argc < 2) {
         memcpy(systemRom, text_demo_bin, text_demo_bin_len);
     } else {
@@ -124,7 +124,7 @@ int main(int argc, char** argv) {
     textDisplayAdapter->reset();
 
     // And then proceed to reset/start CPU:
-    
+
     //pcdCpu->debugger.enableLogging();
     pcdCpu->reset();
     // Clear all interrupts:
