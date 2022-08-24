@@ -26,7 +26,7 @@ public:
         Mode mode;
     };
 
-    static constexpr u32 BASE_ADDR = 0x430000;
+    static constexpr u32 BASE_ADDR = 0x410000;
 
     /**
      * Constructor

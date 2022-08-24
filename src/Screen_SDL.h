@@ -36,7 +36,7 @@ public:
 
     static constexpr int SCREEN_WIDTH = 400;
     static constexpr int SCREEN_HEIGHT = 300;
-    static constexpr u32 BASE_ADDR = 0x410000;
+    static constexpr u32 BASE_ADDR = 0x430000;
 
     u8 framebufferMem[400 * 300]; // 8bpp (RGB332)
 

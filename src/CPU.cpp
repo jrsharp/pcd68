@@ -113,12 +113,14 @@ u16 CPU::readIrqUserVector(u8 level) const {
 
 // Breakpoint handler
 void CPU::breakpointReached(u32 addr) {
-    std::cout << "bp: " << addr << std::endl;
+    std::cout << "bp: " << std::hex << addr << std::endl;
+    this->printState();
 }
 
 // Watchpoint handler
 void CPU::watchpointReached(u32 addr) {
-    std::cout << "wp: " << addr << std::endl;
+    std::cout << "wp: " << std::hex << addr << std::endl;
+    this->printState();
 }
 
 int CPU::attachPeripheral(Peripheral* p) {

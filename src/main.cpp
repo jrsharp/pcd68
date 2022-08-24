@@ -52,26 +52,26 @@ bool handleEvents(u16* kc) {
 bool mainLoop() {
     bool exit, clearKbdInt = false;
 
+    // yield
+    //std::this_thread::sleep_for(std::chrono::nanoseconds(2));
+
     // Process input and update screen
     i64 clocks = pcdCpu->getClock();
-    if (clocks % 25 == 0) {
+    if (clocks % 100 == 0) {
         exit = !handleEvents(&keyCode);
+
+        if (keyCode > 0) {
+            keyboardController->update(keyCode, mod);
+            textDisplayAdapter->update();
+            pcdScreen->refresh();
+            keyCode = 0;
+            mod = 0;
+            clearKbdInt = true;
+        }
+
         //std::cout << "Clocks: " << clocks << std::endl;
         textDisplayAdapter->update();
         pcdScreen->refresh();
-    }
-
-    if (clocks % 50 == 0) {
-        exit = !handleEvents(&keyCode);
-    }
-
-    if (keyCode > 0) {
-        keyboardController->update(keyCode, mod);
-        textDisplayAdapter->update();
-        pcdScreen->refresh();
-        keyCode = 0;
-        mod = 0;
-        clearKbdInt = true;
     }
 
     //std::cout << "\n\nBefore Instruction: \n\n" << std::endl;
@@ -79,6 +79,7 @@ bool mainLoop() {
 
     // Advance CPU
     pcdCpu->execute();
+
     if (clearKbdInt) {
         keyboardController->clear();
         clearKbdInt = false;
@@ -125,7 +126,7 @@ int main(int argc, char** argv) {
 
     // And then proceed to reset/start CPU:
 
-    //pcdCpu->debugger.enableLogging();
+    pcdCpu->debugger.enableLogging();
     pcdCpu->reset();
     // Clear all interrupts:
     pcdCpu->setIPL(0x00);
@@ -143,6 +144,6 @@ int main(int argc, char** argv) {
     while (!mainLoop()) continue;
 #endif
 
-    std::cout << "Clocks: " << pcdCpu->getClock() << std::endl;
+    std::cout << "Clocks: " << std::dec << pcdCpu->getClock() << std::endl;
     return 0;
 }

@@ -17,8 +17,7 @@ void TDA::reset() {
 // transfer / flush the character map to the frame buffer
 void TDA::update() {
     if (refreshFlag) {
-        //u8* framebufferStart = systemRam + 0x10000;
-        u8* framebufferStart = screen->framebufferMem;
+        u8* framebufferStart = systemRam + 0x10000;
         u8* framebufferEnd = framebufferStart + (400 * 300);
         for (u8* framebufferPtr = framebufferStart; framebufferPtr < framebufferEnd; framebufferPtr++) {
             int fromStart = (long)framebufferPtr - (long)framebufferStart;
@@ -40,21 +39,17 @@ void TDA::update() {
                             newLineValue |= ((lineValue >> b) & 0b1) << (7 - b);
                         }
                         if (newLineValue & (1 << charXPos)) {
-                            *framebufferPtr = 0x00;
-                            //cpu->write8(Screen::BASE_ADDR + sizeof(Screen::Registers) + fromStart, 0x00);
+                            cpu->write8(Screen::BASE_ADDR + sizeof(Screen::Registers) + fromStart, 0x00);
                         } else {
-                            *framebufferPtr = 0xFF;
-                            //cpu->write8(Screen::BASE_ADDR + sizeof(Screen::Registers) + fromStart, 0xFF);
+                            cpu->write8(Screen::BASE_ADDR + sizeof(Screen::Registers) + fromStart, 0xFF);
                         }
                     } else {
                         // Fill white:
-                        *framebufferPtr = 0xFF;
-                        //cpu->write8(Screen::BASE_ADDR + sizeof(Screen::Registers) + fromStart, 0xFF);
+                        cpu->write8(Screen::BASE_ADDR + sizeof(Screen::Registers) + fromStart, 0xFF);
                     }
                 } else {
                     // Fill white:
-                    *framebufferPtr = 0xFF;
-                    //cpu->write8(Screen::BASE_ADDR + sizeof(Screen::Registers) + fromStart, 0xFF);
+                    cpu->write8(Screen::BASE_ADDR + sizeof(Screen::Registers) + fromStart, 0xFF);
                 }
             } else if (registers.mode == COL50) {
                 if (yPos < 296) { // in 50-col mode, do not render text on bottom, left-over lines
@@ -71,16 +66,13 @@ void TDA::update() {
                         lineValue = font8x8_block[c - 128][charYPos];
                     }
                     if (lineValue & (1 << charXPos)) {
-                        *framebufferPtr = 0x00;
-                        //cpu->write8(Screen::BASE_ADDR + sizeof(Screen::Registers) + fromStart, 0x00);
+                        cpu->write8(Screen::BASE_ADDR + sizeof(Screen::Registers) + fromStart, 0x00);
                     } else {
-                        *framebufferPtr = 0xFF;
-                        //cpu->write8(Screen::BASE_ADDR + sizeof(Screen::Registers) + fromStart, 0xFF);
+                        cpu->write8(Screen::BASE_ADDR + sizeof(Screen::Registers) + fromStart, 0xFF);
                     }
                 } else {
                     // Fill white:
-                    *framebufferPtr = 0xFF;
-                    //cpu->write8(Screen::BASE_ADDR + sizeof(Screen::Registers) + fromStart, 0xFF);
+                    cpu->write8(Screen::BASE_ADDR + sizeof(Screen::Registers) + fromStart, 0xFF);
                 }
             }
         }
