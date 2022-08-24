@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+import os
+
 try:
     from http import server # Python 3
 except ImportError:
@@ -17,4 +19,7 @@ class MyHTTPRequestHandler(server.SimpleHTTPRequestHandler):
 
 
 if __name__ == '__main__':
+    web_dir = os.path.join(os.getcwd(), 'zig-out/web/')
+    os.chdir(web_dir)
+
     server.test(HandlerClass=MyHTTPRequestHandler)

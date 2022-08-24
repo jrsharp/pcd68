@@ -1,10 +1,10 @@
 #pragma once
 
 #include "Moira/Moira.h"
-#include <iostream>
-#include <vector>
-#include <list>
 #include "Peripheral.h"
+#include <iostream>
+#include <list>
+#include <vector>
 
 using namespace moira;
 
@@ -12,15 +12,26 @@ extern u8 systemRom[];
 extern u8 systemRam[];
 
 /* Helpers */
-inline u8 get8(u8 *p, u32 addr) { return p[addr]; }
-inline u16 get16(u8 *p, u32 addr) { return (u16)(get8(p, addr) << 8 | get8(p, addr + 1)); }
-inline void set8(u8 *p, u32 addr, u8 val) { p[addr] = val; }
-inline void set16(u8 *p, u32 addr, u16 val) { set8(p, addr, val >> 8); set8(p, addr + 1, val & 0xFF); }
+inline u8 get8(u8* p, u32 addr) {
+    return p[addr];
+}
+
+inline u16 get16(u8* p, u32 addr) {
+    return (u16)(get8(p, addr) << 8 | get8(p, addr + 1));
+}
+
+inline void set8(u8* p, u32 addr, u8 val) {
+    p[addr] = val;
+}
+
+inline void set16(u8* p, u32 addr, u16 val) {
+    set8(p, addr, val >> 8);
+    set8(p, addr + 1, val & 0xFF);
+}
 
 class CPU : public Moira {
 
 public:
-
     /**
      * Constructor
      */
@@ -32,7 +43,7 @@ public:
     ~CPU();
 
     /**
-     * Prints the internal state of CPU 
+     * Prints the internal state of CPU
      */
     void printState();
 
@@ -90,7 +101,7 @@ public:
      * @param addr address to write to
      * @param val value to write
      */
-    void write8 (u32 addr, u8 val) override;
+    void write8(u32 addr, u8 val) override;
 
     /**
      * Writes word into memory
@@ -98,7 +109,7 @@ public:
      * @param addr address to write to
      * @param val value to write
      */
-    void write16 (u32 addr, u16 val) override;
+    void write16(u32 addr, u16 val) override;
 
     /**
      * Returns interrupt vector in IRQ_USER mode
@@ -133,6 +144,4 @@ public:
 
 private:
     std::vector<Peripheral*> peripherals;
-
 };
-

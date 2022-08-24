@@ -113,12 +113,14 @@ u16 CPU::readIrqUserVector(u8 level) const {
 
 // Breakpoint handler
 void CPU::breakpointReached(u32 addr) {
-    std::cout << "bp: " << addr << std::endl;
+    std::cout << "bp: " << std::hex << addr << std::endl;
+    this->printState();
 }
 
 // Watchpoint handler
 void CPU::watchpointReached(u32 addr) {
-    std::cout << "wp: " << addr << std::endl;
+    std::cout << "wp: " << std::hex << addr << std::endl;
+    this->printState();
 }
 
 int CPU::attachPeripheral(Peripheral* p) {
@@ -139,15 +141,19 @@ void CPU::printState() {
     std::cout << "SSP: " << std::hex << ssp << std::endl;
     std::cout << "FC: " << std::hex << fc << std::endl;
     std::cout << "D: ";
-    for (int i = 0; i < 8; i++) { std::cout << std::hex << getD(i) << " "; }
+    for (int i = 0; i < 8; i++) {
+        std::cout << std::hex << getD(i) << " ";
+    }
     std::cout << std::endl;
     std::cout << "A: ";
-    for (int i = 0; i < 8; i++) { std::cout << std::hex << getA(i) << " "; }
+    for (int i = 0; i < 8; i++) {
+        std::cout << std::hex << getA(i) << " ";
+    }
     std::cout << std::endl;
 
     disassemble(pc, disasm);
     std::cout << "disasm: " << disasm << std::endl;
-   
+
     u16 op = get16(systemRom, pc);
     Instr instr = getInfo(op).I;
     std::cout << "Op: " << op << std::endl;
@@ -156,4 +162,3 @@ void CPU::printState() {
     i64 cycles = getClock();
     std::cout << "Cycles: " << cycles << std::endl;
 }
-

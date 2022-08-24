@@ -1,0 +1,34 @@
+---
+Language: Cpp
+BasedOnStyle: WebKit
+SpaceAfterTemplateKeyword: true
+AlignEscapedNewlines: Left
+AlignTrailingComments: true
+AlignAfterOpenBracket: Align
+BreakInheritanceList: AfterComma
+BreakConstructorInitializers: AfterColon
+IndentPPDirectives: AfterHash
+NamespaceIndentation: None
+QualifierAlignment: Right
+RemoveBracesLLVM: false
+SeparateDefinitionBlocks: Always
+SpaceAfterCStyleCast: false
+SpaceAfterLogicalNot: false
+SpaceInEmptyBlock: true
+SpacesInLineCommentPrefix:
+    Minimum: 0
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortBlocksOnASingleLine: true
+AllowShortEnumsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortLoopsOnASingleLine: true
+BreakBeforeBraces: Custom
+BraceWrapping:
+    AfterEnum: false
+    AfterClass: false
+    AfterCaseLabel: false
+    AfterControlStatement: false
+    AfterFunction: false
+    AfterNamespace: false
+    AfterStruct: false

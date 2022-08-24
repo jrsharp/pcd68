@@ -1,4 +1,5 @@
 const std = @import("std");
+const os = std.os;
 const Builder = std.build.Builder;
 const CrossTarget = std.zig.CrossTarget;
 const Mode = std.builtin.Mode;
@@ -29,28 +30,33 @@ pub fn build(b: *std.build.Builder) void {
     pcd68.linkSystemLibrary("sdl2");
     pcd68.linkLibCpp();
 
-    // Invoke em++ entirely externally
-    const empp = b.addSystemCommand(&.{ "em++", "-Wno-c++11-narrowing", "-O3", "src/CPU.cpp", "src/KCTL.cpp", "src/Screen_SDL.cpp", "src/TDA.cpp", "src/main.cpp", "src/Moira/Moira.cpp", "src/Moira/MoiraDebugger.cpp", "--shell-file", "src/emscripten/shell.html", "-ozig-out/web/pcd68.html", "-sUSE_SDL=2", "-sUSE_WEBGL2=1", "-sUSE_PTHREADS=1", "-sASYNCIFY" });
-
-    // get the emcc step to run on 'zig build'
-    b.getInstallStep().dependOn(&empp.step);
-
-    if (pcd68.target.getCpuArch() == .wasm32) {
-        pcd68.defineCMacro("USE_SDL", "1");
-        pcd68.addCSourceFiles(&.{ "src/CPU.cpp", "src/main.cpp", "src/TDA.cpp", "src/KCTL.cpp" }, &.{ "-std=c++17", "-D_WASI_EMULATED_SIGNAL", "-lwasi-emulated-signal", "-DUSE_PTHREADS=1" });
-        pcd68.addCSourceFile("src/Screen_Memory.cpp", &[_][]const u8{});
-
-        // call the emcc linker step as a 'system command' zig build step which
-        // depends on the libsokol and libgame build steps
+    // Should we build for the web, too?
+    var env = std.process.getEnvMap(b.allocator) catch unreachable;
+    const build_web = env.get("BUILD_WEB");
+    if (build_web) |bw| {
         std.fs.cwd().makePath("zig-out/web") catch |err| {
             std.log.err("{s}", .{err});
         };
 
+        // Need CSS and image
+        const cpCss = b.addSystemCommand(&.{ "cp", "src/emscripten/pcd68-home.css", "zig-out/web" });
+        b.getInstallStep().dependOn(&cpCss.step);
+        const cpImg = b.addSystemCommand(&.{ "cp", "src/emscripten/FRST1_Homepage_bg.png", "zig-out/web" });
+        b.getInstallStep().dependOn(&cpImg.step);
+
+        std.log.info("Building web build of PCD-68 since BUILD_WEB is set to ({s})", .{bw});
         // Invoke em++ entirely externally
-        const emcc = b.addSystemCommand(&.{ "em++", "-Wno-c++11-narrowing", "-O3", "src/CPU.cpp", "src/KCTL.cpp", "src/Screen_SDL.cpp", "src/TDA.cpp", "src/main.cpp", "src/Moira/Moira.cpp", "src/Moira/MoiraDebugger.cpp", "--shell-file", "src/emscripten/shell.html", "-ozig-out/web/pcd68.html", "-sUSE_SDL=2", "-sUSE_WEBGL2=1", "-sUSE_PTHREADS=1", "-sASYNCIFY" });
+        const emcc = b.addSystemCommand(&.{ "em++", "-Wno-c++11-narrowing", "-O2", "-flto", "-std=c++17", "src/CPU.cpp", "src/KCTL.cpp", "src/Screen_SDL.cpp", "src/TDA.cpp", "src/main.cpp", "src/Moira/Moira.cpp", "src/Moira/MoiraDebugger.cpp", "--shell-file", "src/emscripten/shell.html", "-ozig-out/web/pcd68.html", "-sUSE_SDL=2", "-sUSE_WEBGL2=1", "-sUSE_PTHREADS=1", "-sASYNCIFY" });
 
         // get the emcc step to run on 'zig build'
         b.getInstallStep().dependOn(&emcc.step);
+    }
+
+    if (pcd68.target.getCpuArch() == .wasm32) {
+        pcd68.defineCMacro("USE_SDL", "2");
+        pcd68.defineCMacro("USE_PTHREADS", "1");
+        pcd68.addCSourceFiles(&.{ "src/CPU.cpp", "src/main.cpp", "src/TDA.cpp", "src/KCTL.cpp" }, &.{ "-std=c++17", "-Wno-narrowing", "-pthread", "-DUSE=SDL=2", "-DUSE_PTHREADS=1" });
+        pcd68.addCSourceFile("src/Screen_SDL.cpp", &[_][]const u8{});
     } else {
         pcd68.defineCMacro("USE_SDL", "1");
         pcd68.addCSourceFiles(&.{ "src/CPU.cpp", "src/main.cpp", "src/TDA.cpp", "src/KCTL.cpp" }, &.{ "-std=c++17", "-Wno-narrowing" });

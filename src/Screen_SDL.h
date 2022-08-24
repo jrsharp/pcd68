@@ -1,12 +1,19 @@
 #pragma once
 
-#include "SDL2/SDL.h"
+#include "CPU.h"
 #include "Peripheral.h"
+#include "SDL2/SDL.h"
 #include <stdint.h>
 
 class Screen : public Peripheral {
 
 public:
+    /**
+     * Struct for Screen's registers
+     */
+    struct Registers {
+        bool busy;
+    };
 
     /**
      * Constructor
@@ -15,7 +22,7 @@ public:
      * @param size size of memory
      */
     Screen(uint32_t start, uint32_t size);
-    
+
     /**
      * Initialize Screen peripheral
      * (Set up layers/textures/etc.)
@@ -29,10 +36,11 @@ public:
 
     static constexpr int SCREEN_WIDTH = 400;
     static constexpr int SCREEN_HEIGHT = 300;
+    static constexpr u32 BASE_ADDR = 0x430000;
 
-    uint8_t framebufferMem[400 * 300]; // 8bpp (RGB332)
+    u8 framebufferMem[400 * 300]; // 8bpp (RGB332)
 
-    uint8_t reg_STAT;
+    u8 reg_STAT;
 
     void reset() override;
     u8 read8(u32 addr) override;
@@ -40,11 +48,11 @@ public:
     void write8(u32 addr, u8 val) override;
     void write16(u32 addr, u16 val) override;
 
+    bool refreshFlag;
+
 private:
-    SDL_Window *window;
-    SDL_Renderer *renderer;
-    SDL_Texture *texture;
-    bool busy;
-
+    SDL_Window* window;
+    SDL_Renderer* renderer;
+    Registers registers;
+    SDL_Texture* texture;
 };
-
