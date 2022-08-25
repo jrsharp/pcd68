@@ -1,11 +1,11 @@
 PCD-68
 ======
 
-PCD-68 is a virtual retro computer -- that is, it is a new computer personal 
-computer specification implemented in software that emulates real hardware from
-the past.  It resembles familiar real hardware from the late 80s/early 90s,
-as it draws inspiration from the original Macintosh and Canon Cat, as well as
-more modern 68k-based homebrew machines.
+PCD-68 is a Motorola 68000-based (m68k) virtual retro computer -- that is, it is a
+new computer personal computer specification implemented in software that emulates 
+real hardware from the past.  It resembles familiar, real hardware from the late 
+80s/early 90s, as it draws inspiration from the original Macintosh and Canon Cat, 
+as well as more modern 68k-based homebrew machines.
 
 ## Project Brief
 
