@@ -1,11 +1,15 @@
 PCD-68
 ======
 
+![Render of FRST Computer's Model 1 Computer](doc/Model1Render.png)
+
 PCD-68 is a Motorola 68000-based (m68k) virtual retro computer -- that is, it is a
 new computer personal computer specification implemented in software that emulates 
 real hardware from the past.  It resembles familiar, real hardware from the late 
 80s/early 90s, as it draws inspiration from the original Macintosh and Canon Cat, 
 as well as more modern 68k-based homebrew machines.
+
+_In time, it will also power the hardware pictured above._
 
 ## Project Brief
 
