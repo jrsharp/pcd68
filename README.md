@@ -1,6 +1,8 @@
 PCD-68
 ======
 
+![Render of FRST Computer's Model 1 Computer](doc/Model1Render.png)
+
 PCD-68 is a virtual retro computer -- that is, it is a new computer personal 
 computer specification implemented in software that emulates real hardware from
 the past.  It resembles familiar real hardware from the late 80s/early 90s,
