@@ -1,13 +1,13 @@
+#include <chrono>
 #include <fstream>
 #include <iostream>
 #include <stdlib.h>
 #include <thread>
-#include <chrono>
 
 #include "CPU.h"
 #include "KCTL.h"
-#include "TDA.h"
 #include "Screen_SDL.h"
+#include "TDA.h"
 
 #include "text_demo.h"
 
@@ -62,7 +62,7 @@ bool mainLoop() {
     // Process input and update screen
     i64 clocks = pcdCpu->getClock();
     if (clocks % CYCLE_FACTOR == 0) {
-        // Process input only a fraction 
+        // Process input only a fraction
         if (clocks % (CYCLE_FACTOR * INPUT_FACTOR) == 0) {
             exit = !handleEvents(&keyCode);
 
