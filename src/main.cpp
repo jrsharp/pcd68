@@ -2,19 +2,23 @@
 #include <iostream>
 #include <stdlib.h>
 #include <thread>
+#include <chrono>
 
 #include "CPU.h"
 #include "KCTL.h"
 #include "TDA.h"
+#include "Screen_SDL.h"
 
 #include "text_demo.h"
 
 #ifdef __EMSCRIPTEN__
 #    include "emscripten.h"
+#    define CYCLE_FACTOR 10
+#    define INPUT_FACTOR 2
+#else
+#    define CYCLE_FACTOR 50
+#    define INPUT_FACTOR 100
 #endif
-
-#include "Screen_SDL.h"
-#include <chrono>
 
 u8 systemRom[CPU::ROM_SIZE];     // ROM
 u8 systemRam[CPU::RAM_SIZE];     // RAM
@@ -57,16 +61,19 @@ bool mainLoop() {
 
     // Process input and update screen
     i64 clocks = pcdCpu->getClock();
-    if (clocks % 100 == 0) {
-        exit = !handleEvents(&keyCode);
+    if (clocks % CYCLE_FACTOR == 0) {
+        // Process input only a fraction 
+        if (clocks % (CYCLE_FACTOR * INPUT_FACTOR) == 0) {
+            exit = !handleEvents(&keyCode);
 
-        if (keyCode > 0) {
-            keyboardController->update(keyCode, mod);
-            textDisplayAdapter->update();
-            pcdScreen->refresh();
-            keyCode = 0;
-            mod = 0;
-            clearKbdInt = true;
+            if (keyCode > 0) {
+                keyboardController->update(keyCode, mod);
+                textDisplayAdapter->update();
+                pcdScreen->refresh();
+                keyCode = 0;
+                mod = 0;
+                clearKbdInt = true;
+            }
         }
 
         //std::cout << "Clocks: " << clocks << std::endl;
