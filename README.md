@@ -11,6 +11,8 @@ as well as more modern 68k-based homebrew machines.
 
 _In time, it will also power the hardware pictured above._
 
+_An initial demo is live on (JonSharp.net)[https://jonsharp.net] now_
+
 ## Project Brief
 
  - 68000 emulation provided by [Moira](https://dirkwhoffmann.github.io/Moira/about.html)
