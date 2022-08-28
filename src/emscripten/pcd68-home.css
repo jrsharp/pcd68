@@ -7,8 +7,17 @@ body {
     background-color: #cccccc;
 }
 
+
 #canvas {
-    margin-top: 30px;
-    margin-left: auto;
-    margin-right: auto;
+    margin: 0 auto;
+    position: relative;
+    left: -35px;
+    margin-top: -55px;
+    /* transform-origin-x: 50%; */
+    /* transform-origin-y: 80%; */
+    /* left: -28px; */
+    /* top: -120px; */
+    transform: perspective(5000px) rotateY(13deg) rotateZ(-1.5deg) rotateX(10deg);
+    scale: 66%;
 }
+
