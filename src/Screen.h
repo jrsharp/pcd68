@@ -2,8 +2,11 @@
 
 #include "CPU.h"
 #include "Peripheral.h"
-#include "SDL2/SDL.h"
 #include <stdint.h>
+
+#ifdef USE_SDL
+#include "SDL2/SDL.h"
+#endif
 
 class Screen : public Peripheral {
 
@@ -51,8 +54,10 @@ public:
     bool refreshFlag;
 
 private:
+#ifdef USE_SDL
     SDL_Window* window;
     SDL_Renderer* renderer;
-    Registers registers;
     SDL_Texture* texture;
+#endif
+    Registers registers;
 };

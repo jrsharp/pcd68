@@ -1,4 +1,4 @@
-#include "Screen_SDL.h"
+#include "Screen.h"
 #include <iostream>
 
 // C'tor
@@ -11,9 +11,14 @@ Screen::Screen(uint32_t start, uint32_t size) :
 int Screen::init() {
     registers.busy = false;
 
+#ifdef USE_SDL
+    std::cerr << "Compiled with SDL2, initializing: " << SDL_GetError() << std::endl;
+
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
         std::cerr << "Could not init SDL: " << SDL_GetError() << std::endl;
         return -1;
+    } else {
+        std::cerr << "Successfully initialized SDL2. " << std::endl;
     }
 
     window = SDL_CreateWindow("Screen", SDL_WINDOWPOS_UNDEFINED,
@@ -36,6 +41,7 @@ int Screen::init() {
         std::cerr << "Could not init texture: " << SDL_GetError() << std::endl;
         return -1;
     }
+#endif
 
     return 0;
 }
@@ -82,9 +88,11 @@ void Screen::write16(u32 addr, u16 val) {
     }
 }
 
-// Refresh screen (memcpy + SDL refresh)
+// Refresh screen (SDL refresh)
 int Screen::refresh() {
     if (refreshFlag) {
+
+#ifdef USE_SDL
         void* outPixels;
         int outPitch;
 
@@ -101,6 +109,7 @@ int Screen::refresh() {
         SDL_RenderClear(renderer);
         SDL_RenderCopy(renderer, texture, nullptr, nullptr);
         SDL_RenderPresent(renderer);
+#endif
 
         registers.busy = false;
         refreshFlag = false;

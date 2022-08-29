@@ -6,7 +6,7 @@
 
 #include "CPU.h"
 #include "KCTL.h"
-#include "Screen_SDL.h"
+#include "Screen.h"
 #include "TDA.h"
 
 #include "text_demo.h"
@@ -33,6 +33,7 @@ u16 keyCode = 0;
 u16 mod = 0;
 
 bool handleEvents(u16* kc) {
+#ifdef USE_SDL
     SDL_Event event;
     SDL_PollEvent(&event);
     if (event.type == SDL_QUIT) {
@@ -48,7 +49,7 @@ bool handleEvents(u16* kc) {
             //std::cout << "code:" << keyCode << ", mod:" << mod << std::endl;
         }
     }
-
+#endif
     return true;
 }
 
