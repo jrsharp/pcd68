@@ -8,11 +8,21 @@
 class Screen : public Peripheral {
 
 public:
+
+    /**
+     * State enum
+     */
+    enum State {
+        BUSY,
+        SLEEP
+    };
+
     /**
      * Struct for Screen's registers
      */
     struct Registers {
         bool busy;
+        State state;
     };
 
     /**
@@ -40,8 +50,6 @@ public:
 
     u8 framebufferMem[400 * 300]; // 8bpp (RGB332)
 
-    u8 reg_STAT;
-
     void reset() override;
     u8 read8(u32 addr) override;
     u16 read16(u32 addr) override;
@@ -53,6 +61,6 @@ public:
 private:
     SDL_Window* window;
     SDL_Renderer* renderer;
-    Registers registers;
     SDL_Texture* texture;
+    Registers registers;
 };
