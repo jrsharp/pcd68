@@ -8,8 +8,8 @@
 
 using namespace moira;
 
-extern u8 systemRom[];
-extern u8 systemRam[];
+extern u8* systemRom;
+extern u8* systemRam;
 
 /* Helpers */
 inline u8 get8(u8* p, u32 addr) {
@@ -50,10 +50,13 @@ public:
     /** Memory location of system ROM */
     static constexpr int ROM_BASE = 0x000000;
     /** Size of ROM (64k) */
+    //static constexpr int ROM_SIZE = 0x0A000;
     static constexpr int ROM_SIZE = 0x10000;
     /** Memory location of system RAM */
     static constexpr int RAM_BASE = 0x800000;
     /** Size of RAM (4MB) */
+    //static constexpr int RAM_SIZE = 1024 * 64 * 2;
+    //static constexpr int RAM_SIZE = (400 * 300) + 128;
     static constexpr int RAM_SIZE = 0x400000;
     /** Memory location of Framebuffer */
     static constexpr int FRAMEBUFFER_BASE = RAM_BASE + 0x10000;

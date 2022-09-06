@@ -2,11 +2,11 @@
 
 #include "CPU.h"
 #include "Peripheral.h"
-#include "Screen_SDL.h"
+#include "Screen_EPD.h"
 #include <cstring>
 #include <stdint.h>
 
-extern u8 systemRam[];
+extern u8* systemRam;
 
 class TDA : public Peripheral {
 

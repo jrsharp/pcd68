@@ -141,6 +141,9 @@ public:
 
     void createJumpTables();
 
+    void createJumpTables1();
+    void createJumpTables2();
+
     // Configures the output format of the disassembler
     void configDasm(bool h, bool u) { hex = h; upper = u; }
 
@@ -168,7 +171,6 @@ private:
     // Puts the CPU into HALT state
     void halt();
     
-
     //
     // Running the Disassembler
     //
