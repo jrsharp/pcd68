@@ -4,7 +4,8 @@
         "ios": "cpp",
         "__node_handle": "cpp",
         "iostream": "cpp",
-        "ostream": "cpp"
+        "ostream": "cpp",
+        "istream": "cpp"
     },
     "clang-format.executable": "/opt/homebrew/bin/clang-format",
     "C_Cpp.errorSquiggles": "Disabled"

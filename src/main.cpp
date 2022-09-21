@@ -61,7 +61,14 @@ bool mainLoop() {
 
     // Process input and update screen
     i64 clocks = pcdCpu->getClock();
+
+    // Input processing / peripheral servicing
     if (clocks % CYCLE_FACTOR == 0) {
+        // Check/advance busy screen:
+        if (pcdScreen->registers.busy) {
+            pcdScreen->advance(1);
+        }
+
         // Process input only a fraction
         if (clocks % (CYCLE_FACTOR * INPUT_FACTOR) == 0) {
             exit = !handleEvents(&keyCode);
@@ -97,10 +104,19 @@ bool mainLoop() {
 
 // Main (Load a program binary, set up I/O and begin execution)
 int main(int argc, char** argv) {
+    // Default to using full E-Ink emulation:
+    bool fullEmulation = true;
     // Load program into systemRom memory
     if (argc < 2) {
         memcpy(systemRom, text_demo_bin, text_demo_bin_len);
     } else {
+        if (argc > 2) {
+            // second arg is fullEmulation flag
+            if (std::string(argv[2]).compare("-nf") == 0) {
+                fullEmulation = false;
+            }
+        }
+
         std::ifstream programBinaryFile(argv[1], std::ios::binary);
         programBinaryFile.seekg(0, programBinaryFile.end);
         int size = programBinaryFile.tellg();
@@ -115,7 +131,7 @@ int main(int argc, char** argv) {
     pcdCpu = new CPU();
 
     // Set up peripherals
-    pcdScreen = new Screen(Screen::BASE_ADDR, sizeof(Screen::Registers) + sizeof(Screen::framebufferMem));
+    pcdScreen = new Screen_SDL(Screen::BASE_ADDR, sizeof(Screen::Registers) + sizeof(Screen::framebufferMem), fullEmulation);
     textDisplayAdapter = new TDA(pcdCpu, pcdScreen, TDA::BASE_ADDR, sizeof(TDA::textMapMem) + sizeof(TDA::Registers));
     keyboardController = new KCTL(pcdCpu, KCTL::BASE_ADDR, sizeof(KCTL::Registers));
 

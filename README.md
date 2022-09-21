@@ -63,3 +63,9 @@ A convenient python script is provided for testing:
  - UART (Based on Zilog SCC? Another UART? How closely conforming?)
  - 68k software libraries/routines for graphics/UI/input processing?
 
+## E-Ink emulation
+
+(In progress) E-Ink emulation is now on by default and can be turned off like:
+
+> ./zig-out/bin/pcd68 text_demo.bin -nf
+
