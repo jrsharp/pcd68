@@ -2,7 +2,7 @@
 
 #include "CPU.h"
 #include "Peripheral.h"
-#include "Screen_SDL.h"
+#include "Screen.h"
 #include <cstring>
 #include <stdint.h>
 

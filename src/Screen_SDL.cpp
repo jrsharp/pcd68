@@ -1,14 +1,22 @@
+/*
+ * Copyright (c) 2022, Jon Sharp
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
 #include "Screen_SDL.h"
 #include <iostream>
 
 // C'tor
-Screen::Screen(uint32_t start, uint32_t size) :
-    Peripheral(start, size) {
-    refreshFlag = false;
+Screen_SDL::Screen_SDL(uint32_t start, uint32_t size, bool fullEmulation) :
+                Screen(start, size),
+                Peripheral(start, size) {
+
+    this->fullEmulation = fullEmulation;
 }
 
 // Init SDL
-int Screen::init() {
+int Screen_SDL::init() {
     registers.busy = false;
 
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
@@ -40,70 +48,82 @@ int Screen::init() {
     return 0;
 }
 
-void Screen::reset() {
+void Screen_SDL::reset() {
+    Screen::reset();
     refreshFlag = true;
 }
 
-u8 Screen::read8(u32 addr) {
-    if (addr >= BASE_ADDR && addr < BASE_ADDR + sizeof(registers)) {
-        return get8((u8*)&registers, addr - BASE_ADDR);
-    } else if (addr >= (BASE_ADDR + sizeof(registers)) && addr < BASE_ADDR + sizeof(framebufferMem)) {
-        return get8((u8*)framebufferMem, addr - (BASE_ADDR + sizeof(registers)));
-    }
-    return 0;
-}
-
-u16 Screen::read16(u32 addr) {
-    if (addr >= BASE_ADDR && addr < BASE_ADDR + sizeof(registers)) {
-        return get16((u8*)&registers, addr - BASE_ADDR);
-    } else if (addr >= (BASE_ADDR + sizeof(registers)) && addr < BASE_ADDR + sizeof(framebufferMem)) {
-        return get16((u8*)framebufferMem, addr - (BASE_ADDR + sizeof(registers)));
-    }
-    return 0;
-}
-
-void Screen::write8(u32 addr, u8 val) {
-    if (addr >= BASE_ADDR && addr < BASE_ADDR + sizeof(registers)) {
-        set8((u8*)&registers, addr - BASE_ADDR, val);
-        refreshFlag = true;
-    } else if (addr >= (BASE_ADDR + sizeof(registers)) && addr < BASE_ADDR + sizeof(framebufferMem)) {
-        set8((u8*)framebufferMem, addr - (BASE_ADDR + sizeof(registers)), val);
-        refreshFlag = true;
-    }
-}
-
-void Screen::write16(u32 addr, u16 val) {
-    if (addr >= BASE_ADDR && addr < BASE_ADDR + sizeof(registers)) {
-        set16((u8*)&registers, addr - BASE_ADDR, val);
-        refreshFlag = true;
-    } else if (addr >= (BASE_ADDR + sizeof(registers)) && addr < BASE_ADDR + sizeof(framebufferMem)) {
-        set16((u8*)framebufferMem, addr - (BASE_ADDR + sizeof(registers)), val);
-        refreshFlag = true;
-    }
-}
-
 // Refresh screen (memcpy + SDL refresh)
-int Screen::refresh() {
+int Screen_SDL::refresh() {
+    if (Screen::refresh() != 0) {
+        return -1;
+    }
     if (refreshFlag) {
-        void* outPixels;
+        uint32_t* outPixels;
         int outPitch;
 
-        registers.busy = true;
-
-        if (SDL_LockTexture(texture, NULL, &outPixels, &outPitch) < 0) {
+        // Lock texture
+        if (SDL_LockTexture(texture, NULL, (void**)&outPixels, &outPitch) < 0) {
             return -1;
         }
-        SDL_ConvertPixels(SCREEN_WIDTH, SCREEN_HEIGHT,
-                          SDL_PIXELFORMAT_RGB332, framebufferMem, SCREEN_WIDTH * sizeof(uint8_t),
-                          SDL_PIXELFORMAT_RGBA8888, outPixels, outPitch);
+
+        if (wait == 0) {
+            registers.busy = true;
+            if (fullEmulation) {
+                wait = REFRESH_INTERVAL;
+            } else {
+                wait = 1;
+            }
+        }
+
+        if (wait > 1) {
+            // Approximate voltage cycling effects of physical E-Ink display
+            if (wait < (REFRESH_INTERVAL * 0.2)) {
+                for (int i = 0; i < (SCREEN_WIDTH * SCREEN_HEIGHT); i++) {
+                    if (framebufferMem[i] == 0xFF) {
+                        outPixels[i] = 0x111111FF;
+                    } else {
+                        outPixels[i] = 0xEEEEEEFF;
+                    }
+                }
+            } else if (wait < (REFRESH_INTERVAL * 0.5)) {
+                for (int i = 0; i < (SCREEN_WIDTH * SCREEN_HEIGHT); i++) {
+                    if (framebufferMem[i] == 0xFF) {
+                        outPixels[i] = 0xAAAAAAFF;
+                    } else {
+                        outPixels[i] = 0xBBBBBBFF;
+                    }
+                }
+            } else if (wait < (REFRESH_INTERVAL * 0.8)) {
+                for (int i = 0; i < (SCREEN_WIDTH * SCREEN_HEIGHT); i++) {
+                    if (framebufferMem[i] == 0xFF) {
+                        outPixels[i] = 0xBBBBBBFF;
+                    } else {
+                        outPixels[i] = 0xAAAAAAFF;
+                    }
+                }
+            } else {
+                for (int i = 0; i < (SCREEN_WIDTH * SCREEN_HEIGHT); i++) {
+                    if (framebufferMem[i] == 0xFF) {
+                        outPixels[i] = 0xEEEEEEFF;
+                    } else {
+                        outPixels[i] = 0x111111FF;
+                    }
+                }
+            }
+        } else {
+            SDL_ConvertPixels(SCREEN_WIDTH, SCREEN_HEIGHT,
+                              SDL_PIXELFORMAT_RGB332, framebufferMem, SCREEN_WIDTH * sizeof(uint8_t),
+                              SDL_PIXELFORMAT_RGBA8888, outPixels, outPitch);
+        }
         SDL_UnlockTexture(texture);
 
         SDL_RenderClear(renderer);
         SDL_RenderCopy(renderer, texture, nullptr, nullptr);
         SDL_RenderPresent(renderer);
 
-        registers.busy = false;
-        refreshFlag = false;
+        //registers.busy = false;
+        //refreshFlag = false;
     }
 
     return 0;

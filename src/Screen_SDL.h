@@ -1,66 +1,28 @@
+/*
+ * Copyright (c) 2022, Jon Sharp
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
 #pragma once
 
-#include "CPU.h"
-#include "Peripheral.h"
+#include "Screen.h"
 #include "SDL2/SDL.h"
 #include <stdint.h>
 
-class Screen : public Peripheral {
+class Screen_SDL : public Screen {
 
 public:
+    
+    Screen_SDL(uint32_t start, uint32_t size, bool fullEmulation = true);
 
-    /**
-     * State enum
-     */
-    enum State {
-        BUSY,
-        SLEEP
-    };
-
-    /**
-     * Struct for Screen's registers
-     */
-    struct Registers {
-        bool busy;
-        State state;
-    };
-
-    /**
-     * Constructor
-     *
-     * @param start base address
-     * @param size size of memory
-     */
-    Screen(uint32_t start, uint32_t size);
-
-    /**
-     * Initialize Screen peripheral
-     * (Set up layers/textures/etc.)
-     */
-    int init();
-
-    /**
-     * Update / refresh display contents
-     */
-    int refresh();
-
-    static constexpr int SCREEN_WIDTH = 400;
-    static constexpr int SCREEN_HEIGHT = 300;
-    static constexpr u32 BASE_ADDR = 0x430000;
-
-    u8 framebufferMem[400 * 300]; // 8bpp (RGB332)
-
-    void reset() override;
-    u8 read8(u32 addr) override;
-    u16 read16(u32 addr) override;
-    void write8(u32 addr, u8 val) override;
-    void write16(u32 addr, u16 val) override;
-
-    bool refreshFlag;
+    virtual int init();
+    virtual void reset();
+    virtual int refresh();
 
 private:
     SDL_Window* window;
     SDL_Renderer* renderer;
     SDL_Texture* texture;
-    Registers registers;
+    bool fullEmulation;
 };
