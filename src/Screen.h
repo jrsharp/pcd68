@@ -13,7 +13,6 @@
 class Screen : virtual public Peripheral {
 
 public:
-
     // Class constants
     static constexpr int SCREEN_WIDTH = 400;
     static constexpr int SCREEN_HEIGHT = 300;

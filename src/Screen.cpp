@@ -14,7 +14,6 @@ Screen::Screen(uint32_t start, uint32_t size) :
     wait = 0;
 }
 
-
 u8 Screen::read8(u32 addr) {
     if (addr >= BASE_ADDR && addr < BASE_ADDR + sizeof(registers)) {
         return get8((u8*)&registers, addr - BASE_ADDR);

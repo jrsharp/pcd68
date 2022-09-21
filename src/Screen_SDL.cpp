@@ -9,8 +9,8 @@
 
 // C'tor
 Screen_SDL::Screen_SDL(uint32_t start, uint32_t size, bool fullEmulation) :
-                Screen(start, size),
-                Peripheral(start, size) {
+    Screen(start, size),
+    Peripheral(start, size) {
 
     this->fullEmulation = fullEmulation;
 }

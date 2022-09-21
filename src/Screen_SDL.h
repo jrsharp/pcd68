@@ -6,14 +6,13 @@
 
 #pragma once
 
-#include "Screen.h"
 #include "SDL2/SDL.h"
+#include "Screen.h"
 #include <stdint.h>
 
 class Screen_SDL : public Screen {
 
 public:
-    
     Screen_SDL(uint32_t start, uint32_t size, bool fullEmulation = true);
 
     virtual int init();
