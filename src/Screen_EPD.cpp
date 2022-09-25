@@ -73,7 +73,7 @@ void Screen::write16(u32 addr, u16 val) {
 int Screen::refresh() {
     if (refreshFlag) {
         registers.busy = true;
-        // copy 
+        // copy
         u8 oneBB = 0xFF; // start with white
         for (int i = 0; i < (400 * 300); i++) {
             if (framebufferMem[i] == 0x00) { // black pixel found

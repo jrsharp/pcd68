@@ -42,7 +42,6 @@ public:
     static constexpr u32 BASE_ADDR = 0x430000;
 
     u8 framebufferMem[400 * 300]; // 8bpp (RGB332)
-//    u8* framebufferMem;
 
     u8 reg_STAT;
 
@@ -58,6 +57,4 @@ private:
     Registers registers;
     static EpdSpi io;
     static Gdew042t2 display;
-    //Gdeh042Z21 display(io);
-
 };
