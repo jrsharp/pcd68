@@ -46,7 +46,7 @@ pub fn build(b: *std.build.Builder) void {
 
         std.log.info("Building web build of PCD-68 since BUILD_WEB is set to ({s})", .{bw});
         // Invoke em++ entirely externally
-        const emcc = b.addSystemCommand(&.{ "em++", "-Wno-c++11-narrowing", "-O2", "-flto", "-std=c++17", "src/CPU.cpp", "src/KCTL.cpp", "src/Screen_SDL.cpp", "src/TDA.cpp", "src/main.cpp", "src/Moira/Moira.cpp", "src/Moira/MoiraDebugger.cpp", "--shell-file", "src/emscripten/shell.html", "-ozig-out/web/pcd68.html", "-sUSE_SDL=2", "-sUSE_WEBGL2=1", "-sUSE_PTHREADS=1", "-sASYNCIFY" });
+        const emcc = b.addSystemCommand(&.{ "em++", "-Wno-c++11-narrowing", "-O2", "-flto", "-std=c++17", "src/CPU.cpp", "src/KCTL.cpp", "src/Screen.cpp", "src/Screen_SDL.cpp", "src/TDA.cpp", "src/main.cpp", "src/Moira/Moira.cpp", "src/Moira/MoiraDebugger.cpp", "--shell-file", "src/emscripten/shell.html", "-ozig-out/web/pcd68.html", "-sUSE_SDL=2", "-sUSE_WEBGL2=1", "-sUSE_PTHREADS=1", "-sASYNCIFY" });
 
         // get the emcc step to run on 'zig build'
         b.getInstallStep().dependOn(&emcc.step);
@@ -55,11 +55,11 @@ pub fn build(b: *std.build.Builder) void {
     if (pcd68.target.getCpuArch() == .wasm32) {
         pcd68.defineCMacro("USE_SDL", "2");
         pcd68.defineCMacro("USE_PTHREADS", "1");
-        pcd68.addCSourceFiles(&.{ "src/CPU.cpp", "src/main.cpp", "src/TDA.cpp", "src/KCTL.cpp" }, &.{ "-std=c++17", "-Wno-narrowing", "-pthread", "-DUSE=SDL=2", "-DUSE_PTHREADS=1" });
+        pcd68.addCSourceFiles(&.{ "src/CPU.cpp", "src/main.cpp", "src/TDA.cpp", "src/KCTL.cpp", "src/Screen.cpp" }, &.{ "-std=c++17", "-Wno-narrowing", "-pthread", "-DUSE=SDL=2", "-DUSE_PTHREADS=1" });
         pcd68.addCSourceFile("src/Screen_SDL.cpp", &[_][]const u8{});
     } else {
         pcd68.defineCMacro("USE_SDL", "1");
-        pcd68.addCSourceFiles(&.{ "src/CPU.cpp", "src/main.cpp", "src/TDA.cpp", "src/KCTL.cpp" }, &.{ "-std=c++17", "-Wno-narrowing" });
+        pcd68.addCSourceFiles(&.{ "src/CPU.cpp", "src/main.cpp", "src/TDA.cpp", "src/KCTL.cpp", "src/Screen.cpp" }, &.{ "-std=c++17", "-Wno-narrowing" });
         pcd68.addCSourceFile("src/Screen_SDL.cpp", &[_][]const u8{});
     }
 
