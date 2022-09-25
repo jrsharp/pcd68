@@ -5,7 +5,7 @@
 #include <cstring>
 #include <stdint.h>
 
-extern u8 systemRam[];
+extern u8* systemRam;
 
 class KCTL : public Peripheral {
 

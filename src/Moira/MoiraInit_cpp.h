@@ -118,6 +118,15 @@ parse(const char *s, int sum = 0)
 void
 Moira::createJumpTables()
 {
+    // Split up the creation of jump tables due to call stack(?) issue in
+    // Xtensa gcc toolchain
+    createJumpTables1();
+    createJumpTables2();
+}
+
+void
+Moira::createJumpTables1()
+{
     u16 opcode;
 
     //
@@ -816,6 +825,12 @@ Moira::createJumpTables()
     ____XXX___MMMXXX(opcode | 0 << 12, MOVEA, 0b111111111111, Long, Movea)
     ____XXX___MMMXXX(opcode | 1 << 12, MOVEA, 0b111111111111, Word, Movea)
 
+}
+
+void
+Moira::createJumpTables2()
+{
+    u16 opcode;
 
     // MOVEM
     //
