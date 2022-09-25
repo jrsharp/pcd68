@@ -1,7 +1,7 @@
 set(srcs 
     "src/CPU.cpp"
     "src/KCTL.cpp"
-    "src/Screen_EPD.cpp"
+    "src/Screen.cpp"
     "src/TDA.cpp"
     "src/Moira/Moira.cpp"
     "src/Moira/MoiraDebugger.cpp"
