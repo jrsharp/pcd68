@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <thread>
 
-#include "CPU.h"
+#include "PCD68_CPU.h"
 #include "KCTL.h"
 #include "Screen_SDL.h"
 #include "TDA.h"

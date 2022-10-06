@@ -1,6 +1,6 @@
 #pragma once
 
-#include "CPU.h"
+#include "PCD68_CPU.h"
 #include "Peripheral.h"
 #include <cstring>
 #include <stdint.h>
@@ -10,20 +10,35 @@ extern u8* systemRam;
 class KCTL : public Peripheral {
 
 public:
+
+    /** Number of keys in single key input report */
+    static constexpr int KEYS_IN_REPORT = 7;
+    /** Number of key input reports that can be held in report stack */
+    static constexpr int REPORT_STACK_SIZE = 8;
+
     /**
      * Video/Text mode
      */
     enum Status : u8 {
+        DISCONNECTED = 0x00,
         CONNECTED = 0x01,
+    };
+
+    /**
+     * Represents a single key input report
+     */
+    struct KeyReport {
+        u16 mod;                    //!< Byte containing pressed modifier keys
+        u16 keys[KEYS_IN_REPORT];   //!< Array of keys pressed in report
     };
 
     /**
      * Struct for KCTL's registers
      */
     struct Registers {
-        Status status;
-        u16 keycode;
-        u16 mod;
+        Status status;                              //!< Status byte
+        u8 pendingReportCount;                      //!< Number of input reports currently held in the report stack
+        KeyReport reportStack[REPORT_STACK_SIZE];   //!< The stack of pending reports
     };
 
     /** Default base address for peripheral */
@@ -49,7 +64,10 @@ public:
     void write8(u32 addr, u8 val) override;
     void write16(u32 addr, u16 val) override;
 
-private:
+
+protected:
     CPU* cpu;
     Registers registers;
+
+private:
 };

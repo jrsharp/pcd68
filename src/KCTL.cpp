@@ -10,9 +10,11 @@ void KCTL::reset() {
 }
 
 void KCTL::update(u16 keycode, u16 mod) {
-    registers.keycode = keycode;
-    registers.mod = mod;
-    this->cpu->setIPL(KBD_INT_LEVEL);
+    if (registers.pendingReportCount < REPORT_STACK_SIZE) {
+        KeyReport report = { mod, { keycode, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000 } };
+        registers.reportStack[registers.pendingReportCount++] = report;
+        this->cpu->setIPL(KBD_INT_LEVEL);
+    }
 }
 
 void KCTL::clear() {

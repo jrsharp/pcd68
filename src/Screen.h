@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "CPU.h"
+#include "PCD68_CPU.h"
 #include "Peripheral.h"
 #include <stdint.h>
 
