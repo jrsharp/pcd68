@@ -28,8 +28,8 @@ public:
      * Represents a single key input report
      */
     struct KeyReport {
-        u16 mod;                    //!< Byte containing pressed modifier keys
-        u16 keys[KEYS_IN_REPORT];   //!< Array of keys pressed in report
+        u8 mod;                     //!< Byte containing pressed modifier keys
+        u8 keys[KEYS_IN_REPORT];    //!< Array of keys pressed in report
     };
 
     /**
@@ -55,7 +55,7 @@ public:
      */
     KCTL(CPU* cpu, uint32_t start, uint32_t size);
 
-    void update(u16 keycode, u16 mod);
+    void update(u8 keycode, u8 mod);
     void clear();
 
     void reset() override;

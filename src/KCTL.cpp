@@ -9,9 +9,9 @@ void KCTL::reset() {
     registers.status = Status::CONNECTED;
 }
 
-void KCTL::update(u16 keycode, u16 mod) {
+void KCTL::update(u8 keycode, u8 mod) {
     if (registers.pendingReportCount < REPORT_STACK_SIZE) {
-        KeyReport report = { mod, { keycode, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000 } };
+        KeyReport report = { mod, { keycode, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } };
         registers.reportStack[registers.pendingReportCount++] = report;
         this->cpu->setIPL(KBD_INT_LEVEL);
     }
