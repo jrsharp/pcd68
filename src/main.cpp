@@ -3,6 +3,8 @@
 #include <iostream>
 #include <stdlib.h>
 #include <thread>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "PCD68_CPU.h"
 #include "KCTL.h"
@@ -20,8 +22,8 @@
 #    define INPUT_FACTOR 100
 #endif
 
-u8 systemRom[CPU::ROM_SIZE];     // ROM
-u8 systemRam[CPU::RAM_SIZE];     // RAM
+u8* systemRom;                   // ROM
+u8* systemRam;                   // RAM
 CPU* pcdCpu;                     // CPU
 TDA* textDisplayAdapter;         // Graphics adapter
 KCTL* keyboardController;        // Keyboard controller
@@ -54,7 +56,7 @@ bool handleEvents(u16* kc) {
 
 // Main loop
 bool mainLoop() {
-    bool exit, clearKbdInt = false;
+    bool exit = false, clearKbdInt = false;
 
     // yield
     //std::this_thread::sleep_for(std::chrono::nanoseconds(2));
@@ -104,6 +106,15 @@ bool mainLoop() {
 
 // Main (Load a program binary, set up I/O and begin execution)
 int main(int argc, char** argv) {
+    // Allocate ROM + RAM:
+    systemRom = (u8*)malloc(CPU::ROM_SIZE);
+    systemRam = (u8*)malloc(CPU::RAM_SIZE);
+
+    if (systemRom == nullptr || systemRam == nullptr) {
+        std::cerr << "Unable to allocate memory for system RAM + ROM" << std::endl;
+        return -1;
+    }
+
     // Default to using full E-Ink emulation:
     bool fullEmulation = true;
     // Load program into systemRom memory

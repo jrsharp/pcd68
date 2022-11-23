@@ -8,5 +8,6 @@
         "istream": "cpp"
     },
     "clang-format.executable": "/opt/homebrew/bin/clang-format",
-    "C_Cpp.errorSquiggles": "Disabled"
+    "C_Cpp.errorSquiggles": "Disabled",
+    "sonarlint.pathToCompileCommands": "${workspaceFolder}/compile_commands.json"
 }

@@ -23,9 +23,9 @@ pub fn build(b: *std.build.Builder) void {
     pcd68.setTarget(target);
     pcd68.setBuildMode(.Debug);
     pcd68.install();
-    pcd68.addIncludeDir(".");
-    pcd68.addIncludeDir(sdl_include_path);
-    pcd68.addLibPath(sdl_lib_path);
+    pcd68.addIncludePath(".");
+    pcd68.addIncludePath(sdl_include_path);
+    pcd68.addLibraryPath(sdl_lib_path);
     pcd68.linkLibrary(moiraLib);
     pcd68.linkSystemLibrary("sdl2");
     pcd68.linkLibCpp();
@@ -35,18 +35,18 @@ pub fn build(b: *std.build.Builder) void {
     const build_web = env.get("BUILD_WEB");
     if (build_web) |bw| {
         std.fs.cwd().makePath("zig-out/web") catch |err| {
-            std.log.err("{s}", .{err});
+            std.log.err("{any}", .{err});
         };
 
         // Need CSS and image
-        const cpCss = b.addSystemCommand(&.{ "cp", "src/emscripten/pcd68-home.css", "zig-out/web" });
+        const cpCss = b.addSystemCommand(&.{ "cp", "src/emscripten/pcd68-home.css", "zig-out/web/" });
         b.getInstallStep().dependOn(&cpCss.step);
-        const cpImg = b.addSystemCommand(&.{ "cp", "src/emscripten/FRST1_Homepage_bg.png", "zig-out/web" });
+        const cpImg = b.addSystemCommand(&.{ "cp", "src/emscripten/FRST1_Homepage_bg.png", "zig-out/web/" });
         b.getInstallStep().dependOn(&cpImg.step);
 
         std.log.info("Building web build of PCD-68 since BUILD_WEB is set to ({s})", .{bw});
         // Invoke em++ entirely externally
-        const emcc = b.addSystemCommand(&.{ "em++", "-Wno-c++11-narrowing", "-O2", "-flto", "-std=c++17", "src/CPU.cpp", "src/KCTL.cpp", "src/Screen.cpp", "src/Screen_SDL.cpp", "src/TDA.cpp", "src/main.cpp", "src/Moira/Moira.cpp", "src/Moira/MoiraDebugger.cpp", "--shell-file", "src/emscripten/shell.html", "-ozig-out/web/pcd68.html", "-sUSE_SDL=2", "-sUSE_WEBGL2=1", "-sUSE_PTHREADS=1", "-sASYNCIFY" });
+        const emcc = b.addSystemCommand(&.{ "em++", "-Wno-c++11-narrowing", "-O2", "-flto", "-std=c++17", "src/PCD68_CPU.cpp", "src/KCTL.cpp", "src/Screen.cpp", "src/Screen_SDL.cpp", "src/TDA.cpp", "src/main.cpp", "src/Moira/Moira.cpp", "src/Moira/MoiraDebugger.cpp", "--shell-file", "src/emscripten/shell.html", "-ozig-out/web/pcd68.html", "-sUSE_SDL=2", "-sUSE_WEBGL2=1", "-sUSE_PTHREADS=1", "-sASYNCIFY" });
 
         // get the emcc step to run on 'zig build'
         b.getInstallStep().dependOn(&emcc.step);
@@ -55,11 +55,11 @@ pub fn build(b: *std.build.Builder) void {
     if (pcd68.target.getCpuArch() == .wasm32) {
         pcd68.defineCMacro("USE_SDL", "2");
         pcd68.defineCMacro("USE_PTHREADS", "1");
-        pcd68.addCSourceFiles(&.{ "src/CPU.cpp", "src/main.cpp", "src/TDA.cpp", "src/KCTL.cpp", "src/Screen.cpp" }, &.{ "-std=c++17", "-Wno-narrowing", "-pthread", "-DUSE=SDL=2", "-DUSE_PTHREADS=1" });
+        pcd68.addCSourceFiles(&.{ "src/PCD68_CPU.cpp", "src/main.cpp", "src/TDA.cpp", "src/KCTL.cpp", "src/Screen.cpp" }, &.{ "-std=c++17", "-Wno-narrowing", "-pthread", "-DUSE=SDL=2", "-DUSE_PTHREADS=1" });
         pcd68.addCSourceFile("src/Screen_SDL.cpp", &[_][]const u8{});
     } else {
         pcd68.defineCMacro("USE_SDL", "1");
-        pcd68.addCSourceFiles(&.{ "src/CPU.cpp", "src/main.cpp", "src/TDA.cpp", "src/KCTL.cpp", "src/Screen.cpp" }, &.{ "-std=c++17", "-Wno-narrowing" });
+        pcd68.addCSourceFiles(&.{ "src/PCD68_CPU.cpp", "src/main.cpp", "src/TDA.cpp", "src/KCTL.cpp", "src/Screen.cpp" }, &.{ "-std=c++17", "-Wno-narrowing" });
         pcd68.addCSourceFile("src/Screen_SDL.cpp", &[_][]const u8{});
     }
 
@@ -67,7 +67,7 @@ pub fn build(b: *std.build.Builder) void {
     {
         //const test_suite = b.addTest("src/tests.zig");
         const test_suite = b.addTest("src/TestPeripheral.cpp");
-        test_suite.addCSourceFiles(&.{"src/CPU.cpp"}, &.{"-std=c++17"});
+        test_suite.addCSourceFiles(&.{"src/PCD68_CPU.cpp"}, &.{"-std=c++17"});
         test_suite.linkSystemLibrary("gtest");
         test_suite.linkLibrary(moiraLib);
         test_suite.linkLibC();
