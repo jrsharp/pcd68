@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <thread>
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "PCD68_CPU.h"
 #include "KCTL.h"
@@ -35,6 +34,7 @@ u16 keyCode = 0;
 u16 mod = 0;
 
 bool handleEvents(u16* kc) {
+    const u8 *keyState = SDL_GetKeyboardState(NULL);
     SDL_Event event;
     SDL_PollEvent(&event);
     if (event.type == SDL_QUIT) {

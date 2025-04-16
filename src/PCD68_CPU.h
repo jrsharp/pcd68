@@ -1,5 +1,4 @@
-#ifndef CPU_H
-#define CPU_H
+#pragma once
 
 #include "Moira/Moira.h"
 #include "Peripheral.h"
@@ -149,5 +148,3 @@ public:
 private:
     std::vector<Peripheral*> peripherals;
 };
-
-#endif

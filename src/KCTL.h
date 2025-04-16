@@ -64,7 +64,6 @@ public:
     void write8(u32 addr, u8 val) override;
     void write16(u32 addr, u16 val) override;
 
-
 protected:
     CPU* cpu;
     Registers registers;
