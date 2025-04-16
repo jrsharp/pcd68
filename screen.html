@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>PCD-68 Screen</title>
+    <script type="module">
+      async function init() {
+        const { instance } = await WebAssembly.instantiateStreaming(
+          fetch("./zig-out/bin/pcd68.wasm")
+        ); // here
+
+        const width = 400;
+        const height = 300;
+
+        const canvas = document.getElementById("screen");
+        canvas.width = width;
+        canvas.height = height;
+
+        const buffer_address = instance.exports.BUFFER.value; // here
+        const image = new ImageData(
+            new Uint8ClampedArray(
+                instance.exports.memory.buffer, //here
+                buffer_address,
+                4 * width * height,
+            ),
+            width,
+        );
+
+        const ctx = canvas.getContext("2d");
+
+        instance.exports.go(); // here
+
+        ctx.putImageData(image, 0, 0);
+      }
+
+      init();
+    </script>
+  </head>
+  <body>
+    <canvas id="screen"></canvas>
+  </body>
+</html>
