@@ -112,10 +112,12 @@ int Screen_SDL::refresh() {
                 }
             }
         } else {
+            // Standard rendering (no e-ink emulation)
             SDL_ConvertPixels(SCREEN_WIDTH, SCREEN_HEIGHT,
-                              SDL_PIXELFORMAT_RGB332, framebufferMem, SCREEN_WIDTH * sizeof(uint8_t),
-                              SDL_PIXELFORMAT_RGBA8888, outPixels, outPitch);
+                          SDL_PIXELFORMAT_RGB332, framebufferMem, SCREEN_WIDTH * sizeof(uint8_t),
+                          SDL_PIXELFORMAT_RGBA8888, outPixels, outPitch);
         }
+        
         SDL_UnlockTexture(texture);
 
         SDL_RenderClear(renderer);
