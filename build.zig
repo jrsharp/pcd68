@@ -60,8 +60,12 @@ pub fn build(b: *std.Build) void {
             "src/main.cpp", 
             "src/TDA.cpp", 
             "src/KCTL.cpp", 
+            "src/UART.cpp",
             "src/Screen.cpp",
-            "src/Screen_SDL.cpp"
+            "src/Screen_SDL.cpp",
+            "src/KeyboardInput.cpp",
+            "src/KeyboardInputSDL.cpp",
+            "src/KeyboardInputEmscripten.cpp"
         },
         .flags = &.{"-std=c++17", "-Wno-narrowing", "-DUSE_SDL=1"},
     });
@@ -96,19 +100,28 @@ pub fn build(b: *std.Build) void {
             "-std=c++17", 
             "src/PCD68_CPU.cpp", 
             "src/KCTL.cpp", 
+            "src/UART.cpp",
             "src/Screen.cpp", 
             "src/Screen_SDL.cpp", 
             "src/TDA.cpp", 
             "src/main.cpp", 
             "src/Moira/Moira.cpp", 
-            "src/Moira/MoiraDebugger.cpp", 
+            "src/Moira/MoiraDebugger.cpp",
+            "src/KeyboardInput.cpp",
+            "src/KeyboardInputSDL.cpp",
+            "src/KeyboardInputEmscripten.cpp",
             "--shell-file", 
             "src/emscripten/shell.html", 
             "-o", output_html, 
             "-sUSE_SDL=2", 
             "-sUSE_WEBGL2=1", 
             "-sUSE_PTHREADS=1", 
-            "-sASYNCIFY"
+            "-sASYNCIFY",
+            "-sWEBSOCKET_DEBUG=1",
+            "-sMIN_WEBGL_VERSION=2",
+            "-sALLOW_MEMORY_GROWTH=1",
+            "-sWASM=1",
+            "-sFETCH=1"
         });
         emcc.step.dependOn(&cp_img.step);
         
