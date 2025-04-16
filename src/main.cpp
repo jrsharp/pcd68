@@ -9,8 +9,8 @@
 #include "KCTL.h"
 #include "Screen_SDL.h"
 #include "TDA.h"
-#include "KeyboardInput.h"
 #include "UART.h"
+#include "KeyboardInput.h"
 
 #include "text_demo.h"
 
@@ -156,6 +156,15 @@ int main(int argc, char** argv) {
         // Don't return - continue without websocket
     }
 #endif
+
+    // Initialize keyboard input
+    keyboardInput = createKeyboardInput();
+    keyboardInput->setKeyEventCallback(handleKeyEvent);
+    result = keyboardInput->init();
+    if (result != 0) {
+        std::cerr << "Failed to initialize keyboard input" << std::endl;
+        return -1;
+    }
 
     // And/or reset()
     keyboardController->reset();

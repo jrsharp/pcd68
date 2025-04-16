@@ -43,6 +43,26 @@
         from {transform: rotate(0deg);}
         to {transform: rotate(360deg);}
       }
+      
+      .keyboard-notice {
+        margin: 10px auto;
+        padding: 5px;
+        border: 1px solid #ccc;
+        background-color: #f8f8f8;
+        max-width: 600px;
+        text-align: center;
+        font-family: Arial, sans-serif;
+      }
+      
+      .keyboard-notice.focus {
+        background-color: #e8ffe8;
+        border-color: #4CAF50;
+      }
+      
+      .keyboard-notice.no-focus {
+        background-color: #ffe8e8;
+        border-color: #f44336;
+      }
 
     </style>
     <link rel="stylesheet" href="pcd68-home.css">
@@ -54,12 +74,50 @@
       <progress value="0" max="100" id="progress" hidden=1></progress>  
     </div>
     <div>
-      <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1 width="400" height="300"></canvas>
+      <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1" width="400" height="300"></canvas>
+    </div>
+    <div id="keyboard-notice" class="keyboard-notice no-focus">
+      Click the screen to enable keyboard input
     </div>
     <script type='text/javascript'>
       var statusElement = document.getElementById('status');
       var progressElement = document.getElementById('progress');
       var spinnerElement = document.getElementById('spinner');
+      var keyboardNotice = document.getElementById('keyboard-notice');
+      var canvas = document.getElementById('canvas');
+      
+      // Track canvas focus state
+      var canvasHasFocus = false;
+      
+      // Update the keyboard notice based on focus state
+      function updateKeyboardNotice() {
+        if (canvasHasFocus) {
+          keyboardNotice.className = 'keyboard-notice focus';
+          keyboardNotice.textContent = 'Keyboard input enabled';
+        } else {
+          keyboardNotice.className = 'keyboard-notice no-focus';
+          keyboardNotice.textContent = 'Click the screen to enable keyboard input';
+        }
+      }
+      
+      // Event listeners for focus tracking
+      canvas.addEventListener('click', function() {
+        canvas.focus();
+        canvasHasFocus = true;
+        updateKeyboardNotice();
+      });
+      
+      window.addEventListener('blur', function() {
+        canvasHasFocus = false;
+        updateKeyboardNotice();
+      });
+      
+      document.addEventListener('click', function(e) {
+        if (e.target !== canvas) {
+          canvasHasFocus = false;
+          updateKeyboardNotice();
+        }
+      });
 
       var Module = {
         preRun: [],
