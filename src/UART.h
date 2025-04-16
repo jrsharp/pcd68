@@ -11,18 +11,23 @@
 extern u8* systemRam;
 
 /**
- * UART (Universal Asynchronous Receiver/Transmitter) peripheral
+ * UART - Dual-channel UART peripheral
  * 
- * Based on the Zilog Z8530 SCC (Serial Communications Controller) used in the Macintosh Plus.
- * Supports two channels (A and B) and interrupt-driven operation.
- * For Emscripten targets, can connect to a websocket server to provide virtual modem functionality.
+ * Designed for easy use in 68k assembly and straightforward mapping to
+ * ESP32 hardware. Uses a direct register model with no command registers.
+ * 
+ * For each channel:
+ *   - TX data register (write to send data)
+ *   - RX data register (read to get received data)
+ *   - Status register (TX ready, RX ready, errors)
+ *   - Control register (enable TX/RX, interrupt enables)
  */
 class UART : public Peripheral {
 
 public:
-    /** UART interrupt level (68000) */
-    static constexpr u8 UART_INT_LEVEL_TX = 4;
-    static constexpr u8 UART_INT_LEVEL_RX = 5;
+    /** UART interrupt levels (68000) */
+    static constexpr u8 UART1_INT_LEVEL = 4;
+    static constexpr u8 UART2_INT_LEVEL = 5;
     
     /** Default base address for peripheral */
     static constexpr u32 BASE_ADDR = 0x450000;
@@ -30,72 +35,77 @@ public:
     /** Size of transmit and receive FIFOs */
     static constexpr u32 FIFO_SIZE = 16;
     
-    /** Register offsets */
-    enum RegOffset : u8 {
-        CTRL_A      = 0x00,  // Channel A Control
-        DATA_A      = 0x01,  // Channel A Data
-        CTRL_B      = 0x02,  // Channel B Control
-        DATA_B      = 0x03,  // Channel B Data
+    /** Register offsets for UART 1 */
+    enum UART1Regs : u8 {
+        UART1_TX        = 0x00,  // UART 1 Transmit data (write)
+        UART1_RX        = 0x01,  // UART 1 Receive data (read)
+        UART1_STATUS    = 0x02,  // UART 1 Status register
+        UART1_CONTROL   = 0x03,  // UART 1 Control register
     };
     
-    /** Channel selection */
-    enum Channel : u8 {
-        CHANNEL_A = 0,
-        CHANNEL_B = 1
+    /** Register offsets for UART 2 */
+    enum UART2Regs : u8 {
+        UART2_TX        = 0x04,  // UART 2 Transmit data (write)
+        UART2_RX        = 0x05,  // UART 2 Receive data (read)
+        UART2_STATUS    = 0x06,  // UART 2 Status register
+        UART2_CONTROL   = 0x07,  // UART 2 Control register
     };
 
-    /** UART command register bits */
-    enum CommandReg : u8 {
-        CMD_RX_ENABLE       = 0x01,  // Enable receiver
-        CMD_TX_ENABLE       = 0x02,  // Enable transmitter
-        CMD_RTS             = 0x04,  // Request To Send
-        CMD_RESET           = 0x08,  // Reset channel
-        CMD_BREAK           = 0x10,  // Send break
-        CMD_DTR             = 0x20,  // Data Terminal Ready
-        CMD_RESET_ERR       = 0x40,  // Reset error flags
-        CMD_RESET_INT       = 0x80   // Reset interrupt flags
+    /** Status register bits - same for both UARTs */
+    enum StatusBits : u8 {
+        STAT_RX_READY   = 0x01,  // Receiver has data available
+        STAT_TX_EMPTY   = 0x02,  // Transmitter buffer is empty
+        STAT_RX_OVERRUN = 0x04,  // Receiver overrun error
+        STAT_FRAME_ERR  = 0x08,  // Framing error detected
+        STAT_BREAK      = 0x10,  // Break condition detected
+        STAT_CTS        = 0x20,  // Clear To Send signal active
+        STAT_DSR        = 0x40,  // Data Set Ready signal active
+        STAT_DCD        = 0x80,  // Data Carrier Detect signal active
     };
     
-    /** UART status register bits */
-    enum StatusReg : u8 {
-        STAT_RX_READY       = 0x01,  // Receiver data available
-        STAT_TX_EMPTY       = 0x02,  // Transmitter buffer empty
-        STAT_DCD            = 0x04,  // Data Carrier Detect
-        STAT_CTS            = 0x08,  // Clear To Send
-        STAT_SYNC_HUNT      = 0x10,  // Synchronization/Hunt mode
-        STAT_TX_UNDERRUN    = 0x20,  // Transmitter underrun/EOM
-        STAT_BREAK          = 0x40,  // Break detected
-        STAT_INT_PENDING    = 0x80   // Interrupt pending
+    /** Control register bits - same for both UARTs */
+    enum ControlBits : u8 {
+        CTRL_RX_ENABLE  = 0x01,  // Enable receiver
+        CTRL_TX_ENABLE  = 0x02,  // Enable transmitter
+        CTRL_RX_INT_EN  = 0x04,  // Enable receiver interrupts
+        CTRL_TX_INT_EN  = 0x08,  // Enable transmitter interrupts
+        CTRL_DTR        = 0x10,  // Data Terminal Ready signal
+        CTRL_RTS        = 0x20,  // Request To Send signal
+        CTRL_RESET_ERR  = 0x40,  // Reset error flags
+        CTRL_LOOPBACK   = 0x80,  // Loopback mode
     };
     
-    /** UART interrupt control register bits */
-    enum InterruptCtrlReg : u8 {
-        INT_RX_AVAIL        = 0x01,  // Rx character available interrupt
-        INT_TX_EMPTY        = 0x02,  // Tx buffer empty interrupt
-        INT_EXT_STATUS      = 0x04,  // External/Status change interrupt
-        INT_SPECIAL_RX      = 0x08,  // Special receive condition interrupt
-        INT_MASTER_ENABLE   = 0x80   // Master interrupt enable
+    /** Baudrate settings (stored internally) */
+    enum Baudrate : u8 {
+        BAUD_300        = 0,
+        BAUD_1200       = 1,
+        BAUD_2400       = 2,
+        BAUD_4800       = 3,
+        BAUD_9600       = 4,
+        BAUD_19200      = 5,
+        BAUD_38400      = 6,
+        BAUD_57600      = 7,
+        BAUD_115200     = 8
     };
     
-    /** SCC Channel registers */
-    struct ChannelRegs {
-        // WR0-WR15: Write registers
-        u8 wr[16];          // 16 write registers
-        // RR0-RR15: Read registers
-        u8 rr[16];          // 16 read registers
-        
-        // Internal state
-        u8 rxBuffer;        // Receive buffer
-        u8 txBuffer;        // Transmit buffer
-        u8 status;          // Status register (RR0)
-        u8 cmdReg;          // Command register
-        u8 intCtrl;         // Interrupt control register
-        u8 currentReg;      // Current register pointer
+    /** Channel identifier */
+    enum Channel : u8 {
+        UART1 = 0,
+        UART2 = 1
     };
     
-    /** UART registers */
+    /** UART channel state */
+    struct UartState {
+        u8 txData;      // Transmit data register
+        u8 rxData;      // Receive data register
+        u8 status;      // Status register
+        u8 control;     // Control register 
+        u8 baudrate;    // Baudrate setting (internal)
+    };
+    
+    /** UART peripheral state */
     struct Registers {
-        ChannelRegs channel[2]; // Channel A and B registers
+        UartState uart[2];  // State for both UARTs
     };
 
     /**
@@ -114,26 +124,18 @@ public:
     int init();
     
     /**
-     * Send a byte to the UART
-     * 
-     * @param channel Channel to send on (A or B)
-     * @param byte Byte to send
-     */
-    void send(Channel channel, u8 byte);
-    
-    /**
-     * Receive a byte from the UART
-     * 
-     * @param channel Channel to receive on (A or B)
-     * @return The received byte, or 0 if none available
-     */
-    u8 receive(Channel channel);
-    
-    /**
      * Poll UART for received data and handle TX/RX
      * Should be called periodically
      */
     void poll();
+    
+    /**
+     * Send a byte to the specified UART channel
+     * 
+     * @param channel UART channel (UART1 or UART2)
+     * @param byte Data byte to send
+     */
+    void send(Channel channel, u8 byte);
     
     /**
      * Reset the UART peripheral
@@ -154,28 +156,31 @@ public:
 
 #ifdef __EMSCRIPTEN__
     /**
-     * Connect to websocket server
+     * Connect to websocket servers
      * 
-     * @param url Websocket server URL
+     * @param url1 Websocket server URL for UART1
+     * @param url2 Websocket server URL for UART2
      * @return 0 on success, non-zero on failure
      */
-    int connectWebsocket(const char* url);
+    int connectWebsocket(const char* url1, const char* url2 = nullptr);
     
     /**
      * Send data through websocket
      * 
+     * @param channel UART channel
      * @param data Data buffer
      * @param length Length of data
      */
-    void sendWebsocket(const u8* data, size_t length);
+    void sendWebsocket(Channel channel, const u8* data, size_t length);
     
     /**
      * Callback for websocket received data
      * 
+     * @param channel UART channel
      * @param data Data buffer
      * @param length Length of data
      */
-    void onWebsocketData(const u8* data, size_t length);
+    void onWebsocketData(Channel channel, const u8* data, size_t length);
 #endif
 
 protected:
@@ -190,13 +195,11 @@ protected:
 
     // Helper methods
     void updateInterrupts(Channel channel);
-    void handleCommand(Channel channel, u8 cmd);
-    void writeRegister(Channel channel, u8 regNum, u8 value);
-    u8 readRegister(Channel channel, u8 regNum);
+    void processControlWrite(Channel channel, u8 value);
 
 private:
 #ifdef __EMSCRIPTEN__
-    int websocketId;             // Emscripten websocket ID
-    bool connected;              // Websocket connected flag
+    std::array<int, 2> websocketId;    // Emscripten websocket ID for each channel
+    std::array<bool, 2> connected;     // Websocket connected flag for each channel
 #endif
 }; 

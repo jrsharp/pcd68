@@ -148,8 +148,9 @@ int main(int argc, char** argv) {
 
 #ifdef __EMSCRIPTEN__
     // Connect UART to websocket for Emscripten target
-    const char* webSocketUrl = "ws://localhost:8080";
-    result = uartController->connectWebsocket(webSocketUrl);
+    const char* webSocketUrl1 = "ws://localhost:8080";
+    const char* webSocketUrl2 = "ws://localhost:8081";
+    result = uartController->connectWebsocket(webSocketUrl1, webSocketUrl2);
     if (result != 0) {
         std::cerr << "Failed to connect UART to websocket" << std::endl;
         // Don't return - continue without websocket
