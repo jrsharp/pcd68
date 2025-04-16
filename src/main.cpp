@@ -9,6 +9,7 @@
 #include "KCTL.h"
 #include "Screen_SDL.h"
 #include "TDA.h"
+#include "KeyboardInput.h"
 
 #include "text_demo.h"
 
@@ -27,39 +28,22 @@ CPU* pcdCpu;                     // CPU
 TDA* textDisplayAdapter;         // Graphics adapter
 KCTL* keyboardController;        // Keyboard controller
 Screen* pcdScreen;               // Screen instance
-u32 keydownDebounceMs = 0;       // debounce period (in ms) for keyboard input
+KeyboardInput* keyboardInput;    // Keyboard input handler
 i64 interruptDebounceClocks = 0; // debounce period (in clocks) for keyboard input interrupt
 i64 lastClock = 0;
-u16 keyCode = 0;
-u16 mod = 0;
 
-bool handleEvents(u16* kc) {
-    const u8 *keyState = SDL_GetKeyboardState(NULL);
-    SDL_Event event;
-    SDL_PollEvent(&event);
-    if (event.type == SDL_QUIT) {
-        return false;
+// Keyboard event handler callback
+void handleKeyEvent(u16 keyCode, u16 mod) {
+    if (keyCode > 0) {
+        keyboardController->update(keyCode, mod);
+        textDisplayAdapter->update();
+        pcdScreen->refresh();
     }
-    if (event.type == SDL_KEYDOWN) {
-        u32 ticksNow = SDL_GetTicks();
-        if (SDL_TICKS_PASSED(ticksNow, keydownDebounceMs)) {
-            // Throttle keydown events for 5ms.
-            keydownDebounceMs = ticksNow + 5;
-            keyCode = event.key.keysym.sym;
-            mod = event.key.keysym.mod;
-            //std::cout << "code:" << keyCode << ", mod:" << mod << std::endl;
-        }
-    }
-
-    return true;
 }
 
 // Main loop
 bool mainLoop() {
     bool exit = false, clearKbdInt = false;
-
-    // yield
-    //std::this_thread::sleep_for(std::chrono::nanoseconds(2));
 
     // Process input and update screen
     i64 clocks = pcdCpu->getClock();
@@ -73,25 +57,16 @@ bool mainLoop() {
 
         // Process input only a fraction
         if (clocks % (CYCLE_FACTOR * INPUT_FACTOR) == 0) {
-            exit = !handleEvents(&keyCode);
-
-            if (keyCode > 0) {
-                keyboardController->update(keyCode, mod);
-                textDisplayAdapter->update();
-                pcdScreen->refresh();
-                keyCode = 0;
-                mod = 0;
-                clearKbdInt = true;
-            }
+            // Poll for keyboard events
+            exit = !keyboardInput->poll();
+            
+            // Flag to clear keyboard interrupt
+            clearKbdInt = true;
         }
 
-        //std::cout << "Clocks: " << clocks << std::endl;
         textDisplayAdapter->update();
         pcdScreen->refresh();
     }
-
-    //std::cout << "\n\nBefore Instruction: \n\n" << std::endl;
-    //pcdCpu->printState();
 
     // Advance CPU
     pcdCpu->execute();
@@ -154,19 +129,24 @@ int main(int argc, char** argv) {
     // Any that require init()
     int result = pcdScreen->init();
 
+    // Initialize keyboard input
+    keyboardInput = createKeyboardInput();
+    keyboardInput->setKeyEventCallback(handleKeyEvent);
+    result = keyboardInput->init();
+    if (result != 0) {
+        std::cerr << "Failed to initialize keyboard input" << std::endl;
+        return -1;
+    }
+
     // And/or reset()
     keyboardController->reset();
     textDisplayAdapter->reset();
 
     // And then proceed to reset/start CPU:
-
     pcdCpu->debugger.enableLogging();
     pcdCpu->reset();
     // Clear all interrupts:
     pcdCpu->setIPL(0x00);
-
-    //pcdCpu->debugger.watchpoints.addAt(0x103a);
-    //pcdCpu->debugger.watchpoints.addAt(0x2002);
 
     // Initial screen:
     textDisplayAdapter->update();
@@ -178,6 +158,9 @@ int main(int argc, char** argv) {
     while (!mainLoop()) continue;
 #endif
 
+    // Clean up
+    delete keyboardInput;
+    
     std::cout << "Clocks: " << std::dec << pcdCpu->getClock() << std::endl;
     return 0;
 }

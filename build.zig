@@ -61,7 +61,10 @@ pub fn build(b: *std.Build) void {
             "src/TDA.cpp", 
             "src/KCTL.cpp", 
             "src/Screen.cpp",
-            "src/Screen_SDL.cpp"
+            "src/Screen_SDL.cpp",
+            "src/KeyboardInput.cpp",
+            "src/KeyboardInputSDL.cpp",
+            "src/KeyboardInputEmscripten.cpp"
         },
         .flags = &.{"-std=c++17", "-Wno-narrowing", "-DUSE_SDL=1"},
     });
@@ -101,7 +104,10 @@ pub fn build(b: *std.Build) void {
             "src/TDA.cpp", 
             "src/main.cpp", 
             "src/Moira/Moira.cpp", 
-            "src/Moira/MoiraDebugger.cpp", 
+            "src/Moira/MoiraDebugger.cpp",
+            "src/KeyboardInput.cpp",
+            "src/KeyboardInputSDL.cpp",
+            "src/KeyboardInputEmscripten.cpp",
             "--shell-file", 
             "src/emscripten/shell.html", 
             "-o", output_html, 
