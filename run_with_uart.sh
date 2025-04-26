@@ -5,8 +5,8 @@
 set -e
 
 # Check for python3 and websockets
-command -v python3 >/dev/null 2>&1 || { echo "Python 3 is required but not installed. Aborting."; exit 1; }
-python3 -c "import websockets" >/dev/null 2>&1 || { echo "Python websockets module is required. Please install with: pip install websockets"; exit 1; }
+#command -v python3 >/dev/null 2>&1 || { echo "Python 3 is required but not installed. Aborting."; exit 1; }
+#python3 -c "import websockets" >/dev/null 2>&1 || { echo "Python websockets module is required. Please install with: pip install websockets"; exit 1; }
 
 # Default UART ports
 UART1_PORT=8080
@@ -81,6 +81,6 @@ echo
 
 # Run the emulator
 echo "Starting PCD-68 emulator with $BINARY..."
-./build/pcd68 --binary "$BINARY"
+./build/pcd68 "$BINARY"
 
 # Note: cleanup will be called automatically via the trap 

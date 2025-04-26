@@ -8,6 +8,14 @@
 #include <mutex>
 #include <vector>
 
+#ifndef __EMSCRIPTEN__
+#include <fcntl.h>
+#include <termios.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <errno.h>
+#endif
+
 extern u8* systemRam;
 
 /**
@@ -154,6 +162,20 @@ public:
     void write8(u32 addr, u8 val) override;
     void write16(u32 addr, u16 val) override;
 
+    /**
+     * Enable or disable debug mode
+     * 
+     * @param enabled true to enable debug mode, false to disable
+     */
+    void setDebugMode(bool enabled);
+    
+    /**
+     * Check if debug mode is enabled
+     * 
+     * @return true if debug mode is enabled, false otherwise
+     */
+    bool isDebugMode() const;
+
 #ifdef __EMSCRIPTEN__
     /**
      * Connect to websocket servers
@@ -181,6 +203,37 @@ public:
      * @param length Length of data
      */
     void onWebsocketData(Channel channel, const u8* data, size_t length);
+#else
+    /**
+     * Connect to serial ports
+     * 
+     * @param device1 Serial device for UART1
+     * @param device2 Serial device for UART2
+     * @return 0 on success, non-zero on failure
+     */
+    int connectSerial(const char* device1, const char* device2 = nullptr);
+    
+    /**
+     * Poll serial ports for data
+     */
+    void pollSerial();
+    
+    /**
+     * Connect to named pipes
+     * 
+     * @param inPipe1 Input pipe for UART1
+     * @param outPipe1 Output pipe for UART1
+     * @param inPipe2 Input pipe for UART2
+     * @param outPipe2 Output pipe for UART2
+     * @return 0 on success, non-zero on failure
+     */
+    int connectPipes(const char* inPipe1, const char* outPipe1, 
+                     const char* inPipe2 = nullptr, const char* outPipe2 = nullptr);
+    
+    /**
+     * Poll named pipes for data
+     */
+    void pollPipes();
 #endif
 
 protected:
@@ -192,6 +245,8 @@ protected:
     
     std::mutex rxMutex;          // Mutex for RX FIFO access
     std::mutex txMutex;          // Mutex for TX FIFO access
+    
+    bool debugMode;              // Debug mode flag
 
     // Helper methods
     void updateInterrupts(Channel channel);
@@ -201,5 +256,12 @@ private:
 #ifdef __EMSCRIPTEN__
     std::array<int, 2> websocketId;    // Emscripten websocket ID for each channel
     std::array<bool, 2> connected;     // Websocket connected flag for each channel
+#else
+    std::array<int, 2> serialFd;       // File descriptors for serial ports
+    std::array<bool, 2> serialConnected; // Connected status for serial ports
+    
+    std::array<int, 2> pipeFdIn;       // File descriptors for input pipes
+    std::array<int, 2> pipeFdOut;      // File descriptors for output pipes
+    std::array<bool, 2> pipeConnected; // Connected status for pipes
 #endif
 }; 

@@ -45,6 +45,20 @@ public:
     u16 read16(u32 addr) override;
     void write8(u32 addr, u8 val) override;
     void write16(u32 addr, u16 val) override;
+    
+    /**
+     * Enable or disable debug mode
+     * 
+     * @param enabled true to enable debug mode, false to disable
+     */
+    void setDebugMode(bool enabled);
+    
+    /**
+     * Check if debug mode is enabled
+     * 
+     * @return true if debug mode is enabled, false otherwise
+     */
+    bool isDebugMode() const;
 
     unsigned char textMapMem[50 * 37];
 
@@ -53,6 +67,12 @@ private:
     Screen* screen;
     Registers registers;
     bool refreshFlag;
+    bool debugMode;
+    
+    // Tracks the last known write position in the text map
+    u32 lastTextMapWriteAddr;
+    
+    // Font data
     int five_by_thirteen[(16 * (128 - 32))] = {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //    32 ' '
         0x00, 0x00, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, //    33 '!'

@@ -35,7 +35,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Check if binary exists
-BINARY="uart.bin"
+BINARY="program.bin"
 if [ ! -f "$BINARY" ]; then
   echo "UART test binary not found: $BINARY"
   echo "Try building it first using make_uart.sh"
