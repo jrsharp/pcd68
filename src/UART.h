@@ -8,6 +8,15 @@
 #include <mutex>
 #include <vector>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#include <emscripten/websocket.h>
+// Forward declare WebSocket callbacks as friends
+static EM_BOOL websocket1_callback(int eventType, const EmscriptenWebSocketMessageEvent *event, void *userData);
+static EM_BOOL websocket2_callback(int eventType, const EmscriptenWebSocketMessageEvent *event, void *userData);
+static EM_BOOL websocket_open_callback(int eventType, const EmscriptenWebSocketOpenEvent *event, void *userData);
+#endif
+
 #ifndef __EMSCRIPTEN__
 #include <fcntl.h>
 #include <termios.h>
@@ -251,6 +260,13 @@ protected:
     // Helper methods
     void updateInterrupts(Channel channel);
     void processControlWrite(Channel channel, u8 value);
+
+#ifdef __EMSCRIPTEN__
+    // Make the WebSocket callbacks friends so they can access private members
+    friend EM_BOOL websocket1_callback(int eventType, const EmscriptenWebSocketMessageEvent *event, void *userData);
+    friend EM_BOOL websocket2_callback(int eventType, const EmscriptenWebSocketMessageEvent *event, void *userData);
+    friend EM_BOOL websocket_open_callback(int eventType, const EmscriptenWebSocketOpenEvent *event, void *userData);
+#endif
 
 private:
 #ifdef __EMSCRIPTEN__

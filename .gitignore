@@ -3,3 +3,5 @@ zig-out/
 *.swp
 .DS_Store
 build
+
+**/.claude/settings.local.json

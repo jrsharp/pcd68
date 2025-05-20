@@ -1,27 +1,68 @@
-/* Script for ld --shared: link shared library */
-/* Copyright (C) 2014-2015 Free Software Foundation, Inc.
-   Copying and distribution of this script, with or without modification,
-   are permitted in any medium without royalty provided the copyright
-   notice and this notice are preserved.  */
-OUTPUT_FORMAT("elf32-m68k", "elf32-m68k",
-	      "elf32-m68k")
+/* Linker script for PCD68 ROM */
+OUTPUT_FORMAT("elf32-m68k", "elf32-m68k", "elf32-m68k")
 OUTPUT_ARCH(m68k)
-SEARCH_DIR("=/home/chip/x-tools/m68k-unknown-elf/m68k-unknown-elf/lib"); SEARCH_DIR("=/usr/local/lib"); SEARCH_DIR("=/lib"); SEARCH_DIR("=/usr/lib");
-/*
+
 MEMORY {
-	rom (rx) : org = 0x000000, l = 1M
-	ram (!rx) : org = 0x800000, l = 8M
+    rom (rx) : org = 0x000000, l = 64K
+    ram (rw) : org = 0x010000, l = 4M
 }
-*/
+
 SECTIONS {
-    _vectors = 0x0000;
-	.text : { *(.text) }
-	.data : { *(.data) }
-	.bss : {
-		*(.bss)
-		*(COMMON)
-			end = ALIGN(0x8);
-			_end = ALIGN(0x8);
-			__end = ALIGN(0x8);
-	}
+    .vectors : {
+        *(.vectors)
+    } > rom
+    
+    /* Code and read-only data */
+    .text : {
+        _text_start = .;
+        *(.text)
+        *(.text.*)
+        . = ALIGN(4);
+        _text_end = .;
+    } > rom
+
+    /* Read-only data (constants) */
+    .rodata : {
+        _rodata_start = .;
+        *(.rodata)
+        *(.rodata.*)
+        *(.data.rel.ro)
+        *(.data.rel.ro.*)
+        . = ALIGN(4);
+        _rodata_end = .;
+    } > rom
+
+    /* Initialized data in RAM, copied from ROM */
+    .data : {
+        _data_start = .;
+        *(.data)
+        *(.data.*)
+        . = ALIGN(4);
+        _data_end = .;
+    } > ram AT > rom
+    
+    _data_load = LOADADDR(.data);
+    
+    /* Zero-initialized data */
+    .bss (NOLOAD) : {
+        _bss_start = .;
+        *(.bss)
+        *(.bss.*)
+        *(COMMON)
+        . = ALIGN(4);
+        _bss_end = .;
+        end = .;
+        _end = .;
+        __end = .;
+    } > ram
+
+    /* Stack grows down from the top of RAM */
+    _stack_top = 0x410000;
+    
+    /* Remove unused sections to avoid warnings */
+    /DISCARD/ : {
+        *(.eh_frame)
+        *(.note.gnu.build-id)
+        *(.comment)
+    }
 }

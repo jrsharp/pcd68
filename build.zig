@@ -21,10 +21,7 @@ pub fn build(b: *std.Build) void {
     });
     moira_lib.linkLibCpp();
     moira_lib.addCSourceFiles(.{
-        .files = &.{
-            "src/Moira/Moira.cpp", 
-            "src/Moira/MoiraDebugger.cpp"
-        },
+        .files = &.{ "src/Moira/Moira.cpp", "src/Moira/MoiraDebugger.cpp" },
         .flags = &.{},
     });
 
@@ -36,10 +33,10 @@ pub fn build(b: *std.Build) void {
     });
     exe.linkLibrary(moira_lib);
     exe.linkLibCpp();
-    
+
     // Add include paths
     exe.addIncludePath(.{ .cwd_relative = "." });
-    
+
     // SDL2 paths - use system SDL2
     if (target.result.os.tag == .macos) {
         // macOS paths
@@ -50,24 +47,13 @@ pub fn build(b: *std.Build) void {
         exe.addIncludePath(.{ .cwd_relative = "/usr/include" });
         exe.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
     }
-    
+
     exe.linkSystemLibrary("SDL2");
-    
+
     // Add source files
     exe.addCSourceFiles(.{
-        .files = &.{
-            "src/PCD68_CPU.cpp", 
-            "src/main.cpp", 
-            "src/TDA.cpp", 
-            "src/KCTL.cpp", 
-            "src/UART.cpp",
-            "src/Screen.cpp",
-            "src/Screen_SDL.cpp",
-            "src/KeyboardInput.cpp",
-            "src/KeyboardInputSDL.cpp",
-            "src/KeyboardInputEmscripten.cpp"
-        },
-        .flags = &.{"-std=c++17", "-Wno-narrowing", "-DUSE_SDL=1"},
+        .files = &.{ "src/PCD68_CPU.cpp", "src/main.cpp", "src/TDA.cpp", "src/KCTL.cpp", "src/UART.cpp", "src/Screen.cpp", "src/Screen_SDL.cpp", "src/KeyboardInput.cpp", "src/KeyboardInputSDL.cpp", "src/KeyboardInputEmscripten.cpp" },
+        .flags = &.{ "-std=c++17", "-Wno-narrowing", "-DUSE_SDL=1" },
     });
 
     // Install executable
@@ -77,57 +63,92 @@ pub fn build(b: *std.Build) void {
     if (build_web) {
         // Create web output directory
         const web_dir = "zig-out/web";
-        const mkdir_cmd = b.addSystemCommand(&.{"mkdir", "-p", web_dir});
-        
+        const mkdir_cmd = b.addSystemCommand(&.{ "mkdir", "-p", web_dir });
+
         // Copy CSS and image files
-        const cp_css = b.addSystemCommand(&.{
-            "cp", "src/emscripten/pcd68-home.css", web_dir
-        });
+        const cp_css = b.addSystemCommand(&.{ "cp", "src/emscripten/pcd68-home.css", web_dir });
         cp_css.step.dependOn(&mkdir_cmd.step);
-        
-        const cp_img = b.addSystemCommand(&.{
-            "cp", "src/emscripten/FRST1_Homepage_bg.png", web_dir
-        });
+
+        const cp_img = b.addSystemCommand(&.{ "cp", "src/emscripten/FRST1_Homepage_bg.png", web_dir });
         cp_img.step.dependOn(&cp_css.step);
+
+        // Copy ROM files
+        const cp_roms = b.addSystemCommand(&.{ "mkdir", "-p", b.fmt("{s}/roms", .{web_dir}) });
+        cp_roms.step.dependOn(&cp_img.step);
+
+        // Copy jonsharp.net/program.bin (main ROM) to both locations:
+        // 1. As text_demo.bin (one of the options in the ROM selector)
+        // 2. Embedded into the app as the default ROM
+        const cp_rom1 = b.addSystemCommand(&.{ "cp", "jonsharp.net/program.bin", b.fmt("{s}/roms/text_demo.bin", .{web_dir}) });
+        cp_rom1.step.dependOn(&cp_roms.step);
+
+        // Also make this ROM available as text_demo.h for internal embedding
+        // Use xxd to convert binary to C array
+        const cp_pcd68home = b.addSystemCommand(&.{ "xxd", "-i", "jonsharp.net/program.bin", "src/text_demo.h" });
+        cp_pcd68home.step.dependOn(&cp_rom1.step);
         
+        // Fix the variable name in the header file
+        const fix_var_name = b.addSystemCommand(&.{ "sed", "-i", "''", "-e", "s/jonsharp_net_program_bin/text_demo_bin/g", "src/text_demo.h" });
+        fix_var_name.step.dependOn(&cp_pcd68home.step);
+        
+        // Fix the length variable name in the header file
+        const fix_len_name = b.addSystemCommand(&.{ "sed", "-i", "''", "-e", "s/jonsharp_net_program_bin_len/text_demo_bin_len/g", "src/text_demo.h" });
+        fix_len_name.step.dependOn(&fix_var_name.step);
+
+        // Copy other test ROMs
+        const cp_rom2 = b.addSystemCommand(&.{ "cp", "uart_test.bin", b.fmt("{s}/roms/", .{web_dir}) });
+        cp_rom2.step.dependOn(&fix_len_name.step);
+
+        const cp_rom3 = b.addSystemCommand(&.{ "cp", "display_test.bin", b.fmt("{s}/roms/", .{web_dir}) });
+        cp_rom3.step.dependOn(&cp_rom2.step);
+
+        const cp_rom4 = b.addSystemCommand(&.{ "cp", "keyboard_test.bin", b.fmt("{s}/roms/", .{web_dir}) });
+        cp_rom4.step.dependOn(&cp_rom3.step);
+
         // Invoke Emscripten
         const output_html = b.fmt("{s}/pcd68.html", .{web_dir});
         const emcc = b.addSystemCommand(&.{
-            "em++", 
-            "-Wno-c++11-narrowing", 
-            "-O2", 
-            "-flto", 
-            "-std=c++17", 
-            "src/PCD68_CPU.cpp", 
-            "src/KCTL.cpp", 
+            "em++",
+            "-Wno-c++11-narrowing",
+            "-O2",
+            "-flto",
+            "-std=c++17",
+            "src/PCD68_CPU.cpp",
+            "src/KCTL.cpp",
             "src/UART.cpp",
-            "src/Screen.cpp", 
-            "src/Screen_SDL.cpp", 
-            "src/TDA.cpp", 
-            "src/main.cpp", 
-            "src/Moira/Moira.cpp", 
+            "src/Screen.cpp",
+            "src/Screen_SDL.cpp",
+            "src/TDA.cpp",
+            "src/main.cpp",
+            "src/Moira/Moira.cpp",
             "src/Moira/MoiraDebugger.cpp",
             "src/KeyboardInput.cpp",
             "src/KeyboardInputSDL.cpp",
             "src/KeyboardInputEmscripten.cpp",
-            "--shell-file", 
-            "src/emscripten/shell.html", 
-            "-o", output_html, 
-            "-sUSE_SDL=2", 
-            "-sUSE_WEBGL2=1", 
-            "-sUSE_PTHREADS=1", 
+            "--shell-file",
+            "src/emscripten/shell.html",
+            "-o",
+            output_html,
+            "-sUSE_SDL=2",
+            "-sUSE_WEBGL2=1",
+            "-sUSE_PTHREADS=1",
             "-sASYNCIFY",
             "-sWEBSOCKET_DEBUG=1",
             "-sMIN_WEBGL_VERSION=2",
             "-sALLOW_MEMORY_GROWTH=1",
             "-sWASM=1",
-            "-sFETCH=1"
+            "-sFETCH=1",
+            "-lwebsocket",
+            "-sWEBSOCKET_URL=\"ws://\"",
+            "-sWEBSOCKET_SUBPROTOCOL=\"binary\"",
+            "-sEXPORTED_FUNCTIONS=['_malloc','_free','_main','_loadExternalRom','_loadInternalRom']",
+            "-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap']",
         });
-        emcc.step.dependOn(&cp_img.step);
-        
+        emcc.step.dependOn(&cp_rom4.step);
+
         // Add to the install step
         b.getInstallStep().dependOn(&emcc.step);
-        
+
         std.log.info("Building web build of PCD-68", .{});
     }
 
@@ -160,7 +181,7 @@ pub fn build(b: *std.Build) void {
     test_exe.linkLibCpp();
     test_exe.linkLibrary(moira_lib);
     test_exe.linkSystemLibrary("gtest");
-    
+
     const test_cmd = b.addRunArtifact(test_exe);
     test_step.dependOn(&test_cmd.step);
 }

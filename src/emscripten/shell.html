@@ -63,7 +63,36 @@
         background-color: #ffe8e8;
         border-color: #f44336;
       }
-
+      
+      .rom-selector {
+        margin: 10px auto;
+        padding: 5px;
+        border: 1px solid #ccc;
+        background-color: #f8f8f8;
+        max-width: 600px;
+        text-align: center;
+        font-family: Arial, sans-serif;
+      }
+      
+      .rom-selector select {
+        padding: 5px;
+        margin: 5px;
+        border-radius: 4px;
+      }
+      
+      .rom-selector button {
+        padding: 5px 10px;
+        margin: 5px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      
+      .rom-selector button:hover {
+        background-color: #45a049;
+      }
     </style>
     <link rel="stylesheet" href="pcd68-home.css">
   </head>
@@ -79,15 +108,57 @@
     <div id="keyboard-notice" class="keyboard-notice no-focus">
       Click the screen to enable keyboard input
     </div>
+    <div id="rom-selector" class="rom-selector">
+      <label for="rom-select">Select ROM:</label>
+      <select id="rom-select">
+        <option value="internal">Internal Demo (JonSharp.net Homepage)</option>
+        <option value="roms/text_demo.bin">JonSharp.net Homepage (external)</option>
+        <option value="roms/uart_test.bin">UART Test</option>
+        <option value="roms/display_test.bin">Display Test</option>
+        <option value="roms/keyboard_test.bin">Keyboard Test</option>
+      </select>
+      <button id="load-rom">Load ROM</button>
+    </div>
     <script type='text/javascript'>
       var statusElement = document.getElementById('status');
       var progressElement = document.getElementById('progress');
       var spinnerElement = document.getElementById('spinner');
       var keyboardNotice = document.getElementById('keyboard-notice');
       var canvas = document.getElementById('canvas');
+      var romSelect = document.getElementById('rom-select');
+      var loadRomButton = document.getElementById('load-rom');
       
       // Track canvas focus state
       var canvasHasFocus = false;
+      
+      // Check if the Module is fully initialized
+      function isModuleReady() {
+        return typeof Module !== 'undefined' && 
+               Module.ready === true && 
+               typeof Module._malloc === 'function' && 
+               typeof Module._free === 'function' &&
+               typeof Module.HEAPU8 !== 'undefined';
+      }
+      
+      // Wait for the Module to be ready
+      function waitForModule(callback, timeout = 10000) {
+        if (isModuleReady()) {
+          callback();
+          return;
+        }
+        
+        const startTime = Date.now();
+        const interval = setInterval(() => {
+          if (isModuleReady()) {
+            clearInterval(interval);
+            callback();
+          } else if (Date.now() - startTime > timeout) {
+            clearInterval(interval);
+            console.error('Module initialization timed out');
+            alert('Error: Module initialization timed out. Please refresh the page and try again.');
+          }
+        }, 100);
+      }
       
       // Update the keyboard notice based on focus state
       function updateKeyboardNotice() {
@@ -118,10 +189,102 @@
           updateKeyboardNotice();
         }
       });
+      
+      // Global variable to track current ROM
+      var currentRom = 'internal';
+      
+      // Helper function to wait for HEAPU8 to be available
+      function ensureHeapAvailable(callback, maxAttempts = 10) {
+        let attempts = 0;
+        
+        function checkHeap() {
+          if (typeof Module.HEAPU8 !== 'undefined') {
+            console.log('HEAPU8 is available, proceeding with ROM loading');
+            callback();
+            return;
+          }
+          
+          attempts++;
+          if (attempts >= maxAttempts) {
+            console.error('Failed to initialize Module.HEAPU8 after multiple attempts');
+            alert('Could not initialize WebAssembly memory. Please refresh the page.');
+            return;
+          }
+          
+          console.log('Waiting for HEAPU8 to be available (attempt ' + attempts + ')');
+          setTimeout(checkHeap, 300);
+        }
+        
+        checkHeap();
+      }
+      
+      // Load ROM handler
+      loadRomButton.addEventListener('click', function() {
+        var selectedRom = romSelect.value;
+        
+        waitForModule(function() {
+          ensureHeapAvailable(function() {
+            if (selectedRom === 'internal') {
+              // Load internal ROM (this is the default)
+              Module.ccall('loadInternalRom', null, [], []);
+              console.log('Loaded internal ROM');
+            } else {
+              // Fetch and load external ROM
+              fetch(selectedRom)
+                .then(response => {
+                  if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                  }
+                  return response.arrayBuffer();
+                })
+                .then(arrayBuffer => {
+                  var romData = new Uint8Array(arrayBuffer);
+                  var size = romData.length;
+                  
+                  // Check if HEAPU8 is available
+                  if (!Module.HEAPU8) {
+                    throw new Error('Module memory is not initialized. Please try again later.');
+                  }
+                  
+                  // Allocate memory for the ROM data
+                  var romPtr = Module._malloc(size);
+                  if (!romPtr) {
+                    throw new Error('Failed to allocate memory for ROM data');
+                  }
+                  
+                  // Copy the ROM data to the allocated memory
+                  Module.HEAPU8.set(romData, romPtr);
+                  
+                  // Call the C++ function to load the ROM
+                  Module.ccall('loadExternalRom', null, ['number', 'number'], [romPtr, size]);
+                  
+                  // Free the memory
+                  Module._free(romPtr);
+                  
+                  console.log('Loaded ROM:', selectedRom, 'Size:', size);
+                })
+                .catch(error => {
+                  console.error('Error loading ROM:', error);
+                  alert('Error loading ROM: ' + error.message);
+                });
+            }
+          });
+        });
+      });
 
       var Module = {
-        preRun: [],
-        postRun: [],
+        preRun: [
+          function() {
+            console.log("Module preRun setup");
+          }
+        ],
+        postRun: [
+          function() {
+            console.log("Module postRun setup");
+            // Ensure we have module initialization
+            Module.ready = true;
+          }
+        ],
         print: (function() {
           var element = document.getElementById('output');
           if (element) element.value = ''; // clear browser cache
@@ -175,6 +338,26 @@
         monitorRunDependencies: function(left) {
           this.totalDependencies = Math.max(this.totalDependencies, left);
           Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
+          
+          // Signal that module is ready when all dependencies are loaded
+          if (left === 0) {
+            console.log('Module dependencies loaded, waiting for full initialization');
+            
+            // Wait for 1 second to ensure everything is initialized
+            setTimeout(function() {
+              if (typeof Module.HEAPU8 !== 'undefined') {
+                Module.ready = true;
+                console.log('Module initialization complete with memory access');
+              } else {
+                console.warn('Module memory not initialized yet, will try again');
+                // Try again in 500ms
+                setTimeout(function() {
+                  Module.ready = true;
+                  console.log('Module initialization complete (second attempt)');
+                }, 500);
+              }
+            }, 1000);
+          }
         }
       };
       Module.setStatus('Downloading...');

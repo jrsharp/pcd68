@@ -6,6 +6,11 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #include <emscripten/websocket.h>
+// Define constants for the WebSocket event types
+// These are arbitrary values as WebSocket events don't use the EMSCRIPTEN_EVENT_* constants
+// They're just used to identify the event type in the callback functions
+#define EMSCRIPTEN_WEBSOCKET_MESSAGE_CALLBACK 0 // Message event
+#define EMSCRIPTEN_WEBSOCKET_OPEN_CALLBACK 0 // Open event
 #endif
 
 UART::UART(CPU* cpu, uint32_t start, uint32_t size) :
@@ -271,6 +276,11 @@ void UART::poll() {
 #ifdef __EMSCRIPTEN__
                 if (connected[channel]) {
                     sendWebsocket(channel, &byte, 1);
+                } else if (debugMode) {
+                    // In debug mode, show that byte was dropped due to no connection
+                    std::cerr << "DEBUG: UART" << (channel + 1) << " TX byte dropped (WebSocket not connected): 0x" 
+                              << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(byte) 
+                              << std::dec << std::endl;
                 }
 #endif
                 
@@ -357,54 +367,52 @@ static EM_BOOL websocket_open_callback(int eventType, const EmscriptenWebSocketO
 
 // Callback function to handle websocket messages for UART1
 EM_BOOL websocket1_callback(int eventType, const EmscriptenWebSocketMessageEvent *event, void *userData) {
-    UART* uart = static_cast<UART*>(userData);
-    
     if (eventType == EMSCRIPTEN_WEBSOCKET_MESSAGE_CALLBACK) {
-        // Handle received data
-        if (event->isText) {
-            // Text data (convert to binary)
-            const u8* data = reinterpret_cast<const u8*>(event->data);
-            uart->onWebsocketData(UART::UART1, data, event->numBytes);
-        } else {
-            // Binary data
-            const u8* data = reinterpret_cast<const u8*>(event->data);
-            uart->onWebsocketData(UART::UART1, data, event->numBytes);
+        // Get UART instance from user data
+        UART* uart = reinterpret_cast<UART*>(userData);
+        
+        if (event->numBytes > 0) {
+            // Process received data
+            uart->onWebsocketData(UART::UART1, event->data, event->numBytes);
         }
+        
         return EM_TRUE;
     }
-    
     return EM_FALSE;
 }
 
 // Callback function to handle websocket messages for UART2
 EM_BOOL websocket2_callback(int eventType, const EmscriptenWebSocketMessageEvent *event, void *userData) {
-    UART* uart = static_cast<UART*>(userData);
-    
     if (eventType == EMSCRIPTEN_WEBSOCKET_MESSAGE_CALLBACK) {
-        // Handle received data
-        if (event->isText) {
-            // Text data (convert to binary)
-            const u8* data = reinterpret_cast<const u8*>(event->data);
-            uart->onWebsocketData(UART::UART2, data, event->numBytes);
-        } else {
-            // Binary data
-            const u8* data = reinterpret_cast<const u8*>(event->data);
-            uart->onWebsocketData(UART::UART2, data, event->numBytes);
+        // Get UART instance from user data
+        UART* uart = reinterpret_cast<UART*>(userData);
+        
+        if (event->numBytes > 0) {
+            // Process received data
+            uart->onWebsocketData(UART::UART2, event->data, event->numBytes);
         }
+        
         return EM_TRUE;
     }
-    
     return EM_FALSE;
 }
 
 // Callback for websocket open events
 EM_BOOL websocket_open_callback(int eventType, const EmscriptenWebSocketOpenEvent *event, void *userData) {
     if (eventType == EMSCRIPTEN_WEBSOCKET_OPEN_CALLBACK) {
-        // Get which socket this is (stored in user data high bits)
-        uintptr_t channel = reinterpret_cast<uintptr_t>(userData) >> 32;
-        UART* uart = reinterpret_cast<UART*>(reinterpret_cast<uintptr_t>(userData) & 0xFFFFFFFF);
+        // We can't determine the channel from this event directly
+        // Use the open event to mark the socket as connected
+        UART* uartInstance = reinterpret_cast<UART*>(userData);
         
-        std::cout << "WebSocket for UART" << (channel+1) << " connected" << std::endl;
+        // Find which socket this is for
+        for (int ch = 0; ch < 2; ch++) {
+            if (uartInstance->websocketId[ch] == event->socket) {
+                uartInstance->connected[ch] = true;
+                std::cout << "WebSocket " << (ch + 1) << " connection established!" << std::endl;
+                break;
+            }
+        }
+        
         return EM_TRUE;
     }
     
@@ -414,8 +422,8 @@ EM_BOOL websocket_open_callback(int eventType, const EmscriptenWebSocketOpenEven
 int UART::connectWebsocket(const char* url1, const char* url2) {
     // Check if emscripten websocket API is supported
     if (!emscripten_websocket_is_supported()) {
-        std::cerr << "WebSockets are not supported" << std::endl;
-        return -1;
+        std::cerr << "Warning: WebSockets are not supported in this browser. UART connections will not work." << std::endl;
+        return 0; // Non-fatal error, continue with degraded functionality
     }
     
     // Connect first UART
@@ -427,18 +435,17 @@ int UART::connectWebsocket(const char* url1, const char* url2) {
         
         websocketId[UART1] = emscripten_websocket_new(&attr);
         if (websocketId[UART1] < 0) {
-            std::cerr << "WebSocket creation for UART1 failed" << std::endl;
-            return -1;
+            std::cerr << "Warning: WebSocket creation for UART1 failed. UART1 will not be available." << std::endl;
+            websocketId[UART1] = -1;
+            connected[UART1] = false;
+            // Continue with degraded functionality
+        } else {
+            // Set up callbacks - pass this pointer as userData
+            emscripten_websocket_set_onmessage_callback(websocketId[UART1], this, websocket1_callback);
+            emscripten_websocket_set_onopen_callback(websocketId[UART1], this, websocket_open_callback);
+            
+            connected[UART1] = false; // Will be set to true when open event is received
         }
-        
-        // Set up callbacks
-        emscripten_websocket_set_onmessage_callback(websocketId[UART1], this, websocket1_callback);
-        
-        // Create userData that includes both the channel and the this pointer
-        void* userData = reinterpret_cast<void*>((static_cast<uintptr_t>(UART1) << 32) | reinterpret_cast<uintptr_t>(this));
-        emscripten_websocket_set_onopen_callback(websocketId[UART1], userData, websocket_open_callback);
-        
-        connected[UART1] = true;
     }
     
     // Connect second UART if URL is provided
@@ -450,27 +457,34 @@ int UART::connectWebsocket(const char* url1, const char* url2) {
         
         websocketId[UART2] = emscripten_websocket_new(&attr);
         if (websocketId[UART2] < 0) {
-            std::cerr << "WebSocket creation for UART2 failed" << std::endl;
-            // Don't return error - continue with just UART1
+            std::cerr << "Warning: WebSocket creation for UART2 failed. UART2 will not be available." << std::endl;
+            websocketId[UART2] = -1;
+            connected[UART2] = false;
+            // Continue with degraded functionality
         } else {
-            // Set up callbacks
+            // Set up callbacks - pass this pointer as userData
             emscripten_websocket_set_onmessage_callback(websocketId[UART2], this, websocket2_callback);
+            emscripten_websocket_set_onopen_callback(websocketId[UART2], this, websocket_open_callback);
             
-            // Create userData that includes both the channel and the this pointer
-            void* userData = reinterpret_cast<void*>((static_cast<uintptr_t>(UART2) << 32) | reinterpret_cast<uintptr_t>(this));
-            emscripten_websocket_set_onopen_callback(websocketId[UART2], userData, websocket_open_callback);
-            
-            connected[UART2] = true;
+            connected[UART2] = false; // Will be set to true when open event is received
         }
     }
     
-    return 0;
+    return 0; // Always return success to allow emulator to continue
 }
 
 void UART::sendWebsocket(Channel channel, const u8* data, size_t length) {
-    if (connected[channel] && websocketId[channel] >= 0) {
-        emscripten_websocket_send_binary(websocketId[channel], data, length);
+#ifdef __EMSCRIPTEN__
+    if (connected[channel] && length > 0 && websocketId[channel] >= 0) {
+        // Cast the const pointer to non-const since the API requires it
+        void* dataPtr = const_cast<void*>(static_cast<const void*>(data));
+        emscripten_websocket_send_binary(websocketId[channel], dataPtr, length);
+    } else if (debugMode && length > 0) {
+        // In debug mode, show that data was attempted to be sent but dropped
+        std::cerr << "DEBUG: Data sent to unconnected UART" << (channel + 1) << " WebSocket, dropping " 
+                  << length << " bytes" << std::endl;
     }
+#endif
 }
 
 void UART::onWebsocketData(Channel channel, const u8* data, size_t length) {

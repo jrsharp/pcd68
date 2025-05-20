@@ -18,16 +18,24 @@ using u16 = uint16_t;
 class KeyboardInput {
 public:
     /**
-     * Callback type for keyboard events
+     * Callback type for single keyboard events
      * @param keycode The keycode of the pressed key
      * @param mod The modifier keys that were held during the keypress
      */
     using KeyEventCallback = std::function<void(u16 keycode, u16 mod)>;
 
     /**
+     * Callback type for multi-key keyboard events
+     * @param keycodes Array of keycodes for pressed keys
+     * @param keyCount Number of keys in the report
+     * @param mod The modifier keys that were held during the keypress
+     */
+    using KeyMultiEventCallback = std::function<void(const u8* keycodes, u8 keyCount, u8 mod)>;
+
+    /**
      * Constructor
      */
-    KeyboardInput() : keyEventCallback(nullptr) {}
+    KeyboardInput() : keyEventCallback(nullptr), keyMultiEventCallback(nullptr) {}
 
     /**
      * Destructor
@@ -54,8 +62,24 @@ public:
         keyEventCallback = callback;
     }
 
+    /**
+     * Set callback for multi-key keyboard events
+     * @param callback The function to call for multi-key reports
+     */
+    void setKeyMultiEventCallback(KeyMultiEventCallback callback) {
+        keyMultiEventCallback = callback;
+    }
+    
+    /**
+     * Enable or disable debug mode for keyboard input
+     * This is a no-op in the base class, implementations should override
+     * @param enabled true to enable debug output, false to disable
+     */
+    virtual void setDebugMode(bool enabled) {}
+
 protected:
     KeyEventCallback keyEventCallback;
+    KeyMultiEventCallback keyMultiEventCallback;
 };
 
 /**
