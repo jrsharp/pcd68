@@ -29,6 +29,90 @@
 .extern selection_text
 .extern footer_commands
 
+/* Helper Functions */
+
+/* Print a null-terminated string pointed to by A5 at the current position in A2 */
+.global print_string
+print_string:
+    /* Save registers */
+    movel   %a5, -(%sp)
+    
+    /* Print characters until null */
+print_loop:
+    moveb   (%a5)+, %d0
+    beq     print_done
+    
+    /* Write character to TDA */
+    moveb   %d0, (%a2)+
+    
+    bra     print_loop
+    
+print_done:
+    /* Restore registers */
+    movel   (%sp)+, %a5
+    rts
+
+/* Print a null-terminated string pointed to by A5 at the current position in A2,
+   without advancing to next line */
+.global print_string_no_advance
+print_string_no_advance:
+    /* Save registers */
+    movel   %a5, -(%sp)
+    
+    /* Print characters until null */
+print_no_advance_loop:
+    moveb   (%a5)+, %d0
+    beq     print_no_advance_done
+    
+    /* Write character to TDA */
+    moveb   %d0, (%a2)+
+    
+    bra     print_no_advance_loop
+    
+print_no_advance_done:
+    /* Restore registers */
+    movel   (%sp)+, %a5
+    rts
+
+/* Clear the content area of the screen based on updated layout */
+.global clear_content_area
+clear_content_area:
+    /* Position at the start of content area (line 4) */
+    movel   #4, %d7             /* Start at line 4 */
+clear_area_line_loop:
+    cmpl    #18, %d7            /* End at line 17 (before line 18) */
+    bge     clear_area_done
+    
+    /* Position at start of this line */
+    muls    #ScreenWidth, %d7
+    lea     TDABase + 1, %a0
+    addl    %d7, %a0
+    moveal  %a0, %a2
+    
+    /* Clear entire line with spaces - no borders */
+    movel   #0, %d6             /* Start at beginning of line */
+clear_area_char_loop:
+    cmpl    #ScreenWidth, %d6   /* Fill entire line */
+    bge     clear_area_next_line
+    
+    /* Write space to clear area */
+    moveb   #' ', (%a2)+
+    
+    addl    #1, %d6
+    bra     clear_area_char_loop
+    
+clear_area_next_line:
+    /* Convert line position back from offset */
+    divs    #ScreenWidth, %d7
+    
+    addl    #1, %d7
+    bra     clear_area_line_loop
+    
+clear_area_done:
+    /* Reset cursor position to start of content area */
+    moveal  #TDABase + 1 + (80 * 4), %a2
+    rts
+
 /* Clear the screen */
 .global clear_screen
 clear_screen:
@@ -40,7 +124,7 @@ clear_screen:
 clear_screen_line_loop:
     cmpl    #ScreenHeight, %d7
     bge     clear_screen_done
-    
+/* clear_content_area function moved to pcd68home.S */    
     movel   #0, %d6             /* Column counter */
 clear_screen_char_loop:
     cmpl    #ScreenWidth, %d6
@@ -57,63 +141,6 @@ clear_screen_next_line:
     bra     clear_screen_line_loop
     
 clear_screen_done:
-    rts
-
-/* Clear content area */
-.global clear_content_area
-clear_content_area:
-    /* Loop through content area lines (4-17) - stop before line 18 (border) */
-    movel   #4, %d7             /* Start at line 4 */
-clear_content_loop:
-    cmpl    #18, %d7            /* End at line 17 */
-    bge     clear_content_done
-    
-    /* Calculate position for this line */
-    muls    #ScreenWidth, %d7
-    lea     TDABase + 1, %a0
-    addl    %d7, %a0
-    moveal  %a0, %a2
-    
-    /* Clear this line with spaces, preserving borders */
-    movel   #0, %d6             /* Column counter */
-clear_content_line:
-    cmpl    #ScreenWidth, %d6
-    bge     clear_content_next_line
-    
-    /* Write space character, preserving borders */
-    cmpl    #0, %d6
-    beq     skip_left_border
-    cmpl    #ScreenWidth - 1, %d6
-    beq     skip_right_border
-    
-    /* Write space in content area */
-    moveb   #' ', (%a2)+
-    bra     continue_clear
-    
-skip_left_border:
-    /* Preserve left border */
-    moveb   #'|', (%a2)+
-    bra     continue_clear
-    
-skip_right_border:
-    /* Preserve right border */
-    moveb   #'|', (%a2)+
-    
-continue_clear:
-    addl    #1, %d6
-    bra     clear_content_line
-    
-clear_content_next_line:
-    /* Convert line position back from offset */
-    divs    #ScreenWidth, %d7   /* Restore D7 to line number */
-    
-    /* Increment line counter */
-    addl    #1, %d7
-    bra     clear_content_loop
-    
-clear_content_done:
-    /* Reset cursor position to start of content area (after left border) */
-    moveal  #TDABase + 1 + (80 * 4) + 1, %a2
     rts
 
 /* Draw borders */
@@ -142,7 +169,7 @@ top_border_end:
     moveal  %a0, %a2
     
     /* Draw border line */
-    moveb   #'+', (%a2)+
+    moveb   #'\'', (%a2)+
     movel   #1, %d0
 header_border_loop:
     cmpl    #ScreenWidth - 1, %d0
@@ -151,7 +178,7 @@ header_border_loop:
     addl    #1, %d0
     bra     header_border_loop
 header_border_end:
-    moveb   #'+', (%a2)+
+    moveb   #'\'', (%a2)+
     
     /* Draw border after content area (line 18) */
     movel   #18, %d0
@@ -161,7 +188,7 @@ header_border_end:
     moveal  %a0, %a2
     
     /* Draw border line */
-    moveb   #'+', (%a2)+
+    moveb   #'.', (%a2)+
     movel   #1, %d0
 content_border_loop:
     cmpl    #ScreenWidth - 1, %d0
@@ -170,7 +197,7 @@ content_border_loop:
     addl    #1, %d0
     bra     content_border_loop
 content_border_end:
-    moveb   #'+', (%a2)+
+    moveb   #'.', (%a2)+
     
     /* Draw border after status area (line 20) */
     movel   #20, %d0
@@ -209,80 +236,6 @@ bottom_border_loop:
     bra     bottom_border_loop
 bottom_border_end:
     moveb   #'+', (%a2)+
-    
-    /* Draw vertical borders */
-    movel   #1, %d7             /* Start at line 1 */
-vertical_borders_loop:
-    cmpl    #22, %d7            /* Until line 22 */
-    bge     vertical_borders_end
-    
-    /* Skip border lines which we already drew */
-    cmpl    #3, %d7
-    beq     vertical_next_line
-    cmpl    #18, %d7
-    beq     vertical_next_line
-    cmpl    #20, %d7
-    beq     vertical_next_line
-    
-    /* Draw left border */
-    muls    #ScreenWidth, %d7
-    lea     TDABase + 1, %a0
-    addl    %d7, %a0
-    moveb   #'|', (%a0)
-    
-    /* Draw right border */
-    addl    #ScreenWidth - 1, %a0
-    moveb   #'|', (%a0)
-    
-    /* Back to line index */
-    divs    #ScreenWidth, %d7
-    
-vertical_next_line:
-    addl    #1, %d7
-    bra     vertical_borders_loop
-    
-vertical_borders_end:
-    rts
-
-/* This function has been completely rewritten to fix line 20 border issue */
-.global clear_debug_line
-.global utility_clear_debug_line
-
-/* The following function draws a border at line 20 */
-.global draw_border_line_20
-draw_border_line_20:
-    /* Save registers */
-    movel   %d0, -(%sp)
-    movel   %a0, -(%sp)
-    
-    /* Calculate position for line 20 */
-    movel   #20, %d0
-    muls    #ScreenWidth, %d0
-    lea     TDABase + 1, %a0
-    addl    %d0, %a0
-    moveal  %a0, %a2
-    
-    /* Draw border line */
-    moveb   #'+', (%a2)+
-    movel   #1, %d0
-border_line_20_loop:
-    cmpl    #ScreenWidth - 1, %d0
-    bge     border_line_20_end
-    moveb   #'-', (%a2)+
-    addl    #1, %d0
-    bra     border_line_20_loop
-border_line_20_end:
-    moveb   #'+', (%a2)+
-    
-    /* Restore registers */
-    movel   (%sp)+, %a0
-    movel   (%sp)+, %d0
-    rts
-
-/* Entry points for both functions redirect to the border-drawing function */
-clear_debug_line:
-utility_clear_debug_line:
-    jsr     draw_border_line_20
     rts
 
 /* Center text */
@@ -348,17 +301,8 @@ draw_header:
     lea     header_title, %a5
     jsr     print_string_no_advance
     
-    /* Calculate version position - right aligned */
-    movel   #ScreenWidth - 2, %d0
-    /* Calculate cursor position relative to line start */
-    movel   %a2, %d3
-    subl    #TDABase + 1 + ScreenWidth, %d3
-    /* Calculate remaining space */
-    subl    %d3, %d0
-    subl    #version_text_length, %d0
-    
     /* Position cursor for version */
-    moveal  #TDABase + 1 + ScreenWidth, %a2
+    moveal  #TDABase + 1 + ScreenWidth + 67, %a2
     addl    %d0, %a2
     
     /* Draw version text */
@@ -441,22 +385,6 @@ debug_info_start:
     moveb   %d0, (%a2)+
     moveb   #' ', (%a2)+
     
-    /* Debug: Menu ID */
-    moveb   #'M', (%a2)+
-    moveb   #':', (%a2)+
-    movew   current_menu_id, %d0
-    addib   #'0', %d0
-    moveb   %d0, (%a2)+
-    moveb   #' ', (%a2)+
-    
-    /* Debug: Item count */
-    moveb   #'C', (%a2)+
-    moveb   #':', (%a2)+
-    movew   current_menu_id, %d0
-    jsr     get_menu_item_count
-    addib   #'0', %d0
-    moveb   %d0, (%a2)+
-    
     /* Calculate position for selection indicator (right side) */
     movel   #ScreenWidth - 12, %d0
     /* Calculate cursor position relative to line start */
@@ -517,18 +445,64 @@ get_menu_item_count:
     rts
 
 .global get_menu_title
+.align 2
 get_menu_title:
     /* Get menu definition from table */
     lsll    #2, %d0              /* Multiply menu ID by 4 for long offset */
     lea     menu_table, %a0
+    
+    /* Check if menu_table is valid */
+    cmpl    #0, %a0
+    beq     get_menu_title_error_table
+    
     addl    %d0, %a0
     movel   (%a0), %a0           /* Get menu definition pointer */
     
+    /* Check if menu definition is valid */
+    cmpl    #0, %a0
+    beq     get_menu_title_error_def
+    
     /* Title pointer is at offset 0 */
     movel   (%a0), %a0
+    
+    /* Check if title pointer is valid */
+    cmpl    #0, %a0
+    beq     get_menu_title_error_title
+    
     rts
 
+.align 2
+get_menu_title_error_table:
+    /* Return error message */
+    lea     menu_title_error_table, %a0
+    rts
+    
+.align 2
+get_menu_title_error_def:
+    /* Return error message */
+    lea     menu_title_error_def, %a0
+    rts
+    
+.align 2
+get_menu_title_error_title:
+    /* Return error message */
+    lea     menu_title_error_title, %a0
+    rts
+    
+.align 2
+menu_title_error_table:
+    .asciz "ERROR: Menu table pointer is null"
+    
+.align 2
+menu_title_error_def:
+    .asciz "ERROR: Menu definition pointer is null"
+    
+.align 2
+menu_title_error_title:
+    .asciz "ERROR: Menu title pointer is null"
+
 .global get_menu_entry_type
+.align 2
 get_menu_entry_type:
     /* Get menu definition */
     movel   %d1, -(%sp)           /* Save item index */
@@ -540,16 +514,16 @@ get_menu_entry_type:
     /* Get item array pointer */
     movel   8(%a0), %a0          /* Item array pointer at offset 8 */
     
-    /* Navigate to specific item (each item is 8 bytes) */
+    /* Navigate to specific item - our array contains pointers to items */
     movel   (%sp)+, %d1          /* Restore item index */
-    lsll    #3, %d1              /* Multiply by 8 for item offset */
-    addl    %d1, %a0
+    lsll    #2, %d1              /* Multiply by 4 for long word offset */
+    addl    %d1, %a0             /* Get pointer to item pointer */
+    movel   (%a0), %a0           /* Dereference to get item structure */
     
-    /* Item type is at offset 4 (byte) */
-    moveb   4(%a0), %d0
     rts
 
 .global get_menu_target_id
+.align 2
 get_menu_target_id:
     /* Get menu definition */
     movel   %d1, -(%sp)           /* Save item index */
@@ -561,16 +535,35 @@ get_menu_target_id:
     /* Get item array pointer */
     movel   8(%a0), %a0          /* Item array pointer at offset 8 */
     
-    /* Navigate to specific item (each item is 8 bytes) */
+    /* Navigate to specific item - our array contains pointers to items */
     movel   (%sp)+, %d1          /* Restore item index */
-    lsll    #3, %d1              /* Multiply by 8 for item offset */
-    addl    %d1, %a0
+    lsll    #2, %d1              /* Multiply by 4 for long word offset */
+    addl    %d1, %a0             /* Get pointer to item pointer */
+    movel   (%a0), %a0           /* Dereference to get item structure */
+    
+    /* Debug - show address and offsets */
+    movel   %a0, %d5
+    moveal  #TDABase + 1 + (19 * ScreenWidth) + 75, %a2
+    moveb   #'G', (%a2)+
+    moveb   #':', (%a2)+
+    
+    /* Display the item type byte */
+    moveb   4(%a0), %d7
+    addib   #'0', %d7
+    moveb   %d7, (%a2)+
+    
+    /* Display target ID */
+    moveb   #'>', (%a2)+
+    movew   6(%a0), %d7
+    addib   #'0', %d7
+    moveb   %d7, (%a2)+
     
     /* Target menu ID is at offset 6 (word) */
     movew   6(%a0), %d0
     rts
 
 .global get_content_pointer
+.align 2
 get_content_pointer:
     /* Calculate index into content_text_ptrs table */
     movel   %d1, -(%sp)           /* Save item index */
@@ -589,6 +582,7 @@ get_content_pointer:
     rts
 
 .global get_menu_item_text
+.align 2
 get_menu_item_text:
     /* Get menu definition */
     movel   %d1, -(%sp)           /* Save item index */
@@ -600,11 +594,133 @@ get_menu_item_text:
     /* Get item array pointer */
     movel   8(%a0), %a0          /* Item array pointer at offset 8 */
     
-    /* Navigate to specific item (each item is 8 bytes) */
-    movel   (%sp)+, %d1          /* Restore item index */
-    lsll    #3, %d1              /* Multiply by 8 for item offset */
-    addl    %d1, %a0
+    /* Check if array pointer is null */
+    cmpl    #0, %a0
+    beq     get_menu_item_error_array
     
-    /* Item text pointer is at offset 0 */
+    /* Navigate to specific item - our array contains pointers to items */
+    movel   (%sp)+, %d1          /* Restore item index */
+    lsll    #2, %d1              /* Multiply by 4 for long word offset */
+    addl    %d1, %a0             /* Get pointer to item pointer */
+    movel   (%a0), %a0           /* Dereference to get item structure */
+    
+    /* Check if item pointer is null */
+    cmpl    #0, %a0
+    beq     get_menu_item_error_item
+    
+    /* Item text pointer is at offset 0 in the item structure */
     movel   (%a0), %a0
+    
+    /* Check if text pointer is null */
+    cmpl    #0, %a0
+    beq     get_menu_item_error_text
+    
+    rts
+
+.align 2
+get_menu_item_error_array:
+    /* Return error message */
+    lea     menu_item_error_array, %a0
+    rts
+
+.align 2
+get_menu_item_error_item:
+    /* Return error message */
+    lea     menu_item_error_item, %a0
+    rts
+    
+.align 2
+get_menu_item_error_text:
+    /* Return error message */
+    lea     menu_item_error_text, %a0
+    rts
+
+.align 2
+menu_item_error_array:
+    .asciz "ERROR: Menu item array pointer is null"
+    
+.align 2
+menu_item_error_item:
+    .asciz "ERROR: Menu item pointer is null"
+    
+.align 2
+menu_item_error_text:
+    .asciz "ERROR: Menu item text pointer is null" 
+
+/* Print a multi-line string with proper newline handling for content display */
+.global print_multiline_string
+print_multiline_string:
+    /* Save registers */
+    movel   %a5, -(%sp)
+    movel   %d0, -(%sp)
+    movel   %d1, -(%sp)
+    movel   %d2, -(%sp)
+    movel   %d3, -(%sp)
+    
+    /* Store starting line position (should be line 4) */
+    moveal  %a2, %a0
+    subal   #TDABase + 1, %a0    /* Get offset from screen start */
+    movel   %a0, %d3             /* Copy to data register for division */
+    divu    #ScreenWidth, %d3    /* Get current line number */
+    movew   %d3, %d1             /* Store current line in D1 */
+    
+    /* Store column position within line */
+    moveal  %a2, %a0
+    subal   #TDABase + 1, %a0    /* Get offset from screen start */
+    movel   %a0, %d2             /* Copy to data register */
+    divu    #ScreenWidth, %d2    /* Get line number in upper word */
+    swap    %d2                  /* Get remainder (column) in lower word */
+    
+print_multi_loop:
+    moveb   (%a5)+, %d0
+    beq     print_multi_done
+    
+    /* Check for newline character */
+    cmpb    #10, %d0             /* ASCII 10 = \n */
+    beq     handle_newline
+    
+    /* Check if we're still within content area bounds */
+    cmpw    #18, %d1             /* Don't go past line 17 */
+    bge     print_multi_done
+    
+    /* Normal character - write to screen */
+    moveb   %d0, (%a2)+
+    addw    #1, %d2              /* Increment column */
+    
+    /* Check for line wrap */
+    cmpw    #ScreenWidth, %d2
+    blt     print_multi_loop
+    
+    /* Line wrap - go to next line */
+    addw    #1, %d1              /* Next line */
+    movew   #0, %d2              /* Reset column */
+    
+    /* Calculate new screen position */
+    movew   %d1, %d3
+    mulu    #ScreenWidth, %d3
+    lea     TDABase + 1, %a2
+    addl    %d3, %a2
+    
+    bra     print_multi_loop
+    
+handle_newline:
+    /* Move to next line */
+    addw    #1, %d1              /* Next line */
+    movew   #0, %d2              /* Reset column to start */
+    
+    /* Calculate new screen position */
+    movew   %d1, %d3
+    mulu    #ScreenWidth, %d3
+    lea     TDABase + 1, %a2
+    addl    %d3, %a2
+    
+    bra     print_multi_loop
+    
+print_multi_done:
+    /* Restore registers */
+    movel   (%sp)+, %d3
+    movel   (%sp)+, %d2
+    movel   (%sp)+, %d1
+    movel   (%sp)+, %d0
+    movel   (%sp)+, %a5
     rts 

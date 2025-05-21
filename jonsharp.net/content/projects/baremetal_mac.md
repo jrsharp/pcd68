@@ -1,55 +1,34 @@
 ---
-title: Bare-metal Macintosh Programming
-order: 1
+title: Bare-metal Mac Programming
+key: m
 type: content
+order: 2
 ---
 
 # Bare-metal Macintosh Programming
 
-I've been tinkering with 68000 assembly off and on (mostly off) over the past decade and one of my favorite projects is my progressive attempts at bare-metal (non-Toolbox) programming my Macintosh Plus.
+This project explores programming vintage Macintosh computers at the hardware level, bypassing the operating system to work directly with the 68000 processor and hardware peripherals.
 
-## Part 1: First Steps
+## Project Goals
 
-The original compact Macintoshes (128k, 512k, and Plus) have long been a subject of my collection and study, but after acquiring a Canon Cat, I began to see the Mac in a slightly new light. The original Macintosh may be a truly unique blend of hardware and software engineering, but what if you looked at the Mac only for its hardware?
+- Understand the complete Macintosh hardware architecture
+- Develop custom boot loaders for vintage Macs
+- Create graphics demos that run directly on the hardware
+- Explore sound capabilities using direct hardware access
+- Document the undocumented aspects of early Mac hardware
 
-If you know the Mac, you know that it was innovative in large part because of its ROM. The Toolbox functions of the ROM really made the Mac what it was. As a result, The MacOS (System) software is inextricably linked to the ROM code, and the two work together in a clever balance of pointers and patched code.
+## Current Experiments
 
-But what if you threw out the ROM and its Toolbox? The Mac might start to look not too different from other 68000-based personal computers of its time. What would you do if someone handed you a Macintosh with no available software?
+- Custom boot sector that displays graphics without using the ROM
+- Direct access to the video frame buffer for fast animation
+- Sound generation through direct access to sound hardware
+- Exploring the ADB (Apple Desktop Bus) for direct keyboard and mouse input
 
-### A proof-of-concept demo
+## Tools Used
 
-In my search for information on the Macintosh boot process, I ran across a method for booting arbitrary code on a 68k Macintosh — that is, without Mac OS. This was the starting point I needed to begin exploring my thoughts on alternative software/firmware for the Mac.
+- Retro 68K cross-compiler
+- Custom hardware tools for transferring code to vintage Macs
+- Hardware documentation and reverse engineering
 
-I decided my first step was to develop the simplest demo I could think of that would show off some of the Mac's hardware while compact enough to fit into the boot sector (first 1K) of a floppy. So I set out to build a simple bare-metal Macintosh demo written in 68k assembly that displays my own smiling face on the machine's 1-bit framebuffer.
-
-I targeted the Macintosh Plus for the extra RAM and because Mini vMac emulates it by default, but the code should run fine on the 128k/512k as well.
-
-## Part 2: Building Blocks for an OS
-
-After getting a functional demo up and running, I began thinking of more useful solutions. If I could implement a basic terminal, I could use it to port a host of existing software and use it to build a whole new operating environment:
-
-- Port Frotz z-code interpreter for Zork/Infocom games
-- Port pforth to create a Forth operating environment
-- eLua?
-- FreeRTOS demo/shell
-- uCLinux?
-
-### Breaking out of the boot block
-
-In order to do anything useful, I needed to use the ROM routines (floppy driver) to read the rest of my code from disk into memory. This saves us the trouble of subsequent disk reads at the expense of initial load time.
-
-### A Condensed Font
-
-After some searching, I came across Christian Neukirchen's 5x13 font. This font seemed like the right mix of efficient and readable. It yields an effective terminal size of 102x26, more than adequate for my needs.
-
-I used bdfe to convert the .bdf font data into a C header file suitable for use with my gcc project.
-
-### Next Steps
-
-In future work, I plan to:
-- Improve GCC linker scripts and relocatable code
-- Mix C and assembly (calling conventions!)
-- Add a Newlib port/implementation
-- Create a keyboard input routine
-
-The project repository is available at: https://github.com/jrsharp/HappyJon
+[Press 'b' to return to Projects menu]
+[Press 'h' to return to Main menu]

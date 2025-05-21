@@ -1,0 +1,132 @@
+# JonSharp.net Cyberterminal Menu Structure
+# This file defines the overall menu hierarchy for the cyberterminal
+
+main_menu:
+  title: "Main Menu"
+  key_prefix: ""  # No prefix for top-level menu
+  items:
+    - id: "art"
+      title: "Art"
+      key: "1"
+      type: "submenu"
+      order: 1
+    - id: "projects"
+      title: "Projects"
+      key: "2"
+      type: "submenu"
+      order: 2
+    - id: "about"
+      title: "About Me"
+      key: "3"
+      type: "submenu"
+      order: 3
+    - id: "bookmarks"
+      title: "Bookmarks"
+      key: "4"
+      type: "content"
+      order: 4
+    - id: "phlog"
+      title: "Gopher Log (phlog)"
+      key: "5"
+      type: "content"
+      content_file: "phlog.md"
+      order: 5
+    - id: "archive"
+      title: "The Archive (old jonsharp.net content)"
+      key: "6"
+      type: "content"
+      content_file: "archive.md"
+      order: 6
+
+
+# Submenus definitions
+
+about:
+  title: "About Jon Sharp"
+  parent: "main_menu"
+  key_prefix: ""
+  items:
+    - id: "bio"
+      title: "Biography"
+      key: "1"
+      type: "content"
+      content_file: "about/bio.md"
+      order: 1
+    - id: "skills"
+      title: "Skills & Interests"
+      key: "2"
+      type: "content"
+      content_file: "about/skills.md"
+      order: 2
+    - id: "experience"
+      title: "Experience"
+      key: "3"
+      type: "content"
+      content_file: "about/experience.md"
+      order: 3
+
+projects:
+  title: "Projects"
+  parent: "main_menu"
+  key_prefix: ""
+  items:
+    - id: "pcd68"
+      title: "PCD-68 Computer"
+      key: "1"
+      type: "content"
+      content_file: "projects/pcd68.md"
+      order: 1
+    - id: "baremetal"
+      title: "Bare-metal Mac Programming"
+      key: "2"
+      type: "content"
+      content_file: "projects/baremetal_mac.md"
+      order: 2
+    - id: "retrohacking"
+      title: "Retrocomputing Projects"
+      key: "3"
+      type: "content"
+      content_file: "projects/retrohacking.md"
+      order: 3
+
+phlog:
+  title: "Phlog"
+  parent: "main_menu"
+  key_prefix: ""
+  items:
+    - id: "recent"
+      title: "Recent Posts"
+      key: "1"
+      type: "content"
+      content_file: "blog/recent.md"
+      order: 1
+    - id: "archives"
+      title: "Archives"
+      key: "2"
+      type: "content"
+      content_file: "blog/archives.md"
+      order: 2
+
+archive:
+  title: "The Archive"
+  parent: "main_menu"
+  key_prefix: ""
+  items:
+    - id: "links"
+      title: "Useful Links"
+      key: "1"
+      type: "content"
+      content_file: "resources/links.md"
+      order: 1
+    - id: "books"
+      title: "Books"
+      key: "2"
+      type: "content"
+      content_file: "resources/books.md"
+      order: 2
+    - id: "tools"
+      title: "Tools & Software"
+      key: "3"
+      type: "content"
+      content_file: "resources/tools.md"
+      order: 3 

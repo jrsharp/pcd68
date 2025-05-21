@@ -1,49 +1,32 @@
 ---
 title: PCD-68 Computer
-order: 2
+key: c
 type: content
+order: 1
 ---
 
 # PCD-68 Computer
 
-The PCD-68 is a Motorola 68000-based virtual retro computer emulator that simulates hardware inspired by late 80s/early 90s computers. It draws inspiration from the original Macintosh, Canon Cat, and modern 68k homebrew machines.
+The PCD-68 is a custom-designed computer system based on the Motorola 68000 microprocessor, the same CPU used in early Macintosh computers, Amiga, and other classic systems.
 
-## System Specifications
+## Features
 
-- 68000 CPU (emulation provided by Moira)
-- 400x300 B/W Framebuffer/Display
-- Text Display Adapter (TDA) with text-based graphics modes:
-  - 80-column mode: Uses custom 5x13 font (80x23 chars)
-  - 50-column mode: Uses IBM CGA font (50x33 chars)
-- 4MB RAM
-- 64KB ROM
-- Dual UART (similar to Z80 SCC)
-- Interrupt-driven Keyboard I/O
+- Motorola 68000 CPU running at 8MHz
+- Custom PCB design
+- 512KB RAM
+- Custom BIOS in ROM
+- Text-based display (80x25 characters)
+- PS/2 keyboard input
+- Serial port for debugging and file transfer
+- Expansion capabilities
 
-The emulator is being developed to eventually power actual hardware.
+## Software
 
-## Implementation Details
+The system runs custom firmware that provides basic I/O operations, memory management, and a simple shell interface. Programs can be loaded via the serial port.
 
-The emulator supports various connectivity options for the UART peripherals:
+## Documentation
 
-### Web Build (Emscripten)
+Full documentation, schematics, and source code are available on my GitHub repository.
 
-In the web build, the UARTs connect to WebSockets:
-- UART1 connects to `ws://localhost:8080`
-- UART2 connects to `ws://localhost:8081`
-
-### Native Builds (macOS/Linux)
-
-For native builds, you can connect UARTs to hardware serial ports or named pipes (FIFOs).
-
-## Architecture
-
-### Core Components
-
-1. **PCD68_CPU** - Wrapper around the Moira 68000 emulation core
-2. **Screen** - Handles the display with SDL2 backend
-3. **TDA (Text Display Adapter)** - Text-based graphics adapter
-4. **UART** - Dual-channel UART for connectivity
-5. **KCTL (Keyboard Controller)** - Manages keyboard input and interrupts
-
-This project represents my ongoing exploration of vintage computing architectures and modern implementations of classic systems.
+[Press 'b' to return to Projects menu]
+[Press 'h' to return to Main menu]
