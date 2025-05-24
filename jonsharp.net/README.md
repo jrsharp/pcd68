@@ -5,6 +5,7 @@ JonSharp.net -- as a demonstration ROM for the PCD-68 virtual retro computer.
 
 The JonSharp.net Cyberterminal is a ROM image for the PCD-68 retro computer emulator (as realized in the FRST Computer Model 1 Cyberterminal) that provides a gopher-like interface to access information about Jon Sharp, his projects, and other content.
 It is meant to be a fully-functional personal website experience, showcasing the bespoke personal computer environment of PCD-68 and FRST Computer.
+It can also be described as a "sampler ROM" -- a versioned release of the "best of" jonsharp.net.
 
 ## Features
 

@@ -41,6 +41,30 @@ main_menu:
 
 # Submenus definitions
 
+art:
+  title: "Art & Creative Projects"
+  parent: "main_menu"
+  key_prefix: ""
+  items:
+    - id: "digital_art"
+      title: "Digital Art Gallery"
+      key: "1"
+      type: "content"
+      content_file: "art/digital.md"
+      order: 1
+    - id: "ascii_art"
+      title: "ASCII Art Collection"
+      key: "2"
+      type: "content"
+      content_file: "art/ascii.md"
+      order: 2
+    - id: "generative"
+      title: "Generative Art Experiments"
+      key: "3"
+      type: "content"
+      content_file: "art/generative.md"
+      order: 3
+
 about:
   title: "About Jon Sharp"
   parent: "main_menu"

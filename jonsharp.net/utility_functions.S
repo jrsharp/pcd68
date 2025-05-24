@@ -302,7 +302,7 @@ draw_header:
     jsr     print_string_no_advance
     
     /* Position cursor for version */
-    moveal  #TDABase + 1 + ScreenWidth + 67, %a2
+    moveal  #TDABase + 1 + ScreenWidth + 55, %a2
     addl    %d0, %a2
     
     /* Draw version text */
@@ -434,14 +434,74 @@ debug_info_start:
 /* Menu utility functions */
 .global get_menu_item_count
 get_menu_item_count:
+    /* Debug: Check menu_table validity first */
+    movel   %d0, -(%sp)          /* Save menu ID */
+    movel   %d1, -(%sp)          /* Save d1 */
+    
+    /* Show menu_table address */
+    moveal  #TDABase + 1 + (19 * ScreenWidth) + 30, %a1
+    moveb   #'T', (%a1)+
+    moveb   #':', (%a1)+
+    
+    lea     menu_table, %a0
+    /* Check if menu_table address is reasonable */
+    cmpl    #0, %a0
+    beq     menu_table_null
+    
+    /* Show first entry of menu_table */
+    movel   (%a0), %d1           /* Get first menu definition pointer */
+    cmpl    #0, %d1
+    beq     menu_def_null
+    
+    moveb   #'O', (%a1)+         /* O = OK, menu_table looks good */
+    bra     menu_table_ok
+    
+menu_table_null:
+    moveb   #'N', (%a1)+         /* N = menu_table is null */
+    bra     menu_table_restore
+    
+menu_def_null:
+    moveb   #'D', (%a1)+         /* D = menu definition is null */
+    bra     menu_table_restore
+    
+menu_table_ok:
+    moveb   #'G', (%a1)+         /* G = Good, continue processing */
+
+menu_table_restore:
+    movel   (%sp)+, %d1          /* Restore d1 */
+    movel   (%sp)+, %d0          /* Restore menu ID */
+
     /* Get menu definition from table */
     lsll    #2, %d0              /* Multiply menu ID by 4 for long offset */
     lea     menu_table, %a0
     addl    %d0, %a0
     movel   (%a0), %a0           /* Get menu definition pointer */
     
+    /* Check if menu definition is null before using it */
+    cmpl    #0, %a0
+    beq     return_zero_count
+    
     /* Item count is at offset 4 (word) */
     movew   4(%a0), %d0
+    
+    /* Debug: Show the count we're returning */
+    movel   %d0, -(%sp)          /* Save count */
+    movel   %d1, -(%sp)          /* Save d1 */
+    
+    moveal  #TDABase + 1 + (19 * ScreenWidth) + 62, %a1
+    moveb   #'c', (%a1)+         /* lowercase c to distinguish from other debug */
+    moveb   %d0, %d1
+    addib   #'0', %d1
+    moveb   %d1, (%a1)+
+    
+    movel   (%sp)+, %d1          /* Restore d1 */
+    movel   (%sp)+, %d0          /* Restore count */
+    
+    rts
+
+return_zero_count:
+    /* Return 0 if menu definition is null */
+    movel   #0, %d0
     rts
 
 .global get_menu_title
@@ -519,6 +579,25 @@ get_menu_entry_type:
     lsll    #2, %d1              /* Multiply by 4 for long word offset */
     addl    %d1, %a0             /* Get pointer to item pointer */
     movel   (%a0), %a0           /* Dereference to get item structure */
+    
+    /* Debug: Show what we found at the item structure address */
+    movel   %a0, -(%sp)          /* Save item structure pointer */
+    movel   %d1, -(%sp)          /* Save registers we'll modify */
+    
+    moveal  #TDABase + 1 + (19 * ScreenWidth) + 60, %a1
+    moveb   #'@', (%a1)+
+    
+    /* Show the type byte value we're about to return */
+    moveb   4(%a0), %d1
+    addib   #'0', %d1
+    moveb   %d1, (%a1)+
+    
+    movel   (%sp)+, %d1          /* Restore registers */
+    movel   (%sp)+, %a0          /* Restore item structure pointer */
+    
+    /* Return the type byte at offset 4 */
+    clrl    %d0                  /* Clear upper bits */
+    moveb   4(%a0), %d0          /* Get type byte and zero-extend */
     
     rts
 

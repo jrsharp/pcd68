@@ -1,5 +1,6 @@
 /* JonSharp.net Cyberterminal
  * An interactive information terminal simulating a gopher-like experience
+ * Content served is a versioned release of the "best of" jonsharp.net.
  */
 
 /* Define memory locations and constants */
@@ -667,23 +668,58 @@ process_keyboard_input:
     cmpb    #KEY_9, %d0
     bgt     finish_key_input
     
+    /* Debug: Show we detected a numeric key */
+    moveal  #TDABase + 1 + (19 * ScreenWidth) + 40, %a2
+    moveb   #'#', (%a2)+
+    moveb   %d0, (%a2)+        /* Show the actual key pressed */
+    
     /* Convert key to menu item index (0-based) */
     subb    #KEY_1, %d0
     movew   %d0, %d3          /* Save selected index in D3 */
+    
+    /* Debug: Show converted index */
+    moveal  #TDABase + 1 + (19 * ScreenWidth) + 43, %a2
+    moveb   #'>', (%a2)+
+    moveb   %d3, %d4
+    addib   #'0', %d4
+    moveb   %d4, (%a2)+
     
     /* Check if this is a valid menu item */
     movew   current_menu_id, %d1
     jsr     get_menu_item_count
     movew   %d0, %d2          /* Store item count in d2 */
+    
+    /* Debug: Show item count */
+    moveal  #TDABase + 1 + (19 * ScreenWidth) + 46, %a2
+    moveb   #'C', (%a2)+
+    moveb   %d2, %d4
+    addib   #'0', %d4
+    moveb   %d4, (%a2)+
+    
     cmpw    %d2, %d3          /* Compare selection index with count */
-    bge     finish_key_input     /* Invalid menu item, finish */
+    bge     invalid_menu_item     /* Invalid menu item, finish */
     
     /* Valid menu item, set as current selection */
     movew   %d3, current_selection
     
+    /* Debug: Show we accepted the selection */
+    moveal  #TDABase + 1 + (19 * ScreenWidth) + 48, %a2
+    moveb   #'O', (%a2)+      /* O = OK, valid selection */
+    
+    /* Add debug trace to show menu selection */
+    movel   #'N', %d0
+    jsr     add_debug_trace
+    
     /* Process the menu selection */
     jsr     process_menu_selection
-    
+    bra     finish_key_input
+
+invalid_menu_item:
+    /* Debug: Show we rejected the selection */
+    moveal  #TDABase + 1 + (19 * ScreenWidth) + 48, %a2
+    moveb   #'X', (%a2)+      /* X = rejected selection */
+    bra     finish_key_input
+
 /* Key processing wrappers - ensure all keys go through finish_key_input */
 process_key_home:
     jsr     key_home
@@ -738,6 +774,18 @@ all_consumed:
 
 /* Process the menu selection */
 process_menu_selection:
+    /* Debug: Clear a section for our debug info */
+    moveal  #TDABase + 1 + (19 * ScreenWidth) + 50, %a2
+    moveb   #'[', (%a2)+
+    movew   current_menu_id, %d7
+    addib   #'0', %d7
+    moveb   %d7, (%a2)+
+    moveb   #',', (%a2)+
+    movew   current_selection, %d7
+    addib   #'0', %d7
+    moveb   %d7, (%a2)+
+    moveb   #']', (%a2)+
+    
     /* Load the selected menu item */
     movew   current_menu_id, %d0
     movew   current_selection, %d1
@@ -747,19 +795,45 @@ process_menu_selection:
     jsr     add_debug_trace
     
     /* Get the entry type */
+    movew   current_menu_id, %d0    /* Reload menu ID */
+    movew   current_selection, %d1  /* Reload selection */
     jsr     get_menu_entry_type
+    
+    /* Debug: Show the type we got back */
+    moveal  #TDABase + 1 + (19 * ScreenWidth) + 56, %a2
+    moveb   #'=', (%a2)+
+    moveb   %d0, %d3
+    addib   #'0', %d3
+    moveb   %d3, (%a2)+
     
     /* Process based on type */
     cmpb    #ENTRY_TYPE_SUBMENU, %d0
-    beq     process_submenu
+    beq     process_submenu_debug
     cmpb    #ENTRY_TYPE_TEXT, %d0
-    beq     process_text
+    beq     process_text_debug
     cmpb    #ENTRY_TYPE_LINK, %d0
-    beq     process_link
+    beq     process_link_debug
     
-    /* Default action */
+    /* Default action - show we took default path */
+    moveal  #TDABase + 1 + (19 * ScreenWidth) + 58, %a2
+    moveb   #'D', (%a2)+
     jsr     set_display_update_flag
     rts
+
+process_submenu_debug:
+    moveal  #TDABase + 1 + (19 * ScreenWidth) + 58, %a2
+    moveb   #'S', (%a2)+
+    jmp     process_submenu
+
+process_text_debug:
+    moveal  #TDABase + 1 + (19 * ScreenWidth) + 58, %a2
+    moveb   #'T', (%a2)+
+    jmp     process_text
+
+process_link_debug:
+    moveal  #TDABase + 1 + (19 * ScreenWidth) + 58, %a2
+    moveb   #'L', (%a2)+
+    jmp     process_link
 
 /* Process submenu selection */
 process_submenu:
@@ -771,7 +845,26 @@ process_submenu:
     movel   #'S', %d0
     jsr     add_debug_trace
     
+    /* Debug: Show current menu and selection */
+    moveal  #TDABase + 1 + (19 * ScreenWidth) + 54, %a2
+    moveb   #'(', (%a2)+
+    movew   current_menu_id, %d3
+    addib   #'0', %d3
+    moveb   %d3, (%a2)+
+    moveb   #',', (%a2)+
+    movew   current_selection, %d3
+    addib   #'0', %d3
+    moveb   %d3, (%a2)+
+    moveb   #')', (%a2)+
+    
     jsr     get_menu_target_id
+    
+    /* Debug: Show target menu ID */
+    moveal  #TDABase + 1 + (19 * ScreenWidth) + 60, %a2
+    moveb   #'>', (%a2)+
+    moveb   %d0, %d3
+    addib   #'0', %d3
+    moveb   %d3, (%a2)+
     
     /* Push current menu to navigation stack */
     movel   navigation_stack_pos, %d1
@@ -1070,18 +1163,6 @@ display_menu_item_number:
     movew   current_menu_id, %d0
     movew   %d6, %d1
 
-    /* Debug: Also show menu ID and index for this lookup */
-    moveb   #'(', (%a2)+
-    moveb   %d0, %d3
-    addib   #'0', %d3
-    moveb   %d3, (%a2)+
-    moveb   #',', (%a2)+
-    moveb   %d1, %d3
-    addib   #'0', %d3
-    moveb   %d3, (%a2)+
-    moveb   #')', (%a2)+
-    moveb   #' ', (%a2)+
-
     jsr     get_menu_item_text
     moveal  %a0, %a5
 
@@ -1170,8 +1251,8 @@ default_handler:
 header_title:
     .string "JonSharp.net Cyberterminal Access"
 version_text:
-    .string "[v1.0-2025]"
-.equ version_text_length, 10
+    .string "[sampler ROM v1.0-2025]"
+.equ version_text_length, 23
 
 footer_commands:
     .string "m=Main b=Back h=Help q=Quit 1-9=Menu Items"

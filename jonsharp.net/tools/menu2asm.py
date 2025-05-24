@@ -283,7 +283,9 @@ def generate_menu_structures(menu_data, content_dir):
         menu_defs_asm.append("")
     
     # Build the main menu table
-    menu_table = ["/* Define menu table - each entry is a pointer to a menu definition */",
+    menu_table = ["/* Menu table */",
+                  "/* Define menu table - each entry is a pointer to a menu definition */",
+                  ".global menu_table",
                   "menu_table:"]
     
     for menu_id in sorted(menu_data.keys(), key=lambda k: menu_ids[k]):
@@ -299,6 +301,7 @@ def generate_menu_structures(menu_data, content_dir):
     
     # Create content_text_ptrs table
     if content_text_asm:
+        asm_output.append(".global content_text_ptrs")
         asm_output.append("content_text_ptrs:")
         
         # Initialize all entries to 0 for the 10x16 matrix
