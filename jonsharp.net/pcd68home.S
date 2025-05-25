@@ -130,6 +130,9 @@ start:
     movel   #0, navigation_stack    /* First entry is main menu (ID 0) */
     addil   #1, navigation_stack_pos /* Increment stack position */
     
+    /* Initialize menu system - ensure proper linkage */
+    jsr     init_menu_system
+    
     /* Initialize keyboard controller */
     /* First, clear any pending interrupts and reports */
     moveb   #STATUS_CLEAR_INTERRUPT, KCTLStatus
@@ -192,7 +195,7 @@ main_loop:
     jsr     add_debug_trace
     
     /* Debug marker to show we're in the main loop - changes with each iteration */
-    moveal  #TDABase + 1 + (19 * ScreenWidth) + 25, %a2
+    moveal  #TDABase + 1 + (19 * ScreenWidth) + 2, %a2
     
     /* Toggle between two characters to show loop is running */
     moveb   main_loop_toggle, %d0
@@ -289,7 +292,6 @@ main_loop_continue:
     movel   #'L', %d0
     jsr     add_debug_trace
     
-    /* RE-ENABLE DISPLAY REFRESH - keyboard is now working */
     /* Check if display needs updating */
     cmpl    #1, display_needs_update
     bne     main_loop_delay      /* No update needed, skip drawing */
@@ -313,6 +315,12 @@ perform_refresh:
     
     /* Lock refreshing to prevent constant flickering */
     movel   #1, refresh_lock
+    
+    /* Clear the header area (preserving borders) */
+    jsr     clear_header_area
+
+    /* draw/update current menu content */
+    jsr     draw_header
     
     /* Clear the content area (preserving borders) */
     jsr     clear_content_area
@@ -341,7 +349,7 @@ unlock_delay_loop:
     
 main_loop_delay:
     /* Small delay to prevent CPU thrashing */
-    movel   #500, %d0
+    movel   #50, %d0
 delay_loop:
     subil   #1, %d0
     bne     delay_loop
@@ -678,11 +686,13 @@ process_keyboard_input:
     movew   %d0, %d3          /* Save selected index in D3 */
     
     /* Debug: Show converted index */
+    /* disabled until we implement cursor movement */
     moveal  #TDABase + 1 + (19 * ScreenWidth) + 43, %a2
     moveb   #'>', (%a2)+
     moveb   %d3, %d4
     addib   #'0', %d4
     moveb   %d4, (%a2)+
+    */
     
     /* Check if this is a valid menu item */
     movew   current_menu_id, %d1
@@ -895,6 +905,59 @@ process_text:
     
     /* Update display */
     jsr     set_display_update_flag
+    
+    /* Display content using multi-line function */
+    jsr     print_multiline_string
+    
+    /* Restore registers */
+    movel   (%sp)+, %a5
+    movel   (%sp)+, %a2
+    movel   (%sp)+, %d0
+    rts
+
+/* Keyboard interrupt handler - DISABLED for pure polling debugging */
+keyboard_handler:
+    /* Just clear the interrupt and return */
+    moveb   #STATUS_CLEAR_INTERRUPT, KCTLStatus
+    rte
+
+/* Default exception handler */
+default_handler:
+    /* Display exception message */
+    moveal  #TDABase + 1 + (80 * (ScreenHeight - 1)), %a2
+    lea     exception_msg, %a5
+    jsr     print_string
+    
+    /* Hang forever */
+    exception_loop:
+    bra     exception_loop
+
+/* Initialize menu system - ensure proper symbol linkage */
+init_menu_system:
+    /* Save registers */
+    movel   %d0, -(%sp)
+    movel   %a0, -(%sp)
+    
+    /* Force access to menu_table to ensure it's linked */
+    lea     menu_table, %a0
+    movel   (%a0), %d0          /* Read first entry to force linking */
+    
+    /* Force access to content_text_ptrs to ensure it's linked */
+    lea     content_text_ptrs, %a0
+    movel   (%a0), %d0          /* Read first entry to force linking */
+    
+    /* Test menu system basic functionality */
+    movew   #0, %d0             /* Test main menu (ID 0) */
+    jsr     get_menu_item_count /* This will force all menu functions to link */
+    
+    /* Restore registers */
+    movel   (%sp)+, %a0
+    movel   (%sp)+, %d0
+    rts
+
+/* Set flag to update display */
+set_display_update_flag:
+    movel   #1, display_needs_update
     rts
 
 /* Process external link */
@@ -993,11 +1056,6 @@ key_quit:
     jsr     key_home
     rts
 
-/* Set flag to update display */
-set_display_update_flag:
-    movel   #1, display_needs_update
-    rts
-
 /* Display the current menu or content */
 display_current_menu:
     /* Add debug trace */
@@ -1030,6 +1088,20 @@ draw_content_area:
 
 /* Display a menu */
 draw_menu_view:
+    /* Save registers that we'll be using */
+    movel   %d0, -(%sp)
+    movel   %d1, -(%sp)
+    movel   %d2, -(%sp)
+    movel   %d3, -(%sp)
+    movel   %d4, -(%sp)
+    movel   %d5, -(%sp)
+    movel   %d6, -(%sp)
+    movel   %d7, -(%sp)
+    movel   %a0, -(%sp)
+    movel   %a1, -(%sp)
+    movel   %a2, -(%sp)
+    movel   %a5, -(%sp)
+    
     /* Position cursor in title area (line 2) */
     moveal  #TDABase + 1 + (80 * 2), %a2
     
@@ -1051,91 +1123,63 @@ draw_menu_view:
     moveal  #TDABase + 1 + (80 * 2) + 79, %a2
     moveb   #'|', (%a2)
     
-    /* DEBUG: Display menu ID and item count directly on screen */
-    moveal  #TDABase + 1 + (80 * 3) + 30, %a2
-    moveb   #'D', (%a2)+
-    moveb   #':', (%a2)+
+    /* Check if menu has content and display it */
     movew   current_menu_id, %d0
-    addib   #'0', %d0
-    moveb   %d0, (%a2)+
-    moveb   #',', (%a2)+
-    moveb   #' ', (%a2)+
-    moveb   #'I', (%a2)+
-    moveb   #':', (%a2)+
+    jsr     get_menu_content
+    cmpl    #0, %a0
+    beq     skip_menu_content
+    
+    /* Display menu content starting at line 4 */
+    moveal  #TDABase + 1 + (80 * 4), %a2
+    moveal  %a0, %a5
+    jsr     print_multiline_string
+    
+    /* Calculate starting position for menu items based on where content ended */
+    moveal  %a2, %a0            /* Current position after content */
+    subal   #TDABase + 1, %a0   /* Get offset from screen start */
+    movel   %a0, %d0            /* Copy to data register for division */
+    divu    #ScreenWidth, %d0   /* Get current line number */
+    movew   %d0, %d5            /* Store line number in D5 */
+    
+    /* Add 2 lines of spacing after content */
+    addw    #2, %d5
+    bra     start_menu_items
+    
+skip_menu_content:
+    /* Start menu items at line 4 if no content */
+    movew   #4, %d5             /* Start line for menu items */
+    
+start_menu_items:
+    /* Get menu item count for the loop */
     movew   current_menu_id, %d0
     jsr     get_menu_item_count
-    movew   %d0, %d7            /* Menu item count */
-    addib   #'0', %d0
-    moveb   %d0, (%a2)+
+    movew   %d0, %d7            /* Store menu item count in d7 */
     
-    /* DEBUG: Display menu_table address and first 2 values */
-    moveal  #TDABase + 1 + (80 * 4) + 1, %a2
-    moveb   #'M', (%a2)+
-    moveb   #':', (%a2)+
+    /* Ensure minimum starting line (line 8 to leave room for content) */
+    cmpw    #8, %d5
+    bge     menu_start_ok
+    movew   #8, %d5
     
-    /* Get menu_table address */
-    lea     menu_table, %a0
+menu_start_ok:
+    /* Ensure we don't go past the status line (line 18) */
+    cmpw    #18, %d5
+    ble     menu_line_ok
+    movew   #18, %d5
     
-    /* Display first few menu_table entries */
-    movel   (%a0), %d0     /* First entry (main menu def) */
-    movel   %d0, %d5
-    
-    /* First byte of menu def */
-    moveal  %d5, %a1
-    cmpw    #0, %a1
-    beq     menu_def_null
-    
-    moveb   #'T', (%a2)+
-    
-    /* Get menu title from menu def */
-    movel   (%a1), %a1    /* Get title pointer */
-    cmpw    #0, %a1
-    beq     title_null
-    
-    moveb   #'S', (%a2)+
-    moveb   #'=', (%a2)+
-    
-    /* Print up to 20 characters of the title */
-    movel   #0, %d6     /* counter */
-title_print_loop:
-    cmpw    #20, %d6
-    bge     title_print_end
-    
-    moveb   (%a1)+, %d0
-    cmpb    #0, %d0     /* Check for null terminator */
-    beq     title_print_end
-    
-    moveb   %d0, (%a2)+
-    addl    #1, %d6
-    bra     title_print_loop
-    
-title_print_end:
-    bra     continue_debug
-    
-title_null:
-    moveb   #'T', (%a2)+
-    moveb   #'N', (%a2)+
-    bra     continue_debug
-    
-menu_def_null:
-    moveb   #'N', (%a2)+
-    
-continue_debug:
+menu_line_ok:
     /* Loop through menu items */
     movew   #0, %d6             /* Current item index */
 display_menu_loop:
-    cmpw    %d7, %d6
+    cmpw    %d7, %d6            /* Compare with item count */
     bge     display_menu_end
     
-    /* Position cursor for this menu item - using content area lines */
-    movel   %d6, %d0
-    addl    #6, %d0             /* Start at line 6 (after debug info) */
+    /* Position cursor for this menu item */
+    movel   %d5, %d0             /* Start with the start line (7 or 4) */
+    addl    %d6, %d0             /* Add the item index (0, 1, 2, etc.) */
     muls    #80, %d0            /* 80 characters per line (use muls not mull) */
     lea     TDABase + 1, %a0
     addl    %d0, %a0
     moveal  %a0, %a2
-    
-    /* No left border pipe in updated layout */
     
     /* Check if this is the current selection */
     cmpw    current_selection, %d6
@@ -1174,10 +1218,28 @@ display_menu_item_number:
     bra     display_menu_loop
     
 display_menu_end:
+    /* Restore registers */
+    movel   (%sp)+, %a5
+    movel   (%sp)+, %a2
+    movel   (%sp)+, %a1
+    movel   (%sp)+, %a0
+    movel   (%sp)+, %d7
+    movel   (%sp)+, %d6
+    movel   (%sp)+, %d5
+    movel   (%sp)+, %d4
+    movel   (%sp)+, %d3
+    movel   (%sp)+, %d2
+    movel   (%sp)+, %d1
+    movel   (%sp)+, %d0
     rts
 
 /* Display text content view */
 draw_text_content_view:
+    /* Save registers */
+    movel   %d0, -(%sp)
+    movel   %a2, -(%sp)
+    movel   %a5, -(%sp)
+    
     /* Add debug trace */
     movel   #'C', %d0
     jsr     add_debug_trace
@@ -1197,36 +1259,34 @@ draw_text_content_view:
     
     /* Display content using multi-line function */
     jsr     print_multiline_string
+    
+    /* Restore registers */
+    movel   (%sp)+, %a5
+    movel   (%sp)+, %a2
+    movel   (%sp)+, %d0
     rts
     
 content_ptr_null:
     /* Display error message */
     lea     content_null_msg, %a5
     jsr     print_string
+    
+    /* Restore registers */
+    movel   (%sp)+, %a5
+    movel   (%sp)+, %a2
+    movel   (%sp)+, %d0
     rts
     
 content_empty:
     /* Display error message */
     lea     content_empty_msg, %a5
     jsr     print_string
-    rts
-
-/* Keyboard interrupt handler - DISABLED for pure polling debugging */
-keyboard_handler:
-    /* Just clear the interrupt and return */
-    moveb   #STATUS_CLEAR_INTERRUPT, KCTLStatus
-    rte
-
-/* Default exception handler */
-default_handler:
-    /* Display exception message */
-    moveal  #TDABase + 1 + (80 * (ScreenHeight - 1)), %a2
-    lea     exception_msg, %a5
-    jsr     print_string
     
-    /* Hang forever */
-    exception_loop:
-    bra     exception_loop
+    /* Restore registers */
+    movel   (%sp)+, %a5
+    movel   (%sp)+, %a2
+    movel   (%sp)+, %d0
+    rts
 
 /* Constants */
 .equ ENTRY_TYPE_SUBMENU, 0

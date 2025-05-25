@@ -143,6 +143,7 @@ def generate_menu_structures(menu_data, content_dir):
     content_text_asm = []
     content_files = {}  # Track content files and their IDs
     title_strings = []  # Track all title strings
+    menu_content_files = {}  # Track menu-level content files
     
     # Initialize the structure
     asm_output = [
@@ -151,10 +152,9 @@ def generate_menu_structures(menu_data, content_dir):
         " * DO NOT EDIT DIRECTLY",
         " */",
         "",
-        "/* Export global symbols as weak to avoid conflicts */",
-        ".weak menu_table",
-        ".weak content_text_ptrs",
-        ".weak get_content_pointer",
+        "/* Export global symbols */",
+        ".global menu_table",
+        ".global content_text_ptrs",
         ""
     ]
     
@@ -173,6 +173,25 @@ def generate_menu_structures(menu_data, content_dir):
         parent_id = menu.get('parent', '')
         parent_index = menu_ids.get(parent_id, -1)
         
+        # Handle menu-level content
+        menu_content = menu.get('content', '')
+        menu_content_pointer = "0"  # Default to null pointer
+        
+        if menu_content:
+            # Generate content for the menu description
+            content_id = content_id_counter
+            menu_content_files[menu_id] = content_id
+            
+            # Create assembly content for menu description
+            sanitized_content = sanitize_for_asm(menu_content)
+            safe_id = sanitize_label(f"menu_{menu_id}_content")
+            menu_content_asm = [f"{safe_id}_text:"]
+            menu_content_asm.append(f'    .asciz "{sanitized_content}"')
+            content_text_asm.append('\n'.join(menu_content_asm))
+            
+            menu_content_pointer = f"{safe_id}_text"
+            content_id_counter += 1
+        
         # Add menu title to title collection
         all_titles.add(title)
         
@@ -189,8 +208,13 @@ def generate_menu_structures(menu_data, content_dir):
             item_key = item.get('key', '')
             item_type = TYPE_SUBMENU if item.get('type') == 'submenu' else TYPE_CONTENT
             
-            # Add item title to title collection
+            # Add item title to title collection - ALWAYS add both titles
             all_titles.add(item_title)
+            
+            # For submenu items, also ensure the target submenu title is collected
+            if item_type == TYPE_SUBMENU and item_id in menu_data:
+                target_menu_title = menu_data[item_id].get('title', item_id.replace('_', ' ').title())
+                all_titles.add(target_menu_title)
             
             # Sanitize the item_id for assembly
             safe_item_id = sanitize_label(item_id)
@@ -230,7 +254,8 @@ def generate_menu_structures(menu_data, content_dir):
             'index': menu_index,
             'title': title,
             'items': item_ids,
-            'parent': parent_index
+            'parent': parent_index,
+            'content_pointer': menu_content_pointer
         }
     
     # Generate title strings first
@@ -280,6 +305,7 @@ def generate_menu_structures(menu_data, content_dir):
         menu_defs_asm.append(f"    .word    {len(items)}   /* Item count */")
         menu_defs_asm.append(f"    .word    0               /* Padding */")
         menu_defs_asm.append(f"    .long    {array_name}    /* Item array pointer */")
+        menu_defs_asm.append(f"    .long    {menu_info['content_pointer']}    /* Content pointer (0 if none) */")
         menu_defs_asm.append("")
     
     # Build the main menu table
@@ -298,6 +324,37 @@ def generate_menu_structures(menu_data, content_dir):
     for i in range(len(menu_ids), MAX_MENUS):
         menu_table.append("    .long   0")
     menu_table.append("")
+    
+    # Add global declarations for all the key symbols
+    global_declarations = ["/* Global symbol declarations for proper linking */"]
+    
+    # Add global declarations for all text labels
+    for title in all_titles:
+        safe_label = sanitize_label(title)
+        global_declarations.append(f".global {safe_label}_text")
+    
+    # Add global declarations for all menu item arrays
+    for menu_id in menu_data.keys():
+        safe_menu_id = sanitize_label(menu_id)
+        global_declarations.append(f".global {safe_menu_id}_items_array")
+    
+    # Add global declarations for all menu definitions  
+    for menu_id in menu_data.keys():
+        safe_menu_id = sanitize_label(menu_id)
+        global_declarations.append(f".global {safe_menu_id}_def")
+    
+    # Add global declarations for all menu item structures
+    for menu_id, menu in menu_data.items():
+        safe_menu_id = sanitize_label(menu_id)
+        menu_info = menus[menu_id]
+        items = menu_info['items']
+        
+        for item in items:
+            safe_item_id = sanitize_label(item['id'])
+            item_asm_id = f"{safe_menu_id}_{safe_item_id}_item"
+            global_declarations.append(f".global {item_asm_id}")
+    
+    global_declarations.append("")
     
     # Create content_text_ptrs table
     if content_text_asm:
@@ -342,48 +399,14 @@ def generate_menu_structures(menu_data, content_dir):
         "/* Menu definitions */",
         *menu_defs_asm,
         "/* Menu table */", 
-        *menu_table
+        *menu_table,
+        *global_declarations
     ])
     
     # Add content text definitions
     if content_text_asm:
         asm_output.append("/* Content text strings */")
         asm_output.extend(content_text_asm)
-    
-    # Add the get_content_pointer function implementation
-    if content_text_asm:
-        asm_output.append("")
-        asm_output.append("/* Get content pointer based on menu ID and selection */")
-        asm_output.append(".align 2")
-        asm_output.append("get_content_pointer:")
-        asm_output.append("    /* Input: D0 = menu ID, D1 = selection */")
-        asm_output.append("    /* Output: A0 = content pointer */")
-        asm_output.append("    /* Check if menu ID is valid */")
-        asm_output.append("    cmpw    #0, %d0")
-        asm_output.append("    blt     content_error    /* Invalid menu ID */")
-        asm_output.append("    cmpw    #4, %d0")
-        asm_output.append("    bgt     content_error    /* Invalid menu ID */")
-        asm_output.append("")
-        asm_output.append("    /* Calculate index into content_text_ptrs table */")
-        asm_output.append("    /* Menu ID * 16 + item index = array index */")
-        asm_output.append("    lslw    #4, %d0         /* Multiply menu ID by 16 */")
-        asm_output.append("    addw    %d1, %d0        /* Add item index */")
-        asm_output.append("    ")
-        asm_output.append("    /* Get content text pointer */")
-        asm_output.append("    lslw    #2, %d0         /* Multiply by 4 for long word offset */")
-        asm_output.append("    lea     content_text_ptrs, %a0")
-        asm_output.append("    addl    %d0, %a0")
-        asm_output.append("    movel   (%a0), %a0")
-        asm_output.append("    rts")
-        asm_output.append("    ")
-        asm_output.append(".align 2")
-        asm_output.append("content_error:")
-        asm_output.append("    /* Return a pointer to an error message */")
-        asm_output.append("    lea     content_error_text, %a0")
-        asm_output.append("    rts")
-        asm_output.append("")
-        asm_output.append("content_error_text:")
-        asm_output.append("    .asciz \"Error: Content not found\"")
     
     asm_output.append("")
     

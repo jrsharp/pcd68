@@ -60,7 +60,10 @@ public:
      */
     bool isDebugMode() const;
 
-    unsigned char textMapMem[50 * 37];
+    // Text memory map - sized for 80x23 characters (80-column mode max)
+    // 80 columns * 23 rows = 1840 characters 
+    // (400px / 5px per char = 80 cols, 299px / 13px per char = 23 rows)
+    unsigned char textMapMem[80 * 23];
 
 private:
     CPU* cpu;

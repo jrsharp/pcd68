@@ -3,6 +3,7 @@
 
 main_menu:
   title: "Main Menu"
+  content: "Welcome to the JonSharp.net cyberterminal! This text-based interface provides a sampling of content taking from my primary online presence:\n\n gopher://jonsharp.net\n"
   key_prefix: ""  # No prefix for top-level menu
   items:
     - id: "art"
@@ -24,6 +25,7 @@ main_menu:
       title: "Bookmarks"
       key: "4"
       type: "content"
+      content_file: "resources/links.md"
       order: 4
     - id: "phlog"
       title: "Gopher Log (phlog)"
@@ -32,7 +34,7 @@ main_menu:
       content_file: "phlog.md"
       order: 5
     - id: "archive"
-      title: "The Archive (old jonsharp.net content)"
+      title: "The Archive (from an earlier version of the matrix)"
       key: "6"
       type: "content"
       content_file: "archive.md"
@@ -43,6 +45,7 @@ main_menu:
 
 art:
   title: "Art & Creative Projects"
+  content: "Explore my digital art, ASCII art collections, and generative art experiments. These projects combine technical programming skills with creative expression."
   parent: "main_menu"
   key_prefix: ""
   items:
@@ -91,6 +94,7 @@ about:
 
 projects:
   title: "Projects"
+  content: "Hardware and software projects spanning retrocomputing, embedded systems, and experimental computing platforms."
   parent: "main_menu"
   key_prefix: ""
   items:

@@ -74,6 +74,45 @@ print_no_advance_done:
     movel   (%sp)+, %a5
     rts
 
+/* Clear the header area of the screen based on updated layout */
+.global clear_header_area
+clear_header_area:
+    /* Position at the start of header area (line 1) */
+    movel   #1, %d7             /* Start at line 1 */
+clear_header_area_line_loop:
+    cmpl    #3, %d7            /* End at line 2 (before line 3) */
+    bge     clear_header_area_done
+    
+    /* Position at start of this line */
+    muls    #ScreenWidth, %d7
+    lea     TDABase + 1, %a0
+    addl    %d7, %a0
+    moveal  %a0, %a2
+    
+    /* Clear entire line with spaces - no borders */
+    movel   #0, %d6             /* Start at beginning of line */
+clear_header_area_char_loop:
+    cmpl    #ScreenWidth, %d6   /* Fill entire line */
+    bge     clear_header_area_next_line
+    
+    /* Write space to clear area */
+    moveb   #' ', (%a2)+
+    
+    addl    #1, %d6
+    bra     clear_header_area_char_loop
+    
+clear_header_area_next_line:
+    /* Convert line position back from offset */
+    divs    #ScreenWidth, %d7
+    
+    addl    #1, %d7
+    bra     clear_header_area_line_loop
+    
+clear_header_area_done:
+    /* Reset cursor position to start of header area */
+    moveal  #TDABase + 1 + (80 * 1), %a2
+    rts
+
 /* Clear the content area of the screen based on updated layout */
 .global clear_content_area
 clear_content_area:
@@ -488,7 +527,7 @@ menu_table_restore:
     movel   %d0, -(%sp)          /* Save count */
     movel   %d1, -(%sp)          /* Save d1 */
     
-    moveal  #TDABase + 1 + (19 * ScreenWidth) + 62, %a1
+    moveal  #TDABase + 1 + (19 * ScreenWidth) + 50, %a1
     moveb   #'c', (%a1)+         /* lowercase c to distinguish from other debug */
     moveb   %d0, %d1
     addib   #'0', %d1
@@ -574,17 +613,11 @@ get_menu_entry_type:
     /* Get item array pointer */
     movel   8(%a0), %a0          /* Item array pointer at offset 8 */
     
-    /* Navigate to specific item - our array contains pointers to items */
-    movel   (%sp)+, %d1          /* Restore item index */
-    lsll    #2, %d1              /* Multiply by 4 for long word offset */
-    addl    %d1, %a0             /* Get pointer to item pointer */
-    movel   (%a0), %a0           /* Dereference to get item structure */
-    
     /* Debug: Show what we found at the item structure address */
     movel   %a0, -(%sp)          /* Save item structure pointer */
     movel   %d1, -(%sp)          /* Save registers we'll modify */
     
-    moveal  #TDABase + 1 + (19 * ScreenWidth) + 60, %a1
+    moveal  #TDABase + 1 + (19 * ScreenWidth) + 52, %a1
     moveb   #'@', (%a1)+
     
     /* Show the type byte value we're about to return */
@@ -614,15 +647,9 @@ get_menu_target_id:
     /* Get item array pointer */
     movel   8(%a0), %a0          /* Item array pointer at offset 8 */
     
-    /* Navigate to specific item - our array contains pointers to items */
-    movel   (%sp)+, %d1          /* Restore item index */
-    lsll    #2, %d1              /* Multiply by 4 for long word offset */
-    addl    %d1, %a0             /* Get pointer to item pointer */
-    movel   (%a0), %a0           /* Dereference to get item structure */
-    
     /* Debug - show address and offsets */
     movel   %a0, %d5
-    moveal  #TDABase + 1 + (19 * ScreenWidth) + 75, %a2
+    moveal  #TDABase + 1 + (19 * ScreenWidth) + 54, %a2
     moveb   #'G', (%a2)+
     moveb   #':', (%a2)+
     
@@ -632,10 +659,12 @@ get_menu_target_id:
     moveb   %d7, (%a2)+
     
     /* Display target ID */
+    /* Disabled for now - might become relevant again when we introduce cursor movement */
     moveb   #'>', (%a2)+
     movew   6(%a0), %d7
     addib   #'0', %d7
     moveb   %d7, (%a2)+
+    */
     
     /* Target menu ID is at offset 6 (word) */
     movew   6(%a0), %d0
@@ -663,6 +692,17 @@ get_content_pointer:
 .global get_menu_item_text
 .align 2
 get_menu_item_text:
+    /* Save additional registers for debugging */
+    movel   %d2, -(%sp)
+    movel   %d3, -(%sp)
+    movel   %a1, -(%sp)
+    
+    /* Debug: Add trace character for function entry */
+    movel   %d0, -(%sp)
+    movel   #'I', %d0
+    jsr     add_debug_trace
+    movel   (%sp)+, %d0
+    
     /* Get menu definition */
     movel   %d1, -(%sp)           /* Save item index */
     lsll    #2, %d0               /* Multiply menu ID by 4 for long offset */
@@ -670,12 +710,40 @@ get_menu_item_text:
     addl    %d0, %a0
     movel   (%a0), %a0           /* Get menu definition pointer */
     
+    /* Debug: Check if menu definition is null */
+    cmpl    #0, %a0
+    bne     menu_def_ok
+    movel   %d0, -(%sp)
+    movel   #'M', %d0
+    jsr     add_debug_trace
+    movel   (%sp)+, %d0
+    bra     get_menu_item_error_menu_def
+    
+menu_def_ok:
+    /* Debug: Show menu definition OK */
+    movel   %d0, -(%sp)
+    movel   #'D', %d0
+    jsr     add_debug_trace
+    movel   (%sp)+, %d0
+    
     /* Get item array pointer */
     movel   8(%a0), %a0          /* Item array pointer at offset 8 */
     
-    /* Check if array pointer is null */
+    /* Debug: Check if array pointer is null */
     cmpl    #0, %a0
-    beq     get_menu_item_error_array
+    bne     array_ok
+    movel   %d0, -(%sp)
+    movel   #'A', %d0
+    jsr     add_debug_trace
+    movel   (%sp)+, %d0
+    bra     get_menu_item_error_array
+    
+array_ok:
+    /* Debug: Show array OK */
+    movel   %d0, -(%sp)
+    movel   #'R', %d0           /* R = aRray OK */
+    jsr     add_debug_trace
+    movel   (%sp)+, %d0
     
     /* Navigate to specific item - our array contains pointers to items */
     movel   (%sp)+, %d1          /* Restore item index */
@@ -683,35 +751,85 @@ get_menu_item_text:
     addl    %d1, %a0             /* Get pointer to item pointer */
     movel   (%a0), %a0           /* Dereference to get item structure */
     
-    /* Check if item pointer is null */
+    /* Debug: Check if item pointer is null */
     cmpl    #0, %a0
-    beq     get_menu_item_error_item
+    bne     item_ok
+    movel   %d0, -(%sp)
+    movel   #'P', %d0
+    jsr     add_debug_trace
+    movel   (%sp)+, %d0
+    bra     get_menu_item_error_item
+    
+item_ok:
+    /* Debug: Show item OK */
+    movel   %d0, -(%sp)
+    movel   #'L', %d0           /* L = item Link OK */
+    jsr     add_debug_trace
+    movel   (%sp)+, %d0
     
     /* Item text pointer is at offset 0 in the item structure */
     movel   (%a0), %a0
     
-    /* Check if text pointer is null */
+    /* Debug: Check if text pointer is null */
     cmpl    #0, %a0
-    beq     get_menu_item_error_text
+    bne     text_ok
+    movel   %d0, -(%sp)
+    movel   #'T', %d0
+    jsr     add_debug_trace
+    movel   (%sp)+, %d0
+    bra     get_menu_item_error_text
     
+text_ok:
+    /* Debug: Success */
+    movel   %d0, -(%sp)
+    movel   #'O', %d0
+    jsr     add_debug_trace
+    movel   (%sp)+, %d0
+    
+    /* Restore debug registers */
+    movel   (%sp)+, %a1
+    movel   (%sp)+, %d3
+    movel   (%sp)+, %d2
+    rts
+
+.align 2
+get_menu_item_error_menu_def:
+    /* Return error message */
+    lea     menu_item_error_menu_def, %a0
+    /* Restore debug registers */
+    movel   (%sp)+, %a1
+    movel   (%sp)+, %d3
+    movel   (%sp)+, %d2
     rts
 
 .align 2
 get_menu_item_error_array:
     /* Return error message */
     lea     menu_item_error_array, %a0
+    /* Restore debug registers */
+    movel   (%sp)+, %a1
+    movel   (%sp)+, %d3
+    movel   (%sp)+, %d2
     rts
 
 .align 2
 get_menu_item_error_item:
     /* Return error message */
     lea     menu_item_error_item, %a0
+    /* Restore debug registers */
+    movel   (%sp)+, %a1
+    movel   (%sp)+, %d3
+    movel   (%sp)+, %d2
     rts
     
 .align 2
 get_menu_item_error_text:
     /* Return error message */
     lea     menu_item_error_text, %a0
+    /* Restore debug registers */
+    movel   (%sp)+, %a1
+    movel   (%sp)+, %d3
+    movel   (%sp)+, %d2
     rts
 
 .align 2
@@ -724,9 +842,14 @@ menu_item_error_item:
     
 .align 2
 menu_item_error_text:
-    .asciz "ERROR: Menu item text pointer is null" 
+    .asciz "ERROR: Menu item text pointer is null"
+    
+.align 2
+menu_item_error_menu_def:
+    .asciz "ERROR: Menu definition is null"
 
 /* Print a multi-line string with proper newline handling for content display */
+.align 2
 .global print_multiline_string
 print_multiline_string:
     /* Save registers */
@@ -750,6 +873,7 @@ print_multiline_string:
     divu    #ScreenWidth, %d2    /* Get line number in upper word */
     swap    %d2                  /* Get remainder (column) in lower word */
     
+.align 2
 print_multi_loop:
     moveb   (%a5)+, %d0
     beq     print_multi_done
@@ -759,7 +883,7 @@ print_multi_loop:
     beq     handle_newline
     
     /* Check if we're still within content area bounds */
-    cmpw    #18, %d1             /* Don't go past line 17 */
+    cmpw    #17, %d1             /* Don't go past line 16 to leave room for menu items */
     bge     print_multi_done
     
     /* Normal character - write to screen */
@@ -782,6 +906,7 @@ print_multi_loop:
     
     bra     print_multi_loop
     
+.align 2
 handle_newline:
     /* Move to next line */
     addw    #1, %d1              /* Next line */
@@ -795,6 +920,7 @@ handle_newline:
     
     bra     print_multi_loop
     
+.align 2
 print_multi_done:
     /* Restore registers */
     movel   (%sp)+, %d3
@@ -802,4 +928,57 @@ print_multi_done:
     movel   (%sp)+, %d1
     movel   (%sp)+, %d0
     movel   (%sp)+, %a5
+    rts
+
+.global get_menu_content
+.align 2
+get_menu_content:
+    /* Get menu definition from table */
+    lsll    #2, %d0              /* Multiply menu ID by 4 for long offset */
+    lea     menu_table, %a0
+    addl    %d0, %a0
+    movel   (%a0), %a0           /* Get menu definition pointer */
+    
+    /* Check if menu definition is null before using it */
+    cmpl    #0, %a0
+    beq     return_null_content
+    
+    /* Content pointer is at offset 12 */
+    movel   12(%a0), %a0
+    rts
+
+return_null_content:
+    /* Return null pointer */
+    movel   #0, %a0
+    rts 
+
+/* Add debug trace to status line - call this to mark function entry */
+/* Input: D0 = character to display in trace section */
+.global add_debug_trace
+add_debug_trace:
+    /* Save registers */
+    movel   %d1, -(%sp)
+    movel   %a2, -(%sp)
+    
+    /* Position in trace section (around position 55) */
+    moveal  #TDABase + 1 + (19 * ScreenWidth) + 55, %a2
+    
+    /* Find next available slot (look for space) */
+    movel   #0, %d1
+find_trace_slot:
+    cmpl    #10, %d1           /* Max 10 trace chars */
+    bge     trace_slot_found
+    cmpb    #' ', (%a2)
+    beq     trace_slot_found
+    addl    #1, %a2
+    addl    #1, %d1
+    bra     find_trace_slot
+    
+trace_slot_found:
+    /* Write the trace character */
+    moveb   %d0, (%a2)
+    
+    /* Restore registers */
+    movel   (%sp)+, %a2
+    movel   (%sp)+, %d1
     rts 
