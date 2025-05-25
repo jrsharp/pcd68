@@ -942,8 +942,8 @@ init_menu_system:
     lea     menu_table, %a0
     movel   (%a0), %d0          /* Read first entry to force linking */
     
-    /* Force access to content_text_ptrs to ensure it's linked */
-    lea     content_text_ptrs, %a0
+    /* Force access to content_table to ensure it's linked */
+    lea     content_table, %a0
     movel   (%a0), %d0          /* Read first entry to force linking */
     
     /* Test menu system basic functionality */
@@ -1373,7 +1373,7 @@ help_text:
 
 /* Export these variables for utility_functions.S */
 .global menu_table
-.global content_text_ptrs
+.global content_table
 
 .align 4
 .global current_menu_id

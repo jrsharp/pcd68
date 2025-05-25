@@ -16,9 +16,9 @@
 .equ MaxMenuItems, 20          /* Maximum items in a menu */
 .equ MaxContentSize, 1024      /* Maximum content buffer size */
 
-/* Reference the external variables from pcd68home.S */
+/* Reference the external variables from generated menu structures */
 .extern menu_table
-.extern content_text_ptrs
+.extern content_table
 .extern current_menu_id
 .extern current_selection
 .extern view_state
@@ -673,20 +673,48 @@ get_menu_target_id:
 .global get_content_pointer
 .align 2
 get_content_pointer:
-    /* Calculate index into content_text_ptrs table */
-    movel   %d1, -(%sp)           /* Save item index */
+    /* Direct lookup in content_table using content ID */
+    /* Input: %d0 = content ID */
+    /* Output: %a0 = content pointer */
     
-    /* Menu ID * 16 + item index = array index */
-    lsll    #4, %d0               /* Multiply menu ID by 16 */
-    movel   (%sp)+, %d1           /* Restore item index */
-    addl    %d1, %d0              /* Add item index */
-    
-    /* Get pointer from table */
+    /* Get pointer from content_table[content_id] */
     lsll    #2, %d0               /* Multiply by 4 for long offset */
-    lea     content_text_ptrs, %a0
+    lea     content_table, %a0
     addl    %d0, %a0
     movel   (%a0), %a0           /* Get content pointer */
     
+    rts
+
+.global get_menu_item_content_id
+.align 2
+get_menu_item_content_id:
+    /* Get content ID from menu item */
+    /* Input: %d0 = menu ID, %d1 = item index */
+    /* Output: %d0 = content ID */
+    
+    /* Save registers */
+    movel   %a0, -(%sp)
+    
+    /* Get menu definition */
+    lsll    #2, %d0               /* Multiply menu ID by 4 for long offset */
+    lea     menu_table, %a0
+    addl    %d0, %a0
+    movel   (%a0), %a0           /* Get menu definition pointer */
+    
+    /* Get item array pointer */
+    movel   8(%a0), %a0          /* Item array pointer at offset 8 */
+    
+    /* Navigate to specific item */
+    lsll    #2, %d1              /* Multiply by 4 for long word offset */
+    addl    %d1, %a0             /* Get pointer to item pointer */
+    movel   (%a0), %a0           /* Dereference to get item structure */
+    
+    /* Content ID is at offset 6 in the new structure */
+    clrl    %d0                  /* Clear upper bits */
+    movew   6(%a0), %d0          /* Get content ID (word) and zero-extend */
+    
+    /* Restore registers */
+    movel   (%sp)+, %a0
     rts
 
 .global get_menu_item_text
@@ -767,7 +795,7 @@ item_ok:
     jsr     add_debug_trace
     movel   (%sp)+, %d0
     
-    /* Item text pointer is at offset 0 in the item structure */
+    /* Item text pointer is at offset 0 in the simplified structure */
     movel   (%a0), %a0
     
     /* Debug: Check if text pointer is null */
