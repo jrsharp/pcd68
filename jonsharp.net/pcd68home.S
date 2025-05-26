@@ -41,7 +41,14 @@
 .equ KEY_M, 109                /* 'm' for Main */
 .equ KEY_B, 98                 /* 'b' for Back */
 .equ KEY_Q, 113                /* 'q' for Quit */
+.equ KEY_J, 106                /* 'j' for scroll down */
+.equ KEY_K, 107                /* 'k' for scroll up */
+.equ KEY_UP_ARROW, 16          /* Up arrow key (SDL maps to ASCII 16) */
+.equ KEY_DOWN_ARROW, 17        /* Down arrow key (SDL maps to ASCII 17) */
+.equ KEY_LEFT_ARROW, 18        /* Left arrow key */
+.equ KEY_RIGHT_ARROW, 19       /* Right arrow key */
 .equ KEY_QUESTION, 63          /* '?' (deprecated, now using 'h') */
+.equ KEY_0, 48                 /* '0' - Jump to top */
 .equ KEY_1, 49                 /* '1' - Menu item 1 */
 .equ KEY_2, 50                 /* '2' - Menu item 2 */
 .equ KEY_3, 51                 /* '3' - Menu item 3 */
@@ -132,6 +139,9 @@ start:
     
     /* Initialize menu system - ensure proper linkage */
     jsr     init_menu_system
+    
+    /* Initialize scrolling system */
+    jsr     init_scroll_system
     
     /* Initialize keyboard controller */
     /* First, clear any pending interrupts and reports */
@@ -664,70 +674,64 @@ process_keyboard_input:
     cmpb    #KEY_M, %d0        /* 'm' for Main menu */
     beq     process_key_home
     cmpb    #KEY_H, %d0        /* 'h' for Help */
-    beq     process_key_help
+    beq     process_key_home
     cmpb    #KEY_B, %d0
     beq     process_key_back
     cmpb    #KEY_Q, %d0
     beq     process_key_quit
+    cmpb    #KEY_J, %d0        /* 'j' for scroll down */
+    beq     process_key_scroll_down
+    cmpb    #KEY_K, %d0        /* 'k' for scroll up */
+    beq     process_key_scroll_up
+    cmpb    #KEY_DOWN_ARROW, %d0  /* Down arrow for scroll down */
+    beq     process_key_scroll_down
+    cmpb    #KEY_UP_ARROW, %d0    /* Up arrow for scroll up */
+    beq     process_key_scroll_up
     
-    /* Check for numeric keys for fallback menu selection */
+    /* Check for numeric keys for section jumping */
     cmpb    #KEY_1, %d0
-    blt     finish_key_input
-    cmpb    #KEY_9, %d0
-    bgt     finish_key_input
+    beq     jump_section_1
+    cmpb    #KEY_2, %d0
+    beq     jump_section_2
+    cmpb    #KEY_3, %d0
+    beq     jump_section_3
+    cmpb    #KEY_4, %d0
+    beq     jump_section_4
+    cmpb    #KEY_5, %d0
+    beq     jump_section_5
+    cmpb    #KEY_0, %d0
+    beq     jump_top
     
-    /* Debug: Show we detected a numeric key */
-    moveal  #TDABase + 1 + (19 * ScreenWidth) + 40, %a2
-    moveb   #'#', (%a2)+
-    moveb   %d0, (%a2)+        /* Show the actual key pressed */
-    
-    /* Convert key to menu item index (0-based) */
-    subb    #KEY_1, %d0
-    movew   %d0, %d3          /* Save selected index in D3 */
-    
-    /* Debug: Show converted index */
-    /* disabled until we implement cursor movement */
-    moveal  #TDABase + 1 + (19 * ScreenWidth) + 43, %a2
-    moveb   #'>', (%a2)+
-    moveb   %d3, %d4
-    addib   #'0', %d4
-    moveb   %d4, (%a2)+
-    */
-    
-    /* Check if this is a valid menu item */
-    movew   current_menu_id, %d1
-    jsr     get_menu_item_count
-    movew   %d0, %d2          /* Store item count in d2 */
-    
-    /* Debug: Show item count */
-    moveal  #TDABase + 1 + (19 * ScreenWidth) + 46, %a2
-    moveb   #'C', (%a2)+
-    moveb   %d2, %d4
-    addib   #'0', %d4
-    moveb   %d4, (%a2)+
-    
-    cmpw    %d2, %d3          /* Compare selection index with count */
-    bge     invalid_menu_item     /* Invalid menu item, finish */
-    
-    /* Valid menu item, set as current selection */
-    movew   %d3, current_selection
-    
-    /* Debug: Show we accepted the selection */
-    moveal  #TDABase + 1 + (19 * ScreenWidth) + 48, %a2
-    moveb   #'O', (%a2)+      /* O = OK, valid selection */
-    
-    /* Add debug trace to show menu selection */
-    movel   #'N', %d0
-    jsr     add_debug_trace
-    
-    /* Process the menu selection */
-    jsr     process_menu_selection
     bra     finish_key_input
 
-invalid_menu_item:
-    /* Debug: Show we rejected the selection */
-    moveal  #TDABase + 1 + (19 * ScreenWidth) + 48, %a2
-    moveb   #'X', (%a2)+      /* X = rejected selection */
+jump_top:
+    movel   #0, scroll_offset
+    jsr     set_display_update_flag
+    bra     finish_key_input
+
+jump_section_1:
+    movel   #6, scroll_offset    /* Line 6 = Section 1 */
+    jsr     set_display_update_flag
+    bra     finish_key_input
+
+jump_section_2:
+    movel   #22, scroll_offset   /* Line 22 = Section 2 */
+    jsr     set_display_update_flag
+    bra     finish_key_input
+
+jump_section_3:
+    movel   #36, scroll_offset   /* Line 36 = Section 3 */
+    jsr     set_display_update_flag
+    bra     finish_key_input
+
+jump_section_4:
+    movel   #58, scroll_offset   /* Line 58 = Section 4 */
+    jsr     set_display_update_flag
+    bra     finish_key_input
+
+jump_section_5:
+    movel   #70, scroll_offset   /* Line 70 = Section 5 */
+    jsr     set_display_update_flag
     bra     finish_key_input
 
 /* Key processing wrappers - ensure all keys go through finish_key_input */
@@ -745,6 +749,14 @@ process_key_back:
 
 process_key_quit:
     jsr     key_quit
+    bra     finish_key_input
+
+process_key_scroll_down:
+    jsr     key_scroll_down
+    bra     finish_key_input
+
+process_key_scroll_up:
+    jsr     key_scroll_up
     bra     finish_key_input
 
 finish_key_input:
@@ -1056,6 +1068,47 @@ key_quit:
     jsr     key_home
     rts
 
+/* Scroll down function */
+key_scroll_down:
+    movel   scroll_offset, %d0
+    movel   content_total_lines, %d1
+    subl    #14, %d1                /* Content area height */
+    cmpl    %d1, %d0
+    bge     scroll_down_done
+    addl    #1, %d0
+    movel   %d0, scroll_offset
+    jsr     set_display_update_flag
+scroll_down_done:
+    rts
+
+/* Scroll up function */
+key_scroll_up:
+    movel   scroll_offset, %d0
+    cmpl    #0, %d0
+    ble     scroll_up_done
+    subl    #1, %d0
+    movel   %d0, scroll_offset
+    jsr     set_display_update_flag
+scroll_up_done:
+    rts
+
+/* Initialize scrolling system */
+init_scroll_system:
+    /* Calculate total lines in content by counting newlines */
+    movel   #0, %d0
+    lea     combined_content, %a0
+count_lines_loop:
+    moveb   (%a0)+, %d1
+    cmpb    #0, %d1
+    beq     count_lines_done
+    cmpb    #10, %d1             /* Newline character */
+    bne     count_lines_loop
+    addl    #1, %d0
+    bra     count_lines_loop
+count_lines_done:
+    movel   %d0, content_total_lines
+    rts
+
 /* Display the current menu or content */
 display_current_menu:
     /* Add debug trace */
@@ -1071,20 +1124,79 @@ display_current_menu:
     /* Default to menu view if state is invalid */
     jmp     draw_menu_view
 
-/* Draw content area - either menu or text content */
+/* Draw content area - scrolling text content */
 draw_content_area:
     /* Add debug trace */
     movel   #'D', %d0
     jsr     add_debug_trace
     
-    /* Check view state - use long operations for consistency */
-    cmpl    #0, view_state
-    beq     draw_menu_view
-    cmpl    #1, view_state
-    beq     draw_text_content_view
+    /* Display scrolling content */
+    jsr     draw_scrolling_content
+    rts
+
+/* Draw scrolling content */
+draw_scrolling_content:
+    /* Clear content area first */
+    jsr     clear_content_area
     
-    /* Default to menu view if state is invalid */
-    jmp     draw_menu_view
+    /* Position at content area start (line 4) */
+    moveal  #TDABase + 1 + (4 * 80), %a2
+    
+    /* Find starting position in text based on scroll_offset */
+    lea     combined_content, %a0
+    movel   scroll_offset, %d0
+    movel   #0, %d1
+    
+find_start_loop:
+    cmpl    %d0, %d1
+    bge     find_start_done
+skip_line_loop:
+    moveb   (%a0)+, %d2
+    cmpb    #0, %d2
+    beq     find_start_done
+    cmpb    #10, %d2
+    bne     skip_line_loop
+    addl    #1, %d1
+    bra     find_start_loop
+    
+find_start_done:
+    /* Display 14 lines worth of text */
+    movel   #0, %d3
+    
+display_content_loop:
+    cmpl    #14, %d3
+    bge     display_content_done
+    movel   #0, %d1
+    
+display_line_loop:
+    cmpl    #78, %d1                /* Leave room for borders */
+    bge     line_too_long
+    moveb   (%a0)+, %d2
+    cmpb    #0, %d2
+    beq     display_content_done
+    cmpb    #10, %d2
+    beq     line_done
+    moveb   %d2, (%a2)+
+    addl    #1, %d1
+    bra     display_line_loop
+    
+line_too_long:
+    moveb   (%a0)+, %d2
+    cmpb    #0, %d2
+    beq     display_content_done
+    cmpb    #10, %d2
+    bne     line_too_long
+    
+line_done:
+    addl    #1, %d3
+    moveal  #TDABase + 1 + (4 * 80), %a2
+    movel   %d3, %d1
+    muls    #80, %d1
+    addl    %d1, %a2
+    bra     display_content_loop
+    
+display_content_done:
+    rts
 
 /* Display a menu */
 draw_menu_view:
@@ -1315,7 +1427,7 @@ version_text:
 .equ version_text_length, 23
 
 footer_commands:
-    .string "m=Main b=Back h=Help q=Quit 1-9=Menu Items"
+    .string "j=down, k=up, 0=Top, 1-9=Section markers"
 status_text:
     .string "Loc: "
 selection_text:
@@ -1413,3 +1525,9 @@ keyboard_input_ready:
     .dc.l    0               /* Flag to indicate keyboard input is ready for processing */
 key_debounce_timer:
     .dc.l    0               /* Debounce timer to prevent key repeat */
+
+/* Scrolling variables */
+scroll_offset:
+    .dc.l    0               /* Current scroll position */
+content_total_lines:
+    .dc.l    0               /* Total lines in content */

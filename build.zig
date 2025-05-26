@@ -86,24 +86,24 @@ pub fn build(b: *std.Build) void {
         // Use xxd to convert binary to C array
         const cp_pcd68home = b.addSystemCommand(&.{ "xxd", "-i", "jonsharp.net/program.bin", "src/text_demo.h" });
         cp_pcd68home.step.dependOn(&cp_rom1.step);
-        
+
         // Fix the variable name in the header file
         const fix_var_name = b.addSystemCommand(&.{ "sed", "-i", "''", "-e", "s/jonsharp_net_program_bin/text_demo_bin/g", "src/text_demo.h" });
         fix_var_name.step.dependOn(&cp_pcd68home.step);
-        
+
         // Fix the length variable name in the header file
         const fix_len_name = b.addSystemCommand(&.{ "sed", "-i", "''", "-e", "s/jonsharp_net_program_bin_len/text_demo_bin_len/g", "src/text_demo.h" });
         fix_len_name.step.dependOn(&fix_var_name.step);
 
         // Copy other test ROMs
-        const cp_rom2 = b.addSystemCommand(&.{ "cp", "uart_test.bin", b.fmt("{s}/roms/", .{web_dir}) });
-        cp_rom2.step.dependOn(&fix_len_name.step);
+        //const cp_rom2 = b.addSystemCommand(&.{ "cp", "uart_test.bin", b.fmt("{s}/roms/", .{web_dir}) });
+        //cp_rom2.step.dependOn(&fix_len_name.step);
 
-        const cp_rom3 = b.addSystemCommand(&.{ "cp", "display_test.bin", b.fmt("{s}/roms/", .{web_dir}) });
-        cp_rom3.step.dependOn(&cp_rom2.step);
+        //const cp_rom3 = b.addSystemCommand(&.{ "cp", "display_test.bin", b.fmt("{s}/roms/", .{web_dir}) });
+        //cp_rom3.step.dependOn(&cp_rom2.step);
 
-        const cp_rom4 = b.addSystemCommand(&.{ "cp", "keyboard_test.bin", b.fmt("{s}/roms/", .{web_dir}) });
-        cp_rom4.step.dependOn(&cp_rom3.step);
+        //const cp_rom4 = b.addSystemCommand(&.{ "cp", "keyboard_test.bin", b.fmt("{s}/roms/", .{web_dir}) });
+        //cp_rom4.step.dependOn(&cp_rom3.step);
 
         // Invoke Emscripten
         const output_html = b.fmt("{s}/pcd68.html", .{web_dir});
@@ -144,7 +144,7 @@ pub fn build(b: *std.Build) void {
             "-sEXPORTED_FUNCTIONS=['_malloc','_free','_main','_loadExternalRom','_loadInternalRom']",
             "-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap']",
         });
-        emcc.step.dependOn(&cp_rom4.step);
+        //emcc.step.dependOn(&cp_rom4.step);
 
         // Add to the install step
         b.getInstallStep().dependOn(&emcc.step);

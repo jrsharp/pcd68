@@ -17,11 +17,11 @@
 
 #ifdef __EMSCRIPTEN__
 #    include "emscripten.h"
-#    define CYCLE_FACTOR 10
-#    define INPUT_FACTOR 2
+#    define CYCLE_FACTOR 50    // Balanced for good web performance without sluggishness
+#    define INPUT_FACTOR 1
 #else
-#    define CYCLE_FACTOR 10   // Significantly reduced for better performance
-#    define INPUT_FACTOR 5    // Poll input very frequently
+#    define CYCLE_FACTOR 500   // Dramatically increased for better performance
+#    define INPUT_FACTOR 1     // Poll input every iteration for responsiveness
 #endif
 
 u8* systemRom;                   // ROM
@@ -214,7 +214,7 @@ bool mainLoop() {
 
     // Execute multiple CPU instructions per loop to improve throughput
     // This greatly improves performance for keyboard-intensive applications
-    static const int INSTRUCTIONS_PER_LOOP = 10;
+    static const int INSTRUCTIONS_PER_LOOP = 200;   // Dramatically increased
     for (int i = 0; i < INSTRUCTIONS_PER_LOOP; i++) {
         pcdCpu->execute();
     }

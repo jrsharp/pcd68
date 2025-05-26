@@ -95,7 +95,7 @@ bool KeyboardInputSDL::poll() {
         }
         if (event.type == SDL_KEYDOWN) {
             u32 ticksNow = SDL_GetTicks();
-            u16 keyCode = event.key.keysym.sym;
+            u32 keyCode = event.key.keysym.sym;  // Use u32 to avoid truncation
             u16 mod = event.key.keysym.mod;
             bool isRepeat = event.key.repeat != 0;
 
@@ -130,6 +130,14 @@ bool KeyboardInputSDL::poll() {
                     asciiCode = 27;    // ESC character
                 } else if (keyCode == SDLK_BACKSPACE) {
                     asciiCode = 8;     // Backspace
+                } else if (keyCode == SDLK_UP) {
+                    asciiCode = 16;    // Custom code for up arrow (DLE)
+                } else if (keyCode == SDLK_DOWN) {
+                    asciiCode = 17;    // Custom code for down arrow (DC1)
+                } else if (keyCode == SDLK_LEFT) {
+                    asciiCode = 18;    // Custom code for left arrow (DC2)
+                } else if (keyCode == SDLK_RIGHT) {
+                    asciiCode = 19;    // Custom code for right arrow (DC3)
                 } else {
                     // For other keys, just use the original keycode
                     asciiCode = (u8)(keyCode & 0xFF);
@@ -165,7 +173,7 @@ bool KeyboardInputSDL::poll() {
                 std::cout << "Keyboard event ignored - debounce" << std::endl;
             }
         } else if (event.type == SDL_KEYUP && this->debugEnabled) {
-            u16 keyCode = event.key.keysym.sym;
+            u32 keyCode = event.key.keysym.sym;  // Use u32 for consistency
             u16 mod = event.key.keysym.mod;
             
             // Update current modifiers
