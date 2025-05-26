@@ -80,7 +80,7 @@ clear_header_area:
     /* Position at the start of header area (line 1) */
     movel   #1, %d7             /* Start at line 1 */
 clear_header_area_line_loop:
-    cmpl    #3, %d7            /* End at line 2 (before line 3) */
+    cmpl    #2, %d7            /* End at line 1 (before line 2) */
     bge     clear_header_area_done
     
     /* Position at start of this line */
@@ -116,8 +116,8 @@ clear_header_area_done:
 /* Clear the content area of the screen based on updated layout */
 .global clear_content_area
 clear_content_area:
-    /* Position at the start of content area (line 4) */
-    movel   #4, %d7             /* Start at line 4 */
+    /* Position at the start of content area (line 3) */
+    movel   #3, %d7             /* Start at line 3 */
 clear_area_line_loop:
     cmpl    #18, %d7            /* End at line 17 (before line 18) */
     bge     clear_area_done
@@ -149,7 +149,7 @@ clear_area_next_line:
     
 clear_area_done:
     /* Reset cursor position to start of content area */
-    moveal  #TDABase + 1 + (80 * 4), %a2
+    moveal  #TDABase + 1 + (80 * 3), %a2
     rts
 
 /* Clear the screen */
@@ -200,8 +200,8 @@ top_border_loop:
 top_border_end:
     moveb   #'+', (%a2)+
     
-    /* Draw border after header area (line 3) */
-    movel   #3, %d0
+    /* Draw border after header area (line 2) */
+    movel   #2, %d0
     muls    #ScreenWidth, %d0
     lea     TDABase + 1, %a0
     addl    %d0, %a0
@@ -342,7 +342,6 @@ draw_header:
     
     /* Position cursor for version */
     moveal  #TDABase + 1 + ScreenWidth + 55, %a2
-    addl    %d0, %a2
     
     /* Draw version text */
     lea     version_text, %a5
@@ -350,22 +349,6 @@ draw_header:
     
     /* Close header line with right border */
     moveal  #TDABase + 1 + ScreenWidth + ScreenWidth - 1, %a2
-    moveb   #'|', (%a2)
-    
-    /* Position at header line 2 for title */
-    moveal  #TDABase + 1 + (ScreenWidth * 2), %a2
-    
-    /* Draw left border and space */
-    moveb   #'|', (%a2)+
-    
-    /* Add current menu title centered */
-    movew   current_menu_id, %d0
-    jsr     get_menu_title
-    moveal  %a0, %a5
-    jsr     center_text
-    
-    /* Close header line 2 with right border */
-    moveal  #TDABase + 1 + (ScreenWidth * 2) + ScreenWidth - 1, %a2
     moveb   #'|', (%a2)
     
     rts

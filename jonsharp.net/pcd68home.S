@@ -1072,7 +1072,7 @@ key_quit:
 key_scroll_down:
     movel   scroll_offset, %d0
     movel   content_total_lines, %d1
-    subl    #14, %d1                /* Content area height */
+    subl    #15, %d1                /* Content area height */
     cmpl    %d1, %d0
     bge     scroll_down_done
     addl    #1, %d0
@@ -1139,8 +1139,8 @@ draw_scrolling_content:
     /* Clear content area first */
     jsr     clear_content_area
     
-    /* Position at content area start (line 4) */
-    moveal  #TDABase + 1 + (4 * 80), %a2
+    /* Position at content area start (line 3) */
+    moveal  #TDABase + 1 + (3 * 80), %a2
     
     /* Find starting position in text based on scroll_offset */
     lea     combined_content, %a0
@@ -1160,11 +1160,11 @@ skip_line_loop:
     bra     find_start_loop
     
 find_start_done:
-    /* Display 14 lines worth of text */
+    /* Display 15 lines worth of text */
     movel   #0, %d3
     
 display_content_loop:
-    cmpl    #14, %d3
+    cmpl    #15, %d3
     bge     display_content_done
     movel   #0, %d1
     
@@ -1189,7 +1189,7 @@ line_too_long:
     
 line_done:
     addl    #1, %d3
-    moveal  #TDABase + 1 + (4 * 80), %a2
+    moveal  #TDABase + 1 + (3 * 80), %a2
     movel   %d3, %d1
     muls    #80, %d1
     addl    %d1, %a2
@@ -1214,35 +1214,14 @@ draw_menu_view:
     movel   %a2, -(%sp)
     movel   %a5, -(%sp)
     
-    /* Position cursor in title area (line 2) */
-    moveal  #TDABase + 1 + (80 * 2), %a2
-    
-    /* Draw a leading pipe for the title area */
-    moveb   #'|', (%a2)+
-    
-    /* Display menu title centered */
-    movew   current_menu_id, %d0
-    jsr     get_menu_title
-    
-    /* Store title pointer */
-    moveal  %a0, %a5
-    
-    /* Simple print of title - just to debug */
-    moveb   #' ', (%a2)+
-    jsr     print_string_no_advance
-    
-    /* Add a pipe at the end */
-    moveal  #TDABase + 1 + (80 * 2) + 79, %a2
-    moveb   #'|', (%a2)
-    
     /* Check if menu has content and display it */
     movew   current_menu_id, %d0
     jsr     get_menu_content
     cmpl    #0, %a0
     beq     skip_menu_content
     
-    /* Display menu content starting at line 4 */
-    moveal  #TDABase + 1 + (80 * 4), %a2
+    /* Display menu content starting at line 3 */
+    moveal  #TDABase + 1 + (80 * 3), %a2
     moveal  %a0, %a5
     jsr     print_multiline_string
     
@@ -1258,8 +1237,8 @@ draw_menu_view:
     bra     start_menu_items
     
 skip_menu_content:
-    /* Start menu items at line 4 if no content */
-    movew   #4, %d5             /* Start line for menu items */
+    /* Start menu items at line 3 if no content */
+    movew   #3, %d5             /* Start line for menu items */
     
 start_menu_items:
     /* Get menu item count for the loop */
@@ -1267,10 +1246,10 @@ start_menu_items:
     jsr     get_menu_item_count
     movew   %d0, %d7            /* Store menu item count in d7 */
     
-    /* Ensure minimum starting line (line 8 to leave room for content) */
-    cmpw    #8, %d5
+    /* Ensure minimum starting line (line 7 to leave room for content) */
+    cmpw    #7, %d5
     bge     menu_start_ok
-    movew   #8, %d5
+    movew   #7, %d5
     
 menu_start_ok:
     /* Ensure we don't go past the status line (line 18) */
@@ -1356,8 +1335,8 @@ draw_text_content_view:
     movel   #'C', %d0
     jsr     add_debug_trace
     
-    /* Position cursor at content area start (line 4 per layout) */
-    moveal  #TDABase + 1 + (80 * 4), %a2
+    /* Position cursor at content area start (line 3 per layout) */
+    moveal  #TDABase + 1 + (80 * 3), %a2
     
     /* Check if content_ptr is valid and display first few chars as debug */
     moveal  content_ptr, %a5
