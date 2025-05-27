@@ -8,6 +8,7 @@ KCTL::KCTL(CPU* cpu, uint32_t start, uint32_t size) :
 void KCTL::reset() {
     registers.status = StatusBits::KEYBOARD_ENABLED; // Enable keyboard by default
     registers.pendingReportCount = 0;
+    headIndex = 0; // Reset head index for circular buffer
     
     // Initialize all report slots
     for (int i = 0; i < REPORT_STACK_SIZE; i++) {
@@ -116,8 +117,6 @@ void KCTL::clear() {
 void KCTL::advanceToNextReport() {
     if (registers.pendingReportCount > 0) {
         // Use a circular buffer approach with a head index instead of shifting all reports
-        static int headIndex = 0;
-
         // Move to next report by advancing the head index
         headIndex = (headIndex + 1) % REPORT_STACK_SIZE;
 
@@ -158,26 +157,34 @@ u8 KCTL::read8(u32 addr) {
         
         switch (offset) {
             case REG_STATUS: // Status register
+                /*
                 if (debugMode) {
                     std::cout << "KCTL::read8 - Status register: 0x" 
-                              << std::hex << (int)registers.status << std::dec << std::endl;
+                              << std::hex << (int)registers.status << std::dec 
+                              << " (addr=0x" << std::hex << addr << std::dec << ")" << std::endl;
                 }
+                */
                 return registers.status;
                 
             case REG_COUNT: // Number of reports in queue
+                /*
                 if (debugMode) {
                     std::cout << "KCTL::read8 - Report count: " 
-                              << (int)registers.pendingReportCount << std::endl;
+                              << (int)registers.pendingReportCount 
+                              << " (addr=0x" << std::hex << addr << std::dec << ")" << std::endl;
                 }
+                */
                 return registers.pendingReportCount;
                 
             case REG_REPORT_SIZE: // Number of active keys in current report
                 if (registers.pendingReportCount > 0) {
                     u8 activeKeys = registers.reportStack[0].activeKeyCount;
+                    /*
                     if (debugMode) {
                         std::cout << "KCTL::read8 - Active keys in current report: " 
                                   << (int)activeKeys << std::endl;
                     }
+                    */
                     return activeKeys;
                 }
                 return 0;
@@ -186,8 +193,8 @@ u8 KCTL::read8(u32 addr) {
                 if (registers.pendingReportCount > 0) {
                     u8 modifiers = registers.reportStack[0].mod;
                     if (debugMode) {
-                        std::cout << "KCTL::read8 - Modifiers: 0x" 
-                                  << std::hex << (int)modifiers << std::dec << std::endl;
+                        //std::cout << "KCTL::read8 - Modifiers: 0x" 
+                                  //<< std::hex << (int)modifiers << std::dec << std::endl;
                     }
                     return modifiers;
                 }

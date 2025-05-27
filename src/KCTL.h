@@ -107,6 +107,7 @@ protected:
 
 private:
     bool debugMode = false;  // Debug mode flag
+    int headIndex = 0;       // Head index for circular buffer queue management
     
     // Helper method to advance to the next report in the queue
     void advanceToNextReport();

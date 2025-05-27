@@ -12,13 +12,14 @@
 #include "TDA.h"
 #include "UART.h"
 #include "KeyboardInput.h"
+#include "benchmark.h"
 
 #include "text_demo.h"
 
 #ifdef __EMSCRIPTEN__
 #    include "emscripten.h"
-#    define CYCLE_FACTOR 50    // Balanced for good web performance without sluggishness
-#    define INPUT_FACTOR 1
+#    define CYCLE_FACTOR 30    // Higher refresh rate for smoother display
+#    define INPUT_FACTOR 1     // Responsive input polling
 #else
 #    define CYCLE_FACTOR 500   // Dramatically increased for better performance
 #    define INPUT_FACTOR 1     // Poll input every iteration for responsiveness
@@ -34,6 +35,7 @@ Screen* pcdScreen;               // Screen instance
 KeyboardInput* keyboardInput;    // Keyboard input handler
 i64 interruptDebounceClocks = 0; // debounce period (in clocks) for keyboard input interrupt
 i64 lastClock = 0;
+PerformanceBenchmark* benchmark = nullptr;
 
 #ifdef __EMSCRIPTEN__
 // Exposed functions for JavaScript to load ROMs
@@ -110,7 +112,11 @@ bool usingPipes = false;
 #endif
 
 // Global variable declaration for debug flags to be used in callback
+#ifdef __EMSCRIPTEN__
+bool enableKeyboardDebug = false;  // Disable debug now that keyboard input is working
+#else
 bool enableKeyboardDebug = false;
+#endif
 
 // Keyboard event handler callback for single key events
 void handleKeyEvent(u16 keyCode, u16 mod) {
@@ -120,13 +126,11 @@ void handleKeyEvent(u16 keyCode, u16 mod) {
     if (keyCode > 0) {
         eventCounter++;
 
-        // Debug if keyboard debug is enabled
-        if (enableKeyboardDebug) {
-            std::cout << "handleKeyEvent #" << eventCounter
-                      << " - keyCode: 0x" << std::hex << keyCode
-                      << ", mod: 0x" << mod << std::dec
-                      << " - passing to KCTL" << std::endl;
-        }
+        // Debug output disabled for production
+        /*
+        std::cout << "CALLBACK handleKeyEvent: #" << eventCounter << " code=0x" << std::hex << keyCode 
+                  << " mod=0x" << mod << std::dec << " - calling KCTL->update()" << std::endl;
+        */
 
         // Note: We're casting to u8 here, since KCTL expects 8-bit keycodes
         // This limits us to ASCII/Latin-1 range characters
@@ -144,13 +148,11 @@ void handleMultiKeyEvent(const u8* keycodes, u8 keyCount, u8 mod) {
     if (keyCount > 0) {
         reportCounter++;
 
-        // Debug if keyboard debug is enabled
-        if (enableKeyboardDebug) {
-            std::cout << "handleMultiKeyEvent #" << reportCounter
-                      << " - keys: " << (int)keyCount
-                      << ", mod: 0x" << std::hex << (int)mod << std::dec
-                      << " - passing to KCTL" << std::endl;
-        }
+        // Debug output disabled for production
+        /*
+        std::cout << "CALLBACK handleMultiKeyEvent: #" << reportCounter << " count=" << (int)keyCount 
+                  << " mod=0x" << std::hex << (int)mod << std::dec << " - calling KCTL->updateMultiKey()" << std::endl;
+        */
 
         // Use the more efficient multi-key update function
         keyboardController->updateMultiKey(keycodes, keyCount, mod);
@@ -174,11 +176,11 @@ bool mainLoop() {
         exit = !keyboardInput->poll();
         inputCounter = 0;
 
-        // Static counter for input polling iterations - only show every 10000 cycles
+        // Static counter for input polling iterations - only show every 100000 cycles for performance
         static unsigned int pollCounter = 0;
         pollCounter++;
 
-        if (enableKeyboardDebug && pollCounter % 10000 == 0) {
+        if (enableKeyboardDebug && pollCounter % 100000 == 0) {
             std::cout << "mainLoop - poll #" << pollCounter
                       << " - KCTL report count: " << (int)keyboardController->registers.pendingReportCount
                       << "/" << KCTL::REPORT_STACK_SIZE << std::endl;
@@ -214,9 +216,22 @@ bool mainLoop() {
 
     // Execute multiple CPU instructions per loop to improve throughput
     // This greatly improves performance for keyboard-intensive applications
+#ifdef __EMSCRIPTEN__
+    static const int INSTRUCTIONS_PER_LOOP = 1000;  // Balanced for web builds
+#else
     static const int INSTRUCTIONS_PER_LOOP = 200;   // Dramatically increased
+#endif
     for (int i = 0; i < INSTRUCTIONS_PER_LOOP; i++) {
         pcdCpu->execute();
+    }
+    
+    if (benchmark) {
+        // Record all instructions at once for better performance
+        for (int i = 0; i < INSTRUCTIONS_PER_LOOP; i++) {
+            benchmark->recordInstruction();
+        }
+        benchmark->recordCycle();
+        benchmark->reportPerformance();
     }
 
     if (clearKbdInt) {
@@ -241,6 +256,7 @@ void printUsage(const char* programName) {
     std::cout << "  -debug-tda       Enable TDA debug mode (trace text display updates)" << std::endl;
     std::cout << "  -debug-kbd       Enable keyboard debug mode (trace keyboard events)" << std::endl;
     std::cout << "  -debug-all       Enable all debug modes" << std::endl;
+    std::cout << "  -benchmark       Enable performance benchmarking" << std::endl;
 #ifndef __EMSCRIPTEN__
     std::cout << "  -serial1 <dev>    Connect UART1 to serial device (e.g., /dev/tty.usbserial)" << std::endl;
     std::cout << "  -serial2 <dev>    Connect UART2 to serial device" << std::endl;
@@ -266,6 +282,11 @@ int main(int argc, char** argv) {
     bool fullEmulation = false;
     bool enableUartDebug = false;
     bool enableTdaDebug = false;
+#ifdef __EMSCRIPTEN__
+    bool enableBenchmark = false;  // Disable by default for clean production experience
+#else
+    bool enableBenchmark = false;
+#endif
     // (enableKeyboardDebug is defined globally for access in callback)
     
     // Process command line arguments
@@ -286,6 +307,8 @@ int main(int argc, char** argv) {
             enableUartDebug = true;
             enableTdaDebug = true;
             enableKeyboardDebug = true;
+        } else if (arg == "-benchmark") {
+            enableBenchmark = true;
         } else if (arg == "-h" || arg == "--help") {
             printUsage(argv[0]);
             return 0;
@@ -354,18 +377,39 @@ int main(int argc, char** argv) {
         keyboardController->setDebugMode(true);
     }
     
+    // For web builds, disable debug for production
+#ifdef __EMSCRIPTEN__
+    keyboardController->setDebugMode(false);
+    std::cout << "KCTL debug mode disabled for web build" << std::endl;
+#endif
+    
+    // Initialize benchmark if requested
+    if (enableBenchmark) {
+        benchmark = new PerformanceBenchmark();
+        std::cout << "Performance benchmarking enabled" << std::endl;
+    }
+    
     // Initialize keyboard input
+    std::cout << "Creating keyboard input..." << std::endl;
     keyboardInput = createKeyboardInput();
+    std::cout << "Keyboard input created successfully" << std::endl;
+    
     if (enableKeyboardDebug) {
+        std::cout << "Enabling keyboard debug mode..." << std::endl;
         keyboardInput->setDebugMode(true);
     }
+    
+    std::cout << "Setting keyboard callbacks..." << std::endl;
     keyboardInput->setKeyEventCallback(handleKeyEvent);
     keyboardInput->setKeyMultiEventCallback(handleMultiKeyEvent);
+    
+    std::cout << "Initializing keyboard input..." << std::endl;
     int kbd_result = keyboardInput->init();
     if (kbd_result != 0) {
-        std::cerr << "Failed to initialize keyboard input" << std::endl;
+        std::cerr << "Failed to initialize keyboard input, result: " << kbd_result << std::endl;
         return -1;
     }
+    std::cout << "Keyboard input initialization complete" << std::endl;
 
     // Attach to CPU
     pcdCpu->attachPeripheral(pcdScreen);
@@ -453,6 +497,11 @@ int main(int argc, char** argv) {
     // Clean up
     delete keyboardInput;
     delete uartController;
+    
+    if (benchmark) {
+        benchmark->reportPerformance(true);  // Force final report
+        delete benchmark;
+    }
     
     std::cout << "Clocks: " << std::dec << pcdCpu->getClock() << std::endl;
     return 0;

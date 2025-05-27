@@ -28,35 +28,45 @@ KeyboardInputEmscripten::~KeyboardInputEmscripten() {
 
 int KeyboardInputEmscripten::init() {
 #ifdef __EMSCRIPTEN__
+    std::cout << "=== KeyboardInputEmscripten::init() starting ===" << std::endl;
+    
     // Set up event listeners for keyboard events
+    // Use canvas as target for better focus management
+    std::cout << "Setting up keydown callback..." << std::endl;
     EMSCRIPTEN_RESULT result = emscripten_set_keydown_callback(
-        EMSCRIPTEN_EVENT_TARGET_WINDOW, 
+        "#canvas", 
         this, 
-        0, 
+        1, // Use capture
         keydown_callback
     );
     
+    std::cout << "Keydown callback result: " << result << std::endl;
     if (result != EMSCRIPTEN_RESULT_SUCCESS) {
-        std::cerr << "Failed to set keydown callback" << std::endl;
+        std::cerr << "Failed to set keydown callback, result: " << result << std::endl;
         return -1;
     }
     
     // Also set up keyup callback to track modifiers
+    std::cout << "Setting up keyup callback..." << std::endl;
     result = emscripten_set_keyup_callback(
-        EMSCRIPTEN_EVENT_TARGET_WINDOW,
+        "#canvas",
         this,
-        0,
+        1, // Use capture
         keyup_callback
     );
     
+    std::cout << "Keyup callback result: " << result << std::endl;
     if (result != EMSCRIPTEN_RESULT_SUCCESS) {
-        std::cerr << "Failed to set keyup callback" << std::endl;
+        std::cerr << "Failed to set keyup callback, result: " << result << std::endl;
         return -1;
     }
     
-    std::cout << "KeyboardInputEmscripten initialized" << std::endl;
+    std::cout << "KeyboardInputEmscripten initialized successfully" << std::endl;
+    std::cout << "Keyboard events will be captured from canvas with event capture enabled" << std::endl;
+    std::cout << "=== KeyboardInputEmscripten::init() complete ===" << std::endl;
     return 0;
 #else
+    std::cout << "KeyboardInputEmscripten::init() called but __EMSCRIPTEN__ not defined!" << std::endl;
     return -1;
 #endif
 }
@@ -101,12 +111,23 @@ void KeyboardInputEmscripten::submitPendingKeys() {
     }
     
     // Call the callback with the multi-key report
-    if (keyEventCallback) {
-        // Check if it's a specialized callback that supports multi-key reports
-        // Unfortunately we can't directly check the type, so we'll send individual keys for safety
-        // Each key platform will handle the same way for consistency
-        for (size_t i = 0; i < keyCount; i++) {
-            keyEventCallback(keyCodes[i], currentModifiers & 0xFF);
+    if (keyCount > 0) {
+        // Prefer multi-key callback if available, fall back to individual key callback if not
+        if (keyMultiEventCallback) {
+            if (debugEnabled) {
+                std::cout << "Emscripten: Calling keyMultiEventCallback" << std::endl;
+            }
+            keyMultiEventCallback(keyCodes.data(), keyCount, currentModifiers & 0xFF);
+        } else if (keyEventCallback) {
+            if (debugEnabled) {
+                std::cout << "Emscripten: Calling keyEventCallback for " << keyCount << " keys" << std::endl;
+            }
+            // Fall back to sending individual key events if multi-key callback not set
+            for (size_t i = 0; i < keyCount; i++) {
+                keyEventCallback(keyCodes[i], currentModifiers & 0xFF);
+            }
+        } else {
+            std::cout << "Emscripten: ERROR - No callback functions set!" << std::endl;
         }
     }
     
@@ -138,6 +159,11 @@ EM_BOOL KeyboardInputEmscripten::keydown_callback(int eventType, const Emscripte
     
     KeyboardInputEmscripten* self = static_cast<KeyboardInputEmscripten*>(userData);
     
+    // Debug output disabled for production
+    /*
+    std::cout << "Emscripten: keydown_callback triggered! key='" << e->key << "'" << std::endl;
+    */
+    
     // Get current time for debouncing
     unsigned long now = emscripten_get_now();
     
@@ -160,26 +186,65 @@ EM_BOOL KeyboardInputEmscripten::keydown_callback(int eventType, const Emscripte
         return EM_FALSE;
     }
     
-    // Debounce keyboard input
-    if (now - self->lastKeyTime > KEY_DEBOUNCE_MS) {
-        self->lastKeyTime = now;
+    // Process the key (browser already handles repeat detection via e->repeat)
+    {
         
-        // Map key code and modifiers
+        // Map key code and modifiers - convert to ASCII like SDL version
         u16 keyCode = 0;
         
-        // Try to use the key code first
+        // Get the raw browser keycode
+        u16 rawKeyCode = 0;
         if (e->keyCode > 0) {
-            keyCode = e->keyCode;
+            rawKeyCode = e->keyCode;
         } else if (e->which > 0) {
-            keyCode = e->which;
+            rawKeyCode = e->which;
         } else if (e->key[0] != '\0') {
-            keyCode = e->key[0];
+            rawKeyCode = e->key[0];
+        }
+        
+        // Convert browser keycodes to ASCII like SDL version for compatibility
+        if (rawKeyCode >= 32 && rawKeyCode <= 126) {
+            // Simple ASCII mapping for printable characters
+            keyCode = rawKeyCode;
+            
+            // Convert uppercase letters to lowercase to match ROM expectations
+            // Browser keycodes for letters are always uppercase (A=65, Z=90)
+            // but ROM expects lowercase (a=97, z=122)
+            if (keyCode >= 65 && keyCode <= 90 && !e->shiftKey) {
+                keyCode += 32; // Convert to lowercase
+            }
+        } else if (rawKeyCode == 13) { // Enter
+            keyCode = 13;  // Keep as carriage return
+        } else if (rawKeyCode == 9) { // Tab
+            keyCode = 9;   // Tab character
+        } else if (rawKeyCode == 27) { // Escape
+            keyCode = 27;  // ESC character
+        } else if (rawKeyCode == 8) { // Backspace
+            keyCode = 8;   // Backspace
+        } else if (rawKeyCode == 38) { // Up arrow
+            keyCode = 16;  // Custom code for up arrow (DLE) - match SDL
+        } else if (rawKeyCode == 40) { // Down arrow
+            keyCode = 17;  // Custom code for down arrow (DC1) - match SDL
+        } else if (rawKeyCode == 37) { // Left arrow
+            keyCode = 18;  // Custom code for left arrow (DC2) - match SDL
+        } else if (rawKeyCode == 39) { // Right arrow
+            keyCode = 19;  // Custom code for right arrow (DC3) - match SDL
+        } else {
+            // For other keys, try to use the character from e->key
+            if (e->key[0] != '\0' && e->key[1] == '\0') {
+                // Single character key
+                keyCode = e->key[0];
+            } else {
+                // Multi-character key name, use raw keycode
+                keyCode = rawKeyCode & 0xFF;
+            }
         }
         
         if (self->debugEnabled) {
-            std::cout << "Emscripten keydown: key='" << e->key << "' keyCode=0x" 
-                      << std::hex << keyCode << std::dec << " modifiers=0x" 
-                      << std::hex << modifiers << std::dec << std::endl;
+            std::cout << "Emscripten keydown: key='" << e->key << "' rawKeyCode=0x" 
+                      << std::hex << rawKeyCode << " -> ASCII=0x" << keyCode 
+                      << std::dec << " ('" << (keyCode >= 32 && keyCode < 127 ? (char)keyCode : '?') 
+                      << "') modifiers=0x" << std::hex << modifiers << std::dec << std::endl;
         }
         
         // Process the key
@@ -195,15 +260,17 @@ EM_BOOL KeyboardInputEmscripten::keydown_callback(int eventType, const Emscripte
                 self->lastReportTimeMs = now;
             }
             
-            // If we've hit the max keys per report, submit immediately
-            if (self->pendingKeys.size() >= MAX_KEYS_PER_REPORT) {
+            // Submit immediately for single keys to improve responsiveness
+            // Only batch if we get multiple keys within the debounce window
+            if (self->pendingKeys.size() >= MAX_KEYS_PER_REPORT || 
+                self->pendingKeys.size() == 1) {
                 self->submitPendingKeys();
             }
         }
     }
     
-    // Don't prevent default browser behavior
-    return EM_FALSE;
+    // Prevent default browser behavior for better keyboard handling
+    return EM_TRUE;
 }
 
 EM_BOOL KeyboardInputEmscripten::keyup_callback(int eventType, const EmscriptenKeyboardEvent* e, void* userData) {
@@ -227,7 +294,7 @@ EM_BOOL KeyboardInputEmscripten::keyup_callback(int eventType, const EmscriptenK
                   << std::hex << modifiers << std::dec << std::endl;
     }
     
-    // Don't prevent default browser behavior
+    // Don't prevent default browser behavior for keyup
     return EM_FALSE;
 }
 #endif 

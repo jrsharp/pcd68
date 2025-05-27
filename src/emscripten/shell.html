@@ -111,7 +111,7 @@
     <div id="rom-selector" class="rom-selector">
       <label for="rom-select">Select ROM:</label>
       <select id="rom-select">
-        <option value="internal">Internal Demo (JonSharp.net Homepage)</option>
+        <option value="internal">JonSharp.net Homepage (Default)</option>
         <option value="roms/text_demo.bin">JonSharp.net Homepage (external)</option>
         <option value="roms/uart_test.bin">UART Test</option>
         <option value="roms/display_test.bin">Display Test</option>
@@ -283,6 +283,14 @@
             console.log("Module postRun setup");
             // Ensure we have module initialization
             Module.ready = true;
+            
+            // Auto-load the jonsharp.net ROM on startup
+            setTimeout(function() {
+              if (typeof Module.ccall === 'function') {
+                Module.ccall('loadInternalRom', null, [], []);
+                console.log('Auto-loaded JonSharp.net ROM on startup');
+              }
+            }, 500);
           }
         ],
         print: (function() {

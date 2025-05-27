@@ -17,8 +17,10 @@
  */
 KeyboardInput* createKeyboardInput() {
 #ifdef __EMSCRIPTEN__
+    std::cout << "createKeyboardInput: Creating KeyboardInputEmscripten" << std::endl;
     return static_cast<KeyboardInput*>(new KeyboardInputEmscripten());
 #else
+    std::cout << "createKeyboardInput: Creating KeyboardInputSDL" << std::endl;
     return static_cast<KeyboardInput*>(new KeyboardInputSDL());
 #endif
 } 
