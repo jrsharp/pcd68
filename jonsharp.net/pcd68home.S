@@ -1,10 +1,11 @@
 /* JonSharp.net Cyberterminal
  * An interactive information terminal simulating a gopher-like experience
  * Content served is a versioned release of the "best of" jonsharp.net.
+ * Enhanced with Picture Mode Support - Press 'p' to view bitmap images!
  */
 
 /* Define memory locations and constants */
-.equ ScrnBase, 0x810000
+.equ ScrnBase, 0x430002
 .equ TDABase, 0x410000
 .equ KCTLBase, 0x420000
 .equ UARTBase, 0x450000
@@ -30,8 +31,14 @@
 .equ ScreenWidth, 80
 .equ ScreenHeight, 23
 .equ TextMode, 2               /* 1 for 50-col, 2 for 80-col */
+.equ GraphicsMode, 0           /* 0 = NONE mode (TDA disabled for picture mode) */
 .equ MaxMenuItems, 20          /* Maximum items in a menu */
 .equ MaxContentSize, 1024      /* Maximum content buffer size */
+
+/* Picture mode constants */
+.equ PictureWidth, 400
+.equ PictureHeight, 300
+.equ PictureSize, 120000       /* 400 * 300 bytes for 8bpp framebuffer */
 
 /* Key Constants */
 .equ KEY_ENTER, 13
@@ -43,6 +50,8 @@
 .equ KEY_Q, 113                /* 'q' for Quit */
 .equ KEY_J, 106                /* 'j' for scroll down */
 .equ KEY_K, 107                /* 'k' for scroll up */
+.equ KEY_P, 112                /* 'p' for Picture mode */
+.equ KEY_T, 116                /* 't' for Text mode (return from picture) */
 .equ KEY_UP_ARROW, 16          /* Up arrow key (SDL maps to ASCII 16) */
 .equ KEY_DOWN_ARROW, 17        /* Down arrow key (SDL maps to ASCII 17) */
 .equ KEY_LEFT_ARROW, 18        /* Left arrow key */
@@ -130,6 +139,7 @@ start:
     movel   #0, navigation_stack_pos /* Reset navigation stack position */
     movel   #0, display_needs_update /* No update needed yet */
     movel   #0, refresh_lock        /* Add lock to prevent constant refreshing */
+    movel   #0, picture_mode_active /* Start in text mode */
     movel   #0, %d6                 /* Initialize keyboard debug value */
     clrl    %d0
     
@@ -200,6 +210,60 @@ init_low_ok:
     
 /* Main Program Loop */
 main_loop:
+    /* Check if we're in picture mode */
+    cmpl    #1, picture_mode_active
+    beq     picture_mode_loop
+    
+    /* Normal text mode processing */
+    jsr     process_text_mode
+    bra     main_loop
+
+picture_mode_loop:
+    /* Picture mode - check for 't', 'j', 'k' keys */
+    moveb   KCTLCount, %d0
+    cmpl    #0, %d0
+    beq     main_loop              /* No input, continue */
+    
+    /* Get the key */
+    moveal  #KCTLKeys, %a0
+    moveb   (%a0), %d0
+    
+    /* Check if it's the 't' key */
+    cmpb    #KEY_T, %d0
+    beq     exit_picture_mode
+    
+    /* Check if it's the 'j' key (next image) */
+    cmpb    #KEY_J, %d0
+    beq     next_image
+    
+    /* Check if it's the 'k' key (previous image) */
+    cmpb    #KEY_K, %d0
+    beq     previous_image
+    
+    /* Consume the key and continue */
+    moveb   #1, KCTLNextReport
+    bra     main_loop
+
+next_image:
+    /* Move to next image */
+    jsr     switch_to_next_image
+    moveb   #1, KCTLNextReport     /* Consume the 'j' key */
+    bra     main_loop
+
+previous_image:
+    /* Move to previous image */
+    jsr     switch_to_previous_image
+    moveb   #1, KCTLNextReport     /* Consume the 'k' key */
+    bra     main_loop
+
+exit_picture_mode:
+    /* Return to text mode */
+    jsr     enter_text_mode
+    moveb   #1, KCTLNextReport     /* Consume the 't' key */
+    bra     main_loop
+
+/* Process text mode (existing main loop logic) */
+process_text_mode:
     /* Debug marker - add trace A for main loop start */
     movel   #'A', %d0
     jsr     add_debug_trace
@@ -382,10 +446,7 @@ delay_loop:
 skip_status_update:
     
 skip_counter_update:
-    /* Continue the main loop */
-    bra     main_loop
-
-
+    rts
 
 /* Consolidated status line drawing with all debug information */
 draw_status:
@@ -679,6 +740,8 @@ process_keyboard_input:
     beq     process_key_back
     cmpb    #KEY_Q, %d0
     beq     process_key_quit
+    cmpb    #KEY_P, %d0        /* 'p' for Picture mode */
+    beq     process_key_picture
     cmpb    #KEY_J, %d0        /* 'j' for scroll down */
     beq     process_key_scroll_down
     cmpb    #KEY_K, %d0        /* 'k' for scroll up */
@@ -749,6 +812,10 @@ process_key_back:
 
 process_key_quit:
     jsr     key_quit
+    bra     finish_key_input
+
+process_key_picture:
+    jsr     enter_picture_mode
     bra     finish_key_input
 
 process_key_scroll_down:
@@ -1379,6 +1446,95 @@ content_empty:
     movel   (%sp)+, %d0
     rts
 
+/* Picture Mode Functions */
+
+/* Enter picture mode */
+enter_picture_mode:
+    /* Save registers */
+    movel   %d0, -(%sp)
+    movel   %a0, -(%sp)
+    
+    /* Disable TDA by setting mode to NONE (0) */
+    moveal  #TDABase, %a0
+    moveb   #GraphicsMode, (%a0)
+    
+    /* Clear the entire framebuffer to white */
+    jsr     clear_full_framebuffer
+    
+    /* Draw the complete picture */
+    jsr     draw_picture
+    
+    /* Set picture mode flag */
+    movel   #1, picture_mode_active
+    
+    /* Restore registers */
+    movel   (%sp)+, %a0
+    movel   (%sp)+, %d0
+    rts
+
+    movel   %d0, -(%sp)
+    movel   %d1, -(%sp)
+    movel   %a0, -(%sp)
+    
+    moveal  #ScrnBase, %a0
+    movel   #0, %d1
+    
+clear_small_loop:
+    cmpl    #1000, %d1             /* Only clear first 1000 pixels */
+    bge     clear_small_done
+    moveb   #0xFF, (%a0)+          /* White pixel */
+    addl    #1, %d1
+    bra     clear_small_loop
+    
+clear_small_done:
+    movel   (%sp)+, %a0
+    movel   (%sp)+, %d1
+    movel   (%sp)+, %d0
+    rts
+
+/* Clear entire framebuffer to white */
+clear_full_framebuffer:
+    movel   %d0, -(%sp)
+    movel   %d1, -(%sp)
+    movel   %a0, -(%sp)
+    
+    moveal  #ScrnBase, %a0
+    movel   #0, %d1
+    
+clear_full_loop:
+    cmpl    #PictureSize, %d1      /* Clear all pixels */
+    bge     clear_full_done
+    moveb   #0xFF, (%a0)+          /* White pixel */
+    addl    #1, %d1
+    bra     clear_full_loop
+    
+clear_full_done:
+    movel   (%sp)+, %a0
+    movel   (%sp)+, %d1
+    movel   (%sp)+, %d0
+    rts
+
+/* Enter text mode */
+enter_text_mode:
+    /* Save registers */
+    movel   %d0, -(%sp)
+    movel   %a0, -(%sp)
+    
+    /* Re-enable TDA */
+    moveal  #TDABase, %a0
+    moveb   #TextMode, (%a0)
+    
+    /* Clear picture mode flag */
+    movel   #0, picture_mode_active
+    
+    /* Force display update */
+    movel   #1, display_needs_update
+    
+    /* Restore registers */
+    movel   (%sp)+, %a0
+    movel   (%sp)+, %d0
+    rts
+
 /* Constants */
 .equ ENTRY_TYPE_SUBMENU, 0
 .equ ENTRY_TYPE_TEXT, 1
@@ -1402,11 +1558,11 @@ content_empty:
 header_title:
     .string "JonSharp.net Cyberterminal Access"
 version_text:
-    .string "[sampler ROM v1.0-2025]"
+    .string "[sampler ROM v1.1-2025]"
 .equ version_text_length, 23
 
 footer_commands:
-    .string "j=down, k=up, 0=Top, 1-9=Section markers"
+    .string "Keys: j=down, k=up, 0=top, 1-9=sections, p=picture mode, t=text mode"
 status_text:
     .string "Loc: "
 selection_text:
@@ -1510,3 +1666,151 @@ scroll_offset:
     .dc.l    0               /* Current scroll position */
 content_total_lines:
     .dc.l    0               /* Total lines in content */
+
+/* Picture mode variables */
+picture_mode_active:
+    .dc.l    0               /* Flag for picture mode (0=text, 1=picture) */
+
+/* Multi-image support */
+.equ NumImages, 2            /* Number of images available */
+current_image_index:
+    .dc.l    0               /* Current image index (0-based) */
+
+/* Image data table - pointers to each image */
+.align 4
+image_data_table:
+    .dc.l    picture_data    /* Image 0: first image */
+    .dc.l    picture_data2   /* Image 1: second image */
+
+/* Include the bit-packed image data */
+.include "picture_data.S"
+.include "picture_data2.S"
+
+/* Draw picture from bit-packed data */
+draw_picture:
+    movel   %d0, -(%sp)
+    movel   %d1, -(%sp)
+    movel   %d2, -(%sp)
+    movel   %d3, -(%sp)
+    movel   %d4, -(%sp)
+    movel   %d5, -(%sp)
+    movel   %d6, -(%sp)
+    movel   %d7, -(%sp)
+    movel   %a0, -(%sp)
+    movel   %a1, -(%sp)
+    
+    /* Get current image data pointer from table */
+    movel   current_image_index, %d0
+    lsll    #2, %d0                    /* Multiply by 4 (pointer size) */
+    lea     image_data_table, %a1
+    movel   (%a1,%d0), %a1             /* Load image data pointer */
+    
+    /* Initialize destination pointer */
+    moveal  #ScrnBase, %a0             /* Destination: framebuffer */
+    
+    /* Process all 15,000 bytes of bit-packed data */
+    /* Each byte contains 8 pixels, total = 15,000 * 8 = 120,000 pixels */
+    movel   #15000, %d0            /* Total bytes to process */
+    
+byte_loop:
+    /* Check if we're done */
+    cmpl    #0, %d0
+    beq     picture_complete
+    
+    /* Get next byte of bit-packed data */
+    moveb   (%a1)+, %d7
+    
+    /* Process all 8 bits in this byte (MSB first) */
+    movel   #8, %d6                /* Bit counter */
+    
+bit_loop:
+    /* Check if we're done with this byte */
+    cmpl    #0, %d6
+    beq     next_byte
+    
+    /* Extract the most significant bit */
+    movel   %d7, %d3
+    lsrl    #7, %d3                /* Get MSB */
+    andl    #1, %d3                /* Mask to single bit */
+    
+    /* Convert bit to pixel value: 1=white (0xFF), 0=black (0x00) */
+    cmpl    #1, %d3
+    beq     set_white_pixel
+    moveb   #0x00, (%a0)+          /* Black pixel for bit 0 */
+    bra     next_bit
+    
+set_white_pixel:
+    moveb   #0xFF, (%a0)+          /* White pixel for bit 1 */
+    
+next_bit:
+    /* Shift byte left for next bit */
+    lsll    #1, %d7
+    
+    /* Decrement bit counter */
+    subl    #1, %d6
+    bra     bit_loop
+    
+next_byte:
+    /* Decrement byte counter */
+    subl    #1, %d0
+    bra     byte_loop
+    
+picture_complete:
+    /* Restore registers */
+    movel   (%sp)+, %a1
+    movel   (%sp)+, %a0
+    movel   (%sp)+, %d7
+    movel   (%sp)+, %d6
+    movel   (%sp)+, %d5
+    movel   (%sp)+, %d4
+    movel   (%sp)+, %d3
+    movel   (%sp)+, %d2
+    movel   (%sp)+, %d1
+    movel   (%sp)+, %d0
+    rts
+
+/* Switch to next image */
+switch_to_next_image:
+    movel   %d0, -(%sp)
+    
+    /* Increment current image index */
+    movel   current_image_index, %d0
+    addl    #1, %d0
+    
+    /* Check if we need to wrap around */
+    cmpl    #NumImages, %d0
+    blt     next_image_no_wrap
+    movel   #0, %d0                /* Wrap to first image */
+    
+next_image_no_wrap:
+    movel   %d0, current_image_index
+    
+    /* Clear screen and redraw new image */
+    jsr     clear_full_framebuffer
+    jsr     draw_picture
+    
+    movel   (%sp)+, %d0
+    rts
+
+/* Switch to previous image */
+switch_to_previous_image:
+    movel   %d0, -(%sp)
+    
+    /* Decrement current image index */
+    movel   current_image_index, %d0
+    subl    #1, %d0
+    
+    /* Check if we need to wrap around */
+    cmpl    #0, %d0
+    bge     prev_image_no_wrap
+    movel   #NumImages-1, %d0      /* Wrap to last image */
+    
+prev_image_no_wrap:
+    movel   %d0, current_image_index
+    
+    /* Clear screen and redraw new image */
+    jsr     clear_full_framebuffer
+    jsr     draw_picture
+    
+    movel   (%sp)+, %d0
+    rts

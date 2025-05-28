@@ -20,7 +20,7 @@ void TDA::reset() {
 
 // transfer / flush the character map to the frame buffer
 void TDA::update() {
-    if (refreshFlag) {
+    if (refreshFlag && registers.mode != NONE) {
         u8* framebufferStart = systemRam + 0x10000;
         u8* framebufferEnd = framebufferStart + (400 * 300);
         for (u8* framebufferPtr = framebufferStart; framebufferPtr < framebufferEnd; framebufferPtr++) {

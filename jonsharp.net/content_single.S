@@ -59,8 +59,10 @@ combined_content:
     .ascii "Someone once said that to be an artist, one needs to be unafraid to make\n"
     .ascii "bad art. My 4\" watercolor books represent one of my primary artistic\n"
     .ascii "outlets - tiny paintings created during moments I might otherwise be\n"
-    .ascii "tempted to scroll on a smartphone. Judge for yourself how unafraid I am\n"
-    .ascii "to make art!\n\n"
+    .ascii "tempted to scroll on a smartphone.  Oh, and to demonstrate that PCD-68 can\n"
+    .ascii "do fancy graphics, I've included two 1-bit versions of my watercolors in\n"
+    .ascii "this ROM.  The 'p' key activates picture mode, allowing you to navigate\n"
+    .ascii "('j'/'k') the two stored images.  Use the 't' key to return to 'text mode'.\n\n"
     .ascii "I also believe deeply that uptime is overrated, entropy is good (and so\n"
     .ascii "is Lisp) and that software complexity will kill us all.\n\n"
     
@@ -85,7 +87,6 @@ combined_content:
     .ascii "Or just enjoy this PCD-68 ROM sampler and marvel at the fact that someone\n"
     .ascii "built a custom emulator just to show off their gopher content.\n\n"
     
-    .ascii "--- END OF CONTENT ---\n\n"
     .asciz ""
 
 combined_content_end:
@@ -105,4 +106,4 @@ section_positions:
     .word 78     /* Section 6: Footer */ 
     .word 85     /* Section 7: footnote */ 
     .word 85     /* Section 8: footnote */ 
-    .word 85     /* Section 9: footnote */ 
+    .word 85     /* Section 9: footnote */

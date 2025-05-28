@@ -42,7 +42,7 @@ code, and a healthy skepticism of algorithmic social networking.
 
 Model Three:  If you're going to build a time machine...
 
-Models One/Two: ePaper CyberTerminals - For when you want efficiency,
+Models One & Two:  ePaper CyberTerminals - For when you want efficiency,
 readability, and the ability to compute without burning through your battery
 in two hours.
 
@@ -56,14 +56,17 @@ artist-engineers of the personal computing era.
 Someone once said that to be an artist, one needs to be unafraid to make bad
 art. My 4" watercolor books represent one of my primary artistic outlets - tiny
 paintings created during moments I might otherwise be tempted to scroll on a
-smartphone. Judge for yourself how unafraid I am to make art!
+smartphone.  Oh, and to demonstrate that PCD-68 can do fancy graphics, I've
+included two 1-bit versions of my watercolors in this ROM.  The 'p' key
+activates picture mode, allowing you to navigate ('j'/'k') the two stored
+images.  Use the 't' key to return to 'text mode'.
 
 I also believe deeply that uptime is overrated, entropy is good (and so is Lisp)
 and that software complexity will kill us all.
 
 ## The Gopher Philosophy
 
-Why Gopher in 2024?  Because sometimes the best way forward is to step back and
+Why Gopher in 2025?  Because sometimes the best way forward is to step back and
 remember what made computing personal in the first place.  Gopher is like the
 web, but with soul - a place where content matters more than presentation,
 where community trumps commerce, and where you can actually read something

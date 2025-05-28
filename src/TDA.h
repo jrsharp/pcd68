@@ -15,6 +15,7 @@ public:
      * Video/Text mode
      */
     enum Mode : u8 {
+        NONE = 0x00,
         COL50 = 0x01,
         COL80 = 0x02,
     };

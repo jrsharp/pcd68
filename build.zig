@@ -148,7 +148,7 @@ pub fn build(b: *std.Build) void {
             "-sEXPORTED_FUNCTIONS=['_malloc','_free','_main','_loadExternalRom','_loadInternalRom']",
             "-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap']",
         });
-        //emcc.step.dependOn(&cp_rom4.step);
+        emcc.step.dependOn(&fix_len_name.step);
 
         // Add to the install step
         b.getInstallStep().dependOn(&emcc.step);
