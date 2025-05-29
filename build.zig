@@ -69,12 +69,9 @@ pub fn build(b: *std.Build) void {
         const cp_css = b.addSystemCommand(&.{ "cp", "src/emscripten/pcd68-home.css", web_dir });
         cp_css.step.dependOn(&mkdir_cmd.step);
 
-        const cp_img = b.addSystemCommand(&.{ "cp", "src/emscripten/FRST1_Homepage_bg.png", web_dir });
-        cp_img.step.dependOn(&cp_css.step);
-
         // Copy ROM files
         const cp_roms = b.addSystemCommand(&.{ "mkdir", "-p", b.fmt("{s}/roms", .{web_dir}) });
-        cp_roms.step.dependOn(&cp_img.step);
+        cp_roms.step.dependOn(&cp_css.step);
 
         // Copy jonsharp.net/program.bin (main ROM) to both locations:
         // 1. As text_demo.bin (one of the options in the ROM selector)
