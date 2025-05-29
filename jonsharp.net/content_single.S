@@ -61,7 +61,7 @@ combined_content:
     .ascii "outlets - tiny paintings created during moments I might otherwise be\n"
     .ascii "tempted to scroll on a smartphone.  Oh, and to demonstrate that PCD-68 can\n"
     .ascii "do fancy graphics, I've included two 1-bit versions of my watercolors in\n"
-    .ascii "this ROM.  The 'p' key activates picture mode, allowing you to navigate\n"
+    .ascii "this ROM.  The 'a' key activates art mode, allowing you to navigate\n"
     .ascii "('j'/'k') the two stored images.  Use the 't' key to return to 'text mode'.\n\n"
     .ascii "I also believe deeply that uptime is overrated, entropy is good (and so\n"
     .ascii "is Lisp) and that software complexity will kill us all.\n\n"

@@ -1,7 +1,7 @@
 /* JonSharp.net Cyberterminal
  * An interactive information terminal simulating a gopher-like experience
  * Content served is a versioned release of the "best of" jonsharp.net.
- * Enhanced with Picture Mode Support - Press 'p' to view bitmap images!
+ * Enhanced with Art Mode Support - Press 'p' to view bitmap images!
  */
 
 /* Define memory locations and constants */
@@ -31,11 +31,11 @@
 .equ ScreenWidth, 80
 .equ ScreenHeight, 23
 .equ TextMode, 2               /* 1 for 50-col, 2 for 80-col */
-.equ GraphicsMode, 0           /* 0 = NONE mode (TDA disabled for picture mode) */
+.equ GraphicsMode, 0           /* 0 = NONE mode (TDA disabled for art mode) */
 .equ MaxMenuItems, 20          /* Maximum items in a menu */
 .equ MaxContentSize, 1024      /* Maximum content buffer size */
 
-/* Picture mode constants */
+/* Art mode constants */
 .equ PictureWidth, 400
 .equ PictureHeight, 300
 .equ PictureSize, 120000       /* 400 * 300 bytes for 8bpp framebuffer */
@@ -50,8 +50,8 @@
 .equ KEY_Q, 113                /* 'q' for Quit */
 .equ KEY_J, 106                /* 'j' for scroll down */
 .equ KEY_K, 107                /* 'k' for scroll up */
-.equ KEY_P, 112                /* 'p' for Picture mode */
-.equ KEY_T, 116                /* 't' for Text mode (return from picture) */
+.equ KEY_A, 97                 /* 'a' for Art mode */
+.equ KEY_T, 116                /* 't' for Text mode (return from art mode) */
 .equ KEY_UP_ARROW, 16          /* Up arrow key (SDL maps to ASCII 16) */
 .equ KEY_DOWN_ARROW, 17        /* Down arrow key (SDL maps to ASCII 17) */
 .equ KEY_LEFT_ARROW, 18        /* Left arrow key */
@@ -210,16 +210,16 @@ init_low_ok:
     
 /* Main Program Loop */
 main_loop:
-    /* Check if we're in picture mode */
+    /* Check if we're in art mode */
     cmpl    #1, picture_mode_active
-    beq     picture_mode_loop
+    beq     art_mode_loop
     
     /* Normal text mode processing */
     jsr     process_text_mode
     bra     main_loop
 
-picture_mode_loop:
-    /* Picture mode - check for 't', 'j', 'k' keys */
+art_mode_loop:
+    /* Art mode - check for 't', 'j', 'k' keys */
     moveb   KCTLCount, %d0
     cmpl    #0, %d0
     beq     main_loop              /* No input, continue */
@@ -230,7 +230,7 @@ picture_mode_loop:
     
     /* Check if it's the 't' key */
     cmpb    #KEY_T, %d0
-    beq     exit_picture_mode
+    beq     exit_art_mode
     
     /* Check if it's the 'j' key (next image) */
     cmpb    #KEY_J, %d0
@@ -256,7 +256,7 @@ previous_image:
     moveb   #1, KCTLNextReport     /* Consume the 'k' key */
     bra     main_loop
 
-exit_picture_mode:
+exit_art_mode:
     /* Return to text mode */
     jsr     enter_text_mode
     moveb   #1, KCTLNextReport     /* Consume the 't' key */
@@ -740,7 +740,7 @@ process_keyboard_input:
     beq     process_key_back
     cmpb    #KEY_Q, %d0
     beq     process_key_quit
-    cmpb    #KEY_P, %d0        /* 'p' for Picture mode */
+    cmpb    #KEY_A, %d0        /* 'a' for Art mode */
     beq     process_key_picture
     cmpb    #KEY_J, %d0        /* 'j' for scroll down */
     beq     process_key_scroll_down
@@ -1446,9 +1446,9 @@ content_empty:
     movel   (%sp)+, %d0
     rts
 
-/* Picture Mode Functions */
+/* Art Mode Functions */
 
-/* Enter picture mode */
+/* Enter art mode */
 enter_picture_mode:
     /* Save registers */
     movel   %d0, -(%sp)
@@ -1464,31 +1464,11 @@ enter_picture_mode:
     /* Draw the complete picture */
     jsr     draw_picture
     
-    /* Set picture mode flag */
+    /* Set art mode flag */
     movel   #1, picture_mode_active
     
     /* Restore registers */
     movel   (%sp)+, %a0
-    movel   (%sp)+, %d0
-    rts
-
-    movel   %d0, -(%sp)
-    movel   %d1, -(%sp)
-    movel   %a0, -(%sp)
-    
-    moveal  #ScrnBase, %a0
-    movel   #0, %d1
-    
-clear_small_loop:
-    cmpl    #1000, %d1             /* Only clear first 1000 pixels */
-    bge     clear_small_done
-    moveb   #0xFF, (%a0)+          /* White pixel */
-    addl    #1, %d1
-    bra     clear_small_loop
-    
-clear_small_done:
-    movel   (%sp)+, %a0
-    movel   (%sp)+, %d1
     movel   (%sp)+, %d0
     rts
 
@@ -1524,7 +1504,7 @@ enter_text_mode:
     moveal  #TDABase, %a0
     moveb   #TextMode, (%a0)
     
-    /* Clear picture mode flag */
+    /* Clear art mode flag */
     movel   #0, picture_mode_active
     
     /* Force display update */
@@ -1562,7 +1542,7 @@ version_text:
 .equ version_text_length, 23
 
 footer_commands:
-    .string "Keys: j=down, k=up, 0=top, 1-9=sections, p=picture mode, t=text mode"
+    .string "Keys: j=down, k=up, 0=top, 1-9=sections, a=art mode, t=text mode"
 status_text:
     .string "Loc: "
 selection_text:
@@ -1667,9 +1647,9 @@ scroll_offset:
 content_total_lines:
     .dc.l    0               /* Total lines in content */
 
-/* Picture mode variables */
+/* Art mode variables */
 picture_mode_active:
-    .dc.l    0               /* Flag for picture mode (0=text, 1=picture) */
+    .dc.l    0               /* Flag for art mode (0=text, 1=art) */
 
 /* Multi-image support */
 .equ NumImages, 2            /* Number of images available */
@@ -1679,8 +1659,8 @@ current_image_index:
 /* Image data table - pointers to each image */
 .align 4
 image_data_table:
-    .dc.l    picture_data    /* Image 0: first image */
-    .dc.l    picture_data2   /* Image 1: second image */
+    .dc.l    picture_data2   /* Image 0: first image */
+    .dc.l    picture_data    /* Image 1: second image */
 
 /* Include the bit-packed image data */
 .include "picture_data.S"

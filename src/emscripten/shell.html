@@ -93,7 +93,7 @@
       .terminal-header {
         text-align: center;
         margin-bottom: 10px;
-        color: #fb16bb;
+        color: #ffffff;
         font-weight: bold;
         font-size: 0.9em;
       }
@@ -459,10 +459,8 @@
 
       <!-- Controls Panel -->
       <div class="controls-panel">
-        <h3>System Status</h3>
-        
         <!-- Keyboard Status -->
-        <div id="keyboard-status" class="keyboard-status">
+        <div id="keyboard-status" class="keyboard-status hidden">
           ⌨️ Keyboard input ready - System active
         </div>
 
@@ -509,21 +507,21 @@
     <!-- Help Dialog -->
     <div id="help-dialog" class="help-dialog">
       <div class="help-content">
-        <h3>Welcome to PCD-68!</h3>
+        <h3>Welcome to JonSharp.net running on PCD-68</h3>
         <p>This is my virtual retro computer running a custom 68000 assembly program.</p>
         <p><strong>How to navigate:</strong></p>
         <p>Follow the 'Keys:' key on screen</p>
         <p>
         • Press <span class="key">j/k</span> to scroll down/up the content<br>
         • Press <span class="key">number keys</span> to scrub through sections<br>
-        • Press <span class="key">p/t</span> to toggle between picture and text mode</p>
+        • Press <span class="key">a/t</span> to toggle between art and text modes</p>
         <div id="mobile-help" style="display: none;">
           <p><strong>📱 On Mobile/Tablet:</strong></p>
           <p>• Use the virtual keyboard below the screen<br>
           • Tap "Show iOS Keyboard" to use your device's keyboard<br>
           • All the same commands work with touch!</p>
         </div>
-        <p>Just start typing - the keyboard input is ready!</p>
+        <p>Just start typing - the keyboard input should be ready!  If not, click on the display area.</p>
         <button class="close-help" onclick="toggleHelp()">Close</button>
         <div style="clear: both;"></div>
       </div>
