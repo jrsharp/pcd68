@@ -1,22 +1,26 @@
 #include "TDA.h"
 #include <iostream>
+#include <iomanip>
 
 TDA::TDA(CPU* cpu, Screen* screen, uint32_t start, uint32_t size) :
     Peripheral(start, size) {
     this->cpu = cpu;
     this->screen = screen;
     refreshFlag = false;
+    debugMode = false;
+    lastTextMapWriteAddr = 0;
 }
 
 void TDA::reset() {
     registers.mode = COL80; // Default to 80-column font
     memset(textMapMem, ' ', sizeof(textMapMem));
     refreshFlag = true;
+    lastTextMapWriteAddr = 0;
 }
 
 // transfer / flush the character map to the frame buffer
 void TDA::update() {
-    if (refreshFlag) {
+    if (refreshFlag && registers.mode != NONE) {
         u8* framebufferStart = systemRam + 0x10000;
         u8* framebufferEnd = framebufferStart + (400 * 300);
         for (u8* framebufferPtr = framebufferStart; framebufferPtr < framebufferEnd; framebufferPtr++) {
@@ -106,7 +110,37 @@ void TDA::write8(u32 addr, u8 val) {
         set8((u8*)&registers, addr - BASE_ADDR, val);
         refreshFlag = true;
     } else if (addr >= (BASE_ADDR + sizeof(registers)) && addr < BASE_ADDR + sizeof(textMapMem)) {
-        set8((u8*)textMapMem, addr - (BASE_ADDR + sizeof(registers)), val);
+        u32 offset = addr - (BASE_ADDR + sizeof(registers));
+        
+        if (debugMode) {
+            // Check if character is printable
+            char displayChar = (val >= 32 && val <= 126) ? static_cast<char>(val) : '.';
+            std::cout << "DEBUG TDA: Write character 0x" << std::hex << std::setw(2) 
+                      << std::setfill('0') << static_cast<int>(val) << " '" << displayChar 
+                      << "' to textmap at offset 0x" << std::hex << offset;
+            
+            // If in 80-column mode
+            if (registers.mode == COL80) {
+                int col = offset % 80;
+                int row = offset / 80;
+                std::cout << " (row " << std::dec << row << ", col " << col << ")";
+            } else {
+                // 50-column mode
+                int col = offset % 50;
+                int row = offset / 50;
+                std::cout << " (row " << std::dec << row << ", col " << col << ")";
+            }
+            std::cout << std::dec << std::endl;
+            
+            // Track writes that might indicate cursor position changes
+            if (offset != lastTextMapWriteAddr + 1 && lastTextMapWriteAddr != 0) {
+                std::cout << "DEBUG TDA: Cursor position changed from 0x" << std::hex 
+                          << lastTextMapWriteAddr << " to 0x" << offset << std::dec << std::endl;
+            }
+            lastTextMapWriteAddr = offset;
+        }
+        
+        set8((u8*)textMapMem, offset, val);
         refreshFlag = true;
     }
 }
@@ -116,7 +150,23 @@ void TDA::write16(u32 addr, u16 val) {
         set16((u8*)&registers, addr - BASE_ADDR, val);
         refreshFlag = true;
     } else if (addr >= (BASE_ADDR + sizeof(registers)) && addr < BASE_ADDR + sizeof(textMapMem)) {
-        set16((u8*)textMapMem, addr - (BASE_ADDR + sizeof(registers)), val);
+        u32 offset = addr - (BASE_ADDR + sizeof(registers));
+        
+        if (debugMode) {
+            std::cout << "DEBUG TDA: Write16 value 0x" << std::hex << val 
+                      << " to textmap at offset 0x" << offset << std::dec << std::endl;
+        }
+        
+        set16((u8*)textMapMem, offset, val);
         refreshFlag = true;
     }
+}
+
+void TDA::setDebugMode(bool enabled) {
+    debugMode = enabled;
+    std::cout << "TDA debug mode " << (enabled ? "enabled" : "disabled") << std::endl;
+}
+
+bool TDA::isDebugMode() const {
+    return debugMode;
 }

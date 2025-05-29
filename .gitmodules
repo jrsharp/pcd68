@@ -1,0 +1,3 @@
+[submodule "pcd68-home"]
+	path = pcd68-home
+	url = ../pcd68-home

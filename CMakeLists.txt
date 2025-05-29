@@ -1,5 +1,5 @@
 set(srcs 
-    "src/CPU.cpp"
+    "src/PCD68_CPU.cpp"
     "src/KCTL.cpp"
     "src/Screen.cpp"
     "src/TDA.cpp"
@@ -8,9 +8,8 @@ set(srcs
     )
 
 idf_component_register(SRCS ${srcs}
+                        INCLUDE_DIRS "src" "src/Moira"
                         REQUIRES "CalEPD"
-                        INCLUDE_DIRS "src"
-                                    "src/Moira"
 )
 
 target_link_options(${COMPONENT_LIB} PUBLIC -mlongcalls -mtext-section-literals)

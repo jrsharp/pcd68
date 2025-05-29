@@ -3,130 +3,948 @@
   <head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>PCD-68</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCD-68 Virtual Computer | JonSharp.net</title>
+    <meta name="description" content="Experience the PCD-68 virtual retro computer - a complete 68000-based system with custom assembly programming and vintage computing aesthetics.">
+    <meta name="keywords" content="retro computing, 68000, assembly programming, virtual computer, PCD-68, Jon Sharp">
+    <meta name="author" content="Jon Sharp">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💻</text></svg>">
+    
+    <!-- Open Graph / Social Media -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="PCD-68 Virtual Computer | JonSharp.net">
+    <meta property="og:description" content="Experience the PCD-68 virtual retro computer - a complete 68000-based system running entirely in your browser.">
+    <meta property="og:url" content="https://jonsharp.net">
+    <meta property="og:site_name" content="JonSharp.net">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="PCD-68 Virtual Computer">
+    <meta name="twitter:description" content="Experience a complete 68000-based virtual computer running in your browser">
+    
+    <!-- Additional meta tags -->
+    <meta name="theme-color" content="#00ff41">
+    <meta name="robots" content="index, follow">
+    
     <style>
-      .emscripten { padding-right: 0; margin-left: auto; margin-right: auto; display: block; }
-      textarea.emscripten { font-family: monospace; width: 80%; }
-      div.emscripten { text-align: center; }
-      div.emscripten_border { border: 1px solid black; }
-      /* the canvas *must not* have any border or padding, or mouse coords will be wrong */
-      canvas.emscripten { border: 0px none; background-color: black; }
-
-      .spinner {
-        height: 50px;
-        width: 50px;
-        margin: 0px auto;
-        -webkit-animation: rotation .8s linear infinite;
-        -moz-animation: rotation .8s linear infinite;
-        -o-animation: rotation .8s linear infinite;
-        animation: rotation 0.8s linear infinite;
-        border-left: 10px solid rgb(0,150,240);
-        border-right: 10px solid rgb(0,150,240);
-        border-bottom: 10px solid rgb(0,150,240);
-        border-top: 10px solid rgb(100,0,200);
-        border-radius: 100%;
-        background-color: rgb(200,100,250);
+      /* Reset and base styles */
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
       }
-      @-webkit-keyframes rotation {
-        from {-webkit-transform: rotate(0deg);}
-        to {-webkit-transform: rotate(360deg);}
+      
+      body {
+        font-family: "Helvetica Neue", Helvetica, "Arial", sans-serif;
+        background: #000000;
+        color: #e0e0e0;
+        min-height: 100vh;
+        overflow-x: hidden;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
       }
-      @-moz-keyframes rotation {
-        from {-moz-transform: rotate(0deg);}
-        to {-moz-transform: rotate(360deg);}
+      
+      /* Main container */
+      .main-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+        width: 100%;
+        max-width: 800px;
       }
-      @-o-keyframes rotation {
-        from {-o-transform: rotate(0deg);}
-        to {-o-transform: rotate(360deg);}
+      
+      /* Computer terminal container - properly sized around canvas */
+      .terminal-container {
+        background: rgba(0, 0, 0, 0.8);
+        border: 3px solid #fb16bb;
+        border-radius: 15px;
+        padding: 15px;
+        box-shadow: 
+          0 0 10px rgba(251, 22, 187, 0.2),
+          inset 0 0 10px rgba(251, 22, 187, 0.05);
+        position: relative;
+        display: inline-block;
       }
-      @keyframes rotation {
-        from {transform: rotate(0deg);}
-        to {transform: rotate(360deg);}
+      
+      .terminal-container::before {
+        content: '';
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+        background: linear-gradient(45deg, #fb16bb, #d914a3, #fb16bb);
+        border-radius: 15px;
+        z-index: -1;
+        animation: borderGlow 2s ease-in-out infinite alternate;
       }
-
+      
+      @keyframes borderGlow {
+        from { opacity: 0.3; }
+        to { opacity: 0.6; }
+      }
+      
+      .terminal-header {
+        text-align: center;
+        margin-bottom: 10px;
+        color: #ffffff;
+        font-weight: bold;
+        font-size: 0.9em;
+      }
+      
+      /* Canvas styling - centered and properly contained */
+      canvas.emscripten {
+        border: 2px solid #333;
+        background-color: #000;
+        display: block;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+      
+      canvas.emscripten:hover {
+        border-color: #fb16bb;
+        box-shadow: 0 0 8px rgba(251, 22, 187, 0.2);
+      }
+      
+      canvas.emscripten:focus {
+        outline: none;
+        border-color: #fb16bb;
+        box-shadow: 0 0 12px rgba(251, 22, 187, 0.3);
+      }
+      
+      /* Controls panel */
+      .controls-panel {
+        background: rgba(0, 0, 0, 0.6);
+        border: 2px solid #444;
+        border-radius: 10px;
+        padding: 15px;
+        width: 100%;
+        max-width: 500px;
+      }
+      
+      .controls-panel h3 {
+        color: #fb16bb;
+        margin-bottom: 12px;
+        text-align: center;
+        font-size: 1.1em;
+      }
+      
+      /* Keyboard status */
+      .keyboard-status {
+        padding: 10px;
+        border-radius: 6px;
+        text-align: center;
+        font-weight: bold;
+        margin-bottom: 15px;
+        transition: all 0.3s ease;
+        border: 2px solid;
+        background: rgba(251, 22, 187, 0.1);
+        border-color: #fb16bb;
+        color: #fb16bb;
+        box-shadow: 0 0 6px rgba(251, 22, 187, 0.2);
+        font-size: 0.9em;
+      }
+      
+      /* Help link */
+      .help-section {
+        text-align: center;
+      }
+      
+      .help-link {
+        color: #fb16bb;
+        text-decoration: none;
+        font-size: 0.9em;
+        cursor: pointer;
+        transition: color 0.3s ease;
+      }
+      
+      .help-link:hover {
+        color: #d914a3;
+        text-shadow: 0 0 3px rgba(251, 22, 187, 0.3);
+      }
+      
+      /* Help dialog */
+      .help-dialog {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+      }
+      
+      .help-dialog.show {
+        display: flex;
+      }
+      
+      .help-content {
+        background: #111;
+        border: 2px solid #fb16bb;
+        border-radius: 10px;
+        padding: 20px;
+        max-width: 500px;
+        width: 90%;
+        color: #e0e0e0;
+        box-shadow: 0 0 15px rgba(251, 22, 187, 0.3);
+      }
+      
+      .help-content h3 {
+        color: #fb16bb;
+        margin-bottom: 15px;
+        text-align: center;
+      }
+      
+      .help-content p {
+        line-height: 1.5;
+        margin-bottom: 15px;
+        font-size: 0.9em;
+      }
+      
+      .help-content .key {
+        background: #333;
+        color: #fb16bb;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-weight: bold;
+        border: 1px solid #555;
+        font-size: 0.8em;
+      }
+      
+      .close-help {
+        background: #fb16bb;
+        color: #000;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: bold;
+        float: right;
+        transition: background 0.3s ease;
+      }
+      
+      .close-help:hover {
+        background: #d914a3;
+      }
+      
+      /* Footer */
+      .footer {
+        text-align: center;
+        padding: 20px;
+        color: #888;
+        margin-top: 30px;
+        font-size: 0.8em;
+      }
+      
+      .footer a {
+        color: #fb16bb;
+        text-decoration: none;
+        transition: color 0.3s ease;
+      }
+      
+      .footer a:hover {
+        color: #d914a3;
+        text-shadow: 0 0 3px rgba(251, 22, 187, 0.3);
+      }
+      
+      /* Responsive design */
+      @media (max-width: 768px) {
+        body {
+          padding: 10px;
+        }
+        
+        .terminal-container {
+          padding: 10px;
+        }
+        
+        .controls-panel {
+          padding: 12px;
+        }
+        
+        canvas.emscripten {
+          max-width: 100%;
+          height: auto;
+        }
+      }
+      
+      @media (max-width: 480px) {
+        .terminal-container {
+          border-radius: 10px;
+          padding: 8px;
+        }
+        
+        canvas.emscripten {
+          width: 100%;
+          max-width: 350px;
+        }
+      }
+      
+      /* Accessibility improvements */
+      @media (prefers-reduced-motion: reduce) {
+        .spinner,
+        .terminal-container::before {
+          animation: none;
+        }
+        
+        * {
+          transition: none !important;
+        }
+      }
+      
+      /* High contrast mode */
+      @media (prefers-contrast: high) {
+        .terminal-container {
+          border-width: 4px;
+        }
+        
+        .keyboard-status {
+          border-width: 3px;
+        }
+      }
+      
+      /* Mobile enhancements */
+      .mobile-controls {
+        display: none;
+        margin-top: 15px;
+        text-align: center;
+      }
+      
+      .mobile-keyboard {
+        display: none;
+        background: rgba(0, 0, 0, 0.9);
+        border: 2px solid #fb16bb;
+        border-radius: 10px;
+        padding: 15px;
+        margin-top: 15px;
+        position: relative;
+      }
+      
+      .mobile-keyboard h4 {
+        color: #fb16bb;
+        margin-bottom: 10px;
+        font-size: 0.9em;
+        text-align: center;
+      }
+      
+      .key-row {
+        display: flex;
+        justify-content: center;
+        gap: 5px;
+        margin-bottom: 8px;
+        flex-wrap: wrap;
+      }
+      
+      .virtual-key {
+        background: #333;
+        color: #fb16bb;
+        border: 1px solid #fb16bb;
+        border-radius: 5px;
+        padding: 8px 12px;
+        font-size: 0.9em;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        min-width: 35px;
+        text-align: center;
+        user-select: none;
+      }
+      
+      .virtual-key:active,
+      .virtual-key:hover {
+        background: rgba(251, 22, 187, 0.2);
+        box-shadow: 0 0 8px rgba(251, 22, 187, 0.4);
+      }
+      
+      .virtual-key.wide {
+        min-width: 60px;
+      }
+      
+      .show-keyboard-btn {
+        background: #fb16bb;
+        color: #000;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        font-weight: bold;
+        cursor: pointer;
+        margin: 5px;
+        transition: background 0.3s ease;
+      }
+      
+      .show-keyboard-btn:hover {
+        background: #d914a3;
+      }
+      
+      .mobile-hint {
+        display: none;
+        background: rgba(251, 22, 187, 0.1);
+        border: 1px solid #fb16bb;
+        border-radius: 5px;
+        padding: 10px;
+        margin-top: 10px;
+        font-size: 0.8em;
+        text-align: center;
+        color: #fb16bb;
+      }
+      
+      .hidden-input {
+        position: absolute;
+        left: -9999px;
+        opacity: 0;
+        pointer-events: none;
+      }
+      
+      /* Mobile-specific responsive adjustments */
+      @media (max-width: 768px) and (pointer: coarse) {
+        .mobile-controls,
+        .mobile-hint {
+          display: block;
+        }
+        
+        .terminal-container {
+          margin-bottom: 10px;
+        }
+        
+        .controls-panel {
+          padding: 12px;
+        }
+        
+        canvas.emscripten {
+          max-width: 100%;
+          height: auto;
+        }
+        
+        .help-content {
+          padding: 15px;
+          max-width: 95%;
+        }
+      }
+      
+      @media (max-width: 480px) {
+        .virtual-key {
+          padding: 6px 8px;
+          font-size: 0.8em;
+          min-width: 30px;
+        }
+        
+        .key-row {
+          gap: 3px;
+          margin-bottom: 6px;
+        }
+      }
     </style>
     <link rel="stylesheet" href="pcd68-home.css">
   </head>
   <body>
-    <figure style="overflow:visible;" id="spinner"><div class="spinner"></div><center style="margin-top:0.5em"><strong>emscripten</strong></center></figure>
-    <div class="emscripten" id="status">Downloading...</div>
-    <div class="emscripten">
-      <progress value="0" max="100" id="progress" hidden=1></progress>  
-    </div>
-    <div>
-      <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1 width="400" height="300"></canvas>
-    </div>
-    <script type='text/javascript'>
-      var statusElement = document.getElementById('status');
-      var progressElement = document.getElementById('progress');
-      var spinnerElement = document.getElementById('spinner');
+    <!-- Main Content -->
+    <main class="main-container">
+      <!-- Terminal Display -->
+      <div class="terminal-container">
+        <div class="terminal-header">PCD-68 DISPLAY TERMINAL</div>
+        <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" 
+                tabindex="0" width="400" height="300" 
+                aria-label="PCD-68 computer display"
+                title="PCD-68 Virtual Computer Display"></canvas>
+      </div>
 
-      var Module = {
-        preRun: [],
-        postRun: [],
-        print: (function() {
-          var element = document.getElementById('output');
-          if (element) element.value = ''; // clear browser cache
-          return function(text) {
-            if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
-            // These replacements are necessary if you render to raw HTML
-            //text = text.replace(/&/g, "&amp;");
-            //text = text.replace(/</g, "&lt;");
-            //text = text.replace(/>/g, "&gt;");
-            //text = text.replace('\n', '<br>', 'g');
-            console.log(text);
-            if (element) {
-              element.value += text + "\n";
-              element.scrollTop = element.scrollHeight; // focus on bottom
+      <!-- Controls Panel -->
+      <div class="controls-panel">
+        <!-- Keyboard Status -->
+        <div id="keyboard-status" class="keyboard-status hidden">
+          ⌨️ Keyboard input ready - System active
+        </div>
+
+        <!-- Help Section -->
+        <div class="help-section">
+          <a href="#" class="help-link" onclick="toggleHelp(); return false;">help</a>
+        </div>
+
+        <!-- Mobile Controls -->
+        <div class="mobile-controls">
+          <button class="show-keyboard-btn" onclick="toggleMobileKeyboard()">Show Virtual Keyboard</button>
+          <button class="show-keyboard-btn" onclick="showIOSKeyboard()">Show iOS Keyboard</button>
+        </div>
+
+        <!-- Mobile Hint -->
+        <div class="mobile-hint">
+          📱 On mobile? Use the virtual keyboard above or tap "Show iOS Keyboard" to bring up your device's keyboard.
+        </div>
+
+        <!-- Virtual Keyboard -->
+        <div id="mobile-keyboard" class="mobile-keyboard">
+          <h4>PCD-68 Virtual Keyboard</h4>
+          <div class="key-row">
+            <div class="virtual-key" onclick="sendKey('1')">1</div>
+            <div class="virtual-key" onclick="sendKey('2')">2</div>
+            <div class="virtual-key" onclick="sendKey('3')">3</div>
+            <div class="virtual-key" onclick="sendKey('4')">4</div>
+            <div class="virtual-key" onclick="sendKey('5')">5</div>
+            <div class="virtual-key" onclick="sendKey('6')">6</div>
+            <div class="virtual-key" onclick="sendKey('7')">7</div>
+            <div class="virtual-key" onclick="sendKey('8')">8</div>
+            <div class="virtual-key" onclick="sendKey('9')">9</div>
+          </div>
+          <div class="key-row">
+            <div class="virtual-key wide" onclick="sendKey('j')">J<br><small>Down</small></div>
+            <div class="virtual-key wide" onclick="sendKey('k')">K<br><small>Up</small></div>
+            <div class="virtual-key wide" onclick="sendKey('p')">P<br><small>Art</small></div>
+            <div class="virtual-key wide" onclick="sendKey('t')">T<br><small>Text</small></div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Help Dialog -->
+    <div id="help-dialog" class="help-dialog">
+      <div class="help-content">
+        <h3>Welcome to JonSharp.net running on PCD-68</h3>
+        <p>This is my virtual retro computer running a custom 68000 assembly program.</p>
+        <p><strong>How to navigate:</strong></p>
+        <p>Follow the 'Keys:' key on screen</p>
+        <p>
+        • Press <span class="key">j/k</span> to scroll down/up the content<br>
+        • Press <span class="key">number keys</span> to scrub through sections<br>
+        • Press <span class="key">a/t</span> to toggle between art and text modes</p>
+        <div id="mobile-help" style="display: none;">
+          <p><strong>📱 On Mobile/Tablet:</strong></p>
+          <p>• Use the virtual keyboard below the screen<br>
+          • Tap "Show iOS Keyboard" to use your device's keyboard<br>
+          • All the same commands work with touch!</p>
+        </div>
+        <p>Just start typing - the keyboard input should be ready!  If not, click on the display area.</p>
+        <button class="close-help" onclick="toggleHelp()">Close</button>
+        <div style="clear: both;"></div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p>
+        <a href="gopher://jonsharp.net" target="_blank">Jon Sharp in gopherspace</a> • 
+        <a href="https://github.com/jrsharp/pcd68" target="_blank">Source Code</a>
+      </p>
+    </footer>
+
+    <!-- Hidden input for iOS keyboard -->
+    <input type="text" id="hidden-input" class="hidden-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+
+    <script type='text/javascript'>
+      // DOM elements
+      var keyboardStatus = document.getElementById('keyboard-status');
+      var canvas = document.getElementById('canvas');
+      var hiddenInput = document.getElementById('hidden-input');
+      
+      // State tracking
+      var systemReady = false;
+      var initializationStartTime = Date.now();
+      var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      var canvasFocused = false;
+      
+      // Update keyboard status display
+      function updateKeyboardStatus(focused) {
+        canvasFocused = focused;
+        var statusElement = document.getElementById('keyboard-status');
+        
+        if (!systemReady) {
+          statusElement.textContent = '⏳ System initializing...';
+          statusElement.style.borderColor = '#666';
+          statusElement.style.color = '#666';
+          statusElement.style.background = 'rgba(102, 102, 102, 0.1)';
+          statusElement.style.boxShadow = '0 0 3px rgba(102, 102, 102, 0.2)';
+        } else if (focused) {
+          statusElement.textContent = '⌨️ Keyboard input ready - System active';
+          statusElement.style.borderColor = '#fb16bb';
+          statusElement.style.color = '#fb16bb';
+          statusElement.style.background = 'rgba(251, 22, 187, 0.1)';
+          statusElement.style.boxShadow = '0 0 6px rgba(251, 22, 187, 0.2)';
+        } else {
+          statusElement.textContent = '⌨️ Click display area to activate keyboard input';
+          statusElement.style.borderColor = '#666';
+          statusElement.style.color = '#999';
+          statusElement.style.background = 'rgba(102, 102, 102, 0.05)';
+          statusElement.style.boxShadow = '0 0 3px rgba(102, 102, 102, 0.1)';
+        }
+      }
+      
+      // Mobile keyboard functions
+      function toggleMobileKeyboard() {
+        var keyboard = document.getElementById('mobile-keyboard');
+        if (keyboard.style.display === 'none' || keyboard.style.display === '') {
+          keyboard.style.display = 'block';
+        } else {
+          keyboard.style.display = 'none';
+        }
+      }
+      
+      function showIOSKeyboard() {
+        hiddenInput.focus();
+        hiddenInput.click();
+        setTimeout(function() {
+          hiddenInput.focus();
+        }, 100);
+      }
+      
+      function sendKey(key) {
+        if (!systemReady) return;
+        
+        // Send key to the canvas/emscripten module
+        var event = new KeyboardEvent('keydown', {
+          key: key,
+          code: 'Key' + key.toUpperCase(),
+          charCode: key.charCodeAt(0),
+          keyCode: key.charCodeAt(0),
+          which: key.charCodeAt(0),
+          bubbles: true
+        });
+        
+        canvas.dispatchEvent(event);
+        
+        // Also send keyup event
+        var eventUp = new KeyboardEvent('keyup', {
+          key: key,
+          code: 'Key' + key.toUpperCase(),
+          charCode: key.charCodeAt(0),
+          keyCode: key.charCodeAt(0),
+          which: key.charCodeAt(0),
+          bubbles: true
+        });
+        
+        canvas.dispatchEvent(eventUp);
+        
+        console.log('Virtual key sent:', key);
+      }
+      
+      // Setup hidden input for iOS keyboard
+      function setupIOSKeyboard() {
+        hiddenInput.addEventListener('input', function(e) {
+          var value = this.value;
+          if (value.length > 0) {
+            var lastChar = value.charAt(value.length - 1);
+            sendKey(lastChar);
+            // Clear the input to allow for repeated characters
+            setTimeout(() => { this.value = ''; }, 50);
+          }
+        });
+        
+        hiddenInput.addEventListener('keydown', function(e) {
+          // Handle special keys
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            sendKey('\r');
+          } else if (e.key === 'Backspace') {
+            e.preventDefault();
+            sendKey('\b');
+          }
+        });
+      }
+      
+      // Help dialog functionality
+      function toggleHelp() {
+        var dialog = document.getElementById('help-dialog');
+        var mobileHelp = document.getElementById('mobile-help');
+        
+        dialog.classList.toggle('show');
+        
+        // Show mobile-specific help if on mobile device
+        if (isMobile && dialog.classList.contains('show')) {
+          mobileHelp.style.display = 'block';
+        }
+        
+        // If closing dialog, refocus canvas
+        if (!dialog.classList.contains('show') && systemReady) {
+          setTimeout(function() {
+            canvas.focus();
+          }, 100);
+        }
+      }
+      
+      // Close dialog when clicking outside
+      document.getElementById('help-dialog').addEventListener('click', function(e) {
+        if (e.target === this) {
+          toggleHelp();
+        }
+      });
+      
+      // Auto-focus canvas and setup keyboard handling
+      function initializeCanvas() {
+        console.log('Initializing canvas focus...');
+        
+        // Setup mobile features if on mobile device
+        if (isMobile) {
+          setupIOSKeyboard();
+          console.log('Mobile device detected - iOS keyboard support enabled');
+        }
+        
+        // Force focus immediately
+        canvas.focus();
+        updateKeyboardStatus(true);
+        
+        // Set up focus maintenance with live status updates
+        canvas.addEventListener('focus', function() {
+          console.log('Canvas gained focus');
+          updateKeyboardStatus(true);
+        });
+        
+        canvas.addEventListener('blur', function() {
+          console.log('Canvas lost focus');
+          updateKeyboardStatus(false);
+          
+          // Re-focus after a short delay to avoid conflicts (if system ready)
+          setTimeout(function() {
+            if (systemReady) {
+              canvas.focus();
             }
+          }, 50);
+        });
+        
+        // Handle clicks to maintain focus
+        canvas.addEventListener('click', function() {
+          canvas.focus();
+          updateKeyboardStatus(true);
+        });
+        
+        // Prevent context menu
+        canvas.addEventListener('contextmenu', function(e) {
+          e.preventDefault();
+          canvas.focus();
+          updateKeyboardStatus(true);
+        });
+        
+        // Additional focus enforcement
+        setTimeout(function() {
+          canvas.focus();
+          updateKeyboardStatus(true);
+          console.log('Canvas focused on page load');
+        }, 300);
+      }
+      
+      // Module readiness checking with better timeout handling
+      function isModuleReady() {
+        return typeof Module !== 'undefined' && 
+               Module.ready === true && 
+               typeof Module._malloc === 'function' && 
+               typeof Module._free === 'function' &&
+               typeof Module.HEAPU8 !== 'undefined';
+      }
+      
+      // Wait for module with more generous timeout and better error handling
+      function waitForModule(callback, timeout = 30000) {
+        if (isModuleReady()) {
+          callback();
+          return;
+        }
+        
+        var startTime = Date.now();
+        var checkInterval = setInterval(() => {
+          if (isModuleReady()) {
+            clearInterval(checkInterval);
+            callback();
+          } else if (Date.now() - startTime > timeout) {
+            clearInterval(checkInterval);
+            console.error('Module initialization timed out after', timeout, 'ms');
+            console.log('System may still be loading in the background...');
+            // System often works anyway, so don't show intrusive alert
+          }
+        }, 250); // Check less frequently to reduce CPU usage
+      }
+      
+      // Enhanced heap availability checking with better error handling
+      function ensureHeapAvailable(callback, maxAttempts = 20) {
+        var attempts = 0;
+        
+        function checkHeap() {
+          if (typeof Module.HEAPU8 !== 'undefined') {
+            console.log('WebAssembly memory initialized successfully');
+            callback();
+            return;
+          }
+          
+          attempts++;
+          if (attempts >= maxAttempts) {
+            console.error('Failed to initialize WebAssembly memory after', maxAttempts, 'attempts');
+            console.log('Memory initialization failed - this may be a browser compatibility issue');
+            return;
+          }
+          
+          console.log(`Waiting for memory initialization (attempt ${attempts}/${maxAttempts})`);
+          setTimeout(checkHeap, 300);
+        }
+        
+        checkHeap();
+      }
+      
+      // Load internal ROM with better error handling
+      function loadInternalROM() {
+        waitForModule(function() {
+          ensureHeapAvailable(function() {
+            try {
+              Module.ccall('loadInternalRom', null, [], []);
+              console.log('Successfully loaded internal JonSharp.net ROM');
+              systemReady = true;
+              
+              // Initialize canvas focus immediately when ROM is loaded
+              initializeCanvas();
+              
+              // Update status to reflect system is ready
+              updateKeyboardStatus(canvasFocused);
+              
+            } catch (error) {
+              console.error('Error loading internal ROM:', error);
+              console.log('ROM loading failed - please refresh the page to try again');
+            }
+          });
+        });
+      }
+
+      // Enhanced Module configuration with better initialization
+      var Module = {
+        preRun: [
+          function() {
+            console.log("PCD-68 system pre-initialization");
+          }
+        ],
+        postRun: [
+          function() {
+            console.log("PCD-68 system post-initialization");
+            Module.ready = true;
+            
+            // Auto-load internal ROM with shorter delay
+            setTimeout(function() {
+              if (typeof Module.ccall === 'function') {
+                loadInternalROM();
+                console.log('Auto-loaded JonSharp.net ROM');
+              } else {
+                console.error('Module.ccall not available');
+              }
+            }, 100);
+          }
+        ],
+        print: (function() {
+          return function(text) {
+            if (arguments.length > 1) {
+              text = Array.prototype.slice.call(arguments).join(' ');
+            }
+            console.log('[PCD-68]', text);
           };
         })(),
-        canvas: (function() {
-          var canvas = document.getElementById('canvas');
-
-          // As a default initial behavior, pop up an alert when webgl context is lost. To make your
-          // application robust, you may ant to override this behavior before shipping!
-          // See http://www.khronos.org/registry/webgl/specs/latest/1.0/#5.15.2
-          canvas.addEventListener("webglcontextlost", function(e) { alert('WebGL context lost. You will need to reload the page.'); e.preventDefault(); }, false);
-
-          return canvas;
-        })(),
+        canvas: canvas,
         setStatus: function(text) {
-          if (!Module.setStatus.last) Module.setStatus.last = { time: Date.now(), text: '' };
-          if (text === Module.setStatus.last.text) return;
-          var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
-          var now = Date.now();
-          if (m && now - Module.setStatus.last.time < 30) return; // if this is a progress update, skip it if too soon
-          Module.setStatus.last.time = now;
-          Module.setStatus.last.text = text;
-          if (m) {
-            text = m[1];
-            progressElement.value = parseInt(m[2])*100;
-            progressElement.max = parseInt(m[4])*100;
-            progressElement.hidden = false;
-            spinnerElement.hidden = false;
-          } else {
-            progressElement.value = null;
-            progressElement.max = null;
-            progressElement.hidden = true;
-            if (!text) spinnerElement.hidden = true;
+          // Simplified status handling - just log to console
+          if (text) {
+            console.log('[PCD-68 Status]', text);
           }
-          statusElement.innerHTML = text;
         },
         totalDependencies: 0,
         monitorRunDependencies: function(left) {
           this.totalDependencies = Math.max(this.totalDependencies, left);
-          Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
+          
+          if (left === 0) {
+            console.log('All system dependencies loaded');
+            
+            // Shorter timeout for better responsiveness
+            setTimeout(function() {
+              if (typeof Module.HEAPU8 !== 'undefined') {
+                Module.ready = true;
+                console.log('PCD-68 system fully initialized');
+              } else {
+                console.warn('Memory not ready, retrying...');
+                setTimeout(function() {
+                  Module.ready = true;
+                  console.log('PCD-68 system initialized (retry)');
+                }, 300);
+              }
+            }, 500);
+          } else {
+            console.log(`Loading system components (${this.totalDependencies-left}/${this.totalDependencies})`);
+          }
         }
       };
-      Module.setStatus('Downloading...');
-      window.onerror = function() {
-        Module.setStatus('Exception thrown, see JavaScript console');
-        spinnerElement.style.display = 'none';
+      
+      // Enhanced error handling
+      window.onerror = function(msg, url, lineNo, columnNo, error) {
+        console.error('System error:', { msg, url, lineNo, columnNo, error });
         Module.setStatus = function(text) {
-          if (text) console.error('[post-exception status] ' + text);
+          if (text) console.error('[post-error status]', text);
         };
       };
+      
+      // Unhandled promise rejection handling
+      window.addEventListener('unhandledrejection', function(event) {
+        console.error('Unhandled promise rejection:', event.reason);
+      });
+      
+      // Performance monitoring
+      function trackPerformance() {
+        if ('performance' in window) {
+          window.addEventListener('load', function() {
+            setTimeout(function() {
+              var perfData = performance.getEntriesByType('navigation')[0];
+              if (perfData) {
+                var loadTime = Math.round(perfData.loadEventEnd - perfData.fetchStart);
+                console.log('Performance metrics:', {
+                  loadTime: loadTime,
+                  domReady: Math.round(perfData.domContentLoadedEventEnd - perfData.fetchStart),
+                  firstPaint: performance.getEntriesByType('paint').find(entry => entry.name === 'first-paint')?.startTime || 0
+                });
+                
+                // Log initialization time
+                var initTime = Date.now() - initializationStartTime;
+                console.log('Total initialization time:', initTime, 'ms');
+              }
+            }, 1000);
+          });
+        }
+      }
+      
+      // User experience tracking
+      function trackUserExperience() {
+        var startTime = Date.now();
+        var interactionCount = 0;
+        
+        // Track meaningful interactions
+        ['click', 'keydown', 'focus'].forEach(function(eventType) {
+          document.addEventListener(eventType, function() {
+            interactionCount++;
+          });
+        });
+        
+        // Track session duration
+        window.addEventListener('beforeunload', function() {
+          var sessionDuration = Date.now() - startTime;
+          console.log('Session metrics:', {
+            duration: Math.round(sessionDuration / 1000),
+            interactions: interactionCount,
+            systemReady: systemReady
+          });
+        });
+      }
+      
+      // Initialize tracking
+      trackPerformance();
+      trackUserExperience();
+
+      // Initialize canvas focus as soon as page loads
+      document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM loaded, attempting early canvas focus...');
+        updateKeyboardStatus(false); // Show initializing state
+        canvas.focus();
+      });
+      
+      // Additional focus attempt when window loads
+      window.addEventListener('load', function() {
+        console.log('Window loaded, attempting canvas focus...');
+        canvas.focus();
+      });
     </script>
     {{{ SCRIPT }}}
   </body>

@@ -21,7 +21,7 @@ public:
     virtual void write16(u32 addr, u16 val) = 0;
 
     bool isValidFor(uint32_t addr) {
-        return baseAddress <= addr && addr <= endAddress;
+        return baseAddress <= addr && addr < endAddress;
     }
 
 private:

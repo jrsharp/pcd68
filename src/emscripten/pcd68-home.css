@@ -1,14 +1,177 @@
-body {
-    background-image: url("FRST1_Homepage_bg.png");
-    background-repeat: no-repeat;
-    background-position-x: center;
-    background-position-y: -180px;
-    background-size: 2800px;
-    background-color: #cccccc;
+/* Additional styling for PCD-68 web interface */
+
+/* Enhanced canvas container styling */
+.terminal-container {
+    /* Add subtle scan lines effect for authentic retro feel */
+    position: relative;
 }
 
+.terminal-container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(251, 22, 187, 0.02) 2px,
+        rgba(251, 22, 187, 0.02) 4px
+    );
+    pointer-events: none;
+    border-radius: 15px;
+}
+
+/* Canvas specific enhancements */
 #canvas {
-    margin-top: 30px;
-    margin-left: auto;
-    margin-right: auto;
+    /* Add subtle CRT-style curvature effect */
+    filter: contrast(1.1) brightness(1.05);
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
+}
+
+/* Enhance the glowing border effect */
+.terminal-container::before {
+    background: linear-gradient(
+        45deg,
+        #fb16bb 0%,
+        #d914a3 25%,
+        #fb16bb 50%,
+        #d914a3 75%,
+        #fb16bb 100%
+    );
+    background-size: 400% 400%;
+    animation: borderGlow 3s ease-in-out infinite;
+}
+
+@keyframes borderGlow {
+    0%, 100% {
+        background-position: 0% 50%;
+        opacity: 0.3;
+    }
+    50% {
+        background-position: 100% 50%;
+        opacity: 0.6;
+    }
+}
+
+/* Add subtle matrix-style background pattern */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        radial-gradient(circle at 25% 25%, rgba(251, 22, 187, 0.01) 0%, transparent 50%),
+        radial-gradient(circle at 75% 75%, rgba(251, 22, 187, 0.01) 0%, transparent 50%);
+    background-size: 100px 100px;
+    animation: matrixFloat 20s linear infinite;
+    pointer-events: none;
+    z-index: -1;
+}
+
+@keyframes matrixFloat {
+    0% { transform: translateY(0px); }
+    100% { transform: translateY(-100px); }
+}
+
+/* Improve text readability */
+.header .subtitle,
+.instructions li {
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* Add subtle pulsing to the status indicator */
+#status {
+    animation: statusPulse 2s ease-in-out infinite;
+}
+
+@keyframes statusPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
+}
+
+/* Enhance focus indicators for better accessibility */
+#canvas:focus {
+    box-shadow: 
+        0 0 0 3px rgba(251, 22, 187, 0.2),
+        0 0 8px rgba(251, 22, 187, 0.3);
+}
+
+/* Add loading shimmer effect */
+.spinner {
+    position: relative;
+    overflow: hidden;
+}
+
+.spinner::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(251, 22, 187, 0.4),
+        transparent
+    );
+    animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+/* Responsive typography improvements */
+@media (max-width: 768px) {
+    .header .subtitle {
+        font-size: 0.75em;
+        line-height: 1.4;
+    }
+    
+    .instructions li {
+        font-size: 0.8em;
+    }
+    
+    .terminal-header {
+        font-size: 0.8em;
+    }
+}
+
+/* High contrast mode enhancements */
+@media (prefers-contrast: high) {
+    .terminal-container::before {
+        opacity: 1 !important;
+    }
+    
+    .keyboard-status {
+        background: rgba(251, 22, 187, 0.3) !important;
+    }
+}
+
+/* Print styles for documentation */
+@media print {
+    body {
+        background: white !important;
+        color: black !important;
+    }
+    
+    .terminal-container,
+    .controls-panel {
+        border: 2px solid black !important;
+        box-shadow: none !important;
+    }
+    
+    .spinner,
+    #canvas {
+        display: none !important;
+    }
 }

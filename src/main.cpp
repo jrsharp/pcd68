@@ -3,64 +3,205 @@
 #include <iostream>
 #include <stdlib.h>
 #include <thread>
+#include <stdio.h>
+#include <string>
 
-#include "CPU.h"
+#include "PCD68_CPU.h"
 #include "KCTL.h"
 #include "Screen_SDL.h"
 #include "TDA.h"
+#include "UART.h"
+#include "KeyboardInput.h"
+#include "benchmark.h"
 
 #include "text_demo.h"
 
 #ifdef __EMSCRIPTEN__
 #    include "emscripten.h"
-#    define CYCLE_FACTOR 10
-#    define INPUT_FACTOR 2
+#    define CYCLE_FACTOR 30    // Higher refresh rate for smoother display
+#    define INPUT_FACTOR 1     // Responsive input polling
 #else
-#    define CYCLE_FACTOR 50
-#    define INPUT_FACTOR 100
+#    define CYCLE_FACTOR 500   // Dramatically increased for better performance
+#    define INPUT_FACTOR 1     // Poll input every iteration for responsiveness
 #endif
 
-u8 systemRom[CPU::ROM_SIZE];     // ROM
-u8 systemRam[CPU::RAM_SIZE];     // RAM
+u8* systemRom;                   // ROM
+u8* systemRam;                   // RAM
 CPU* pcdCpu;                     // CPU
 TDA* textDisplayAdapter;         // Graphics adapter
 KCTL* keyboardController;        // Keyboard controller
+UART* uartController;            // UART controller
 Screen* pcdScreen;               // Screen instance
-u32 keydownDebounceMs = 0;       // debounce period (in ms) for keyboard input
+KeyboardInput* keyboardInput;    // Keyboard input handler
 i64 interruptDebounceClocks = 0; // debounce period (in clocks) for keyboard input interrupt
 i64 lastClock = 0;
-u16 keyCode = 0;
-u16 mod = 0;
+PerformanceBenchmark* benchmark = nullptr;
 
-bool handleEvents(u16* kc) {
-    SDL_Event event;
-    SDL_PollEvent(&event);
-    if (event.type == SDL_QUIT) {
-        return false;
+#ifdef __EMSCRIPTEN__
+// Exposed functions for JavaScript to load ROMs
+extern "C" {
+    // Load the internal ROM (text_demo_bin)
+    EMSCRIPTEN_KEEPALIVE
+    void loadInternalRom() {
+        std::cout << "Loading internal ROM (text_demo)..." << std::endl;
+        
+        // Reset the CPU
+        pcdCpu->reset();
+        pcdCpu->setIPL(0x00);
+        
+        // Clear memory
+        std::memset(systemRom, 0, CPU::ROM_SIZE);
+        std::memset(systemRam, 0, CPU::RAM_SIZE);
+        
+        // Load the built-in ROM
+        std::memcpy(systemRom, text_demo_bin, text_demo_bin_len);
+        
+        // Reset peripherals
+        keyboardController->reset();
+        textDisplayAdapter->reset();
+        uartController->reset();
+        
+        // Update display
+        textDisplayAdapter->update();
+        pcdScreen->refresh();
+        
+        std::cout << "Internal ROM loaded successfully." << std::endl;
     }
-    if (event.type == SDL_KEYDOWN) {
-        u32 ticksNow = SDL_GetTicks();
-        if (SDL_TICKS_PASSED(ticksNow, keydownDebounceMs)) {
-            // Throttle keydown events for 5ms.
-            keydownDebounceMs = ticksNow + 5;
-            keyCode = event.key.keysym.sym;
-            mod = event.key.keysym.mod;
-            //std::cout << "code:" << keyCode << ", mod:" << mod << std::endl;
+    
+    // Load an external ROM from an array buffer
+    EMSCRIPTEN_KEEPALIVE
+    void loadExternalRom(uint8_t* romData, int size) {
+        std::cout << "Loading external ROM, size: " << size << " bytes..." << std::endl;
+        
+        if (size > CPU::ROM_SIZE) {
+            std::cerr << "ROM too large! Maximum size is " << CPU::ROM_SIZE << " bytes." << std::endl;
+            return;
         }
+        
+        // Reset the CPU
+        pcdCpu->reset();
+        pcdCpu->setIPL(0x00);
+        
+        // Clear memory
+        std::memset(systemRom, 0, CPU::ROM_SIZE);
+        std::memset(systemRam, 0, CPU::RAM_SIZE);
+        
+        // Load the ROM data
+        std::memcpy(systemRom, romData, size);
+        
+        // Reset peripherals
+        keyboardController->reset();
+        textDisplayAdapter->reset();
+        uartController->reset();
+        
+        // Update display
+        textDisplayAdapter->update();
+        pcdScreen->refresh();
+        
+        std::cout << "External ROM loaded successfully." << std::endl;
     }
+}
+#endif
 
-    return true;
+// For native builds, UART connection options
+#ifndef __EMSCRIPTEN__
+std::string uartSerialDevice1, uartSerialDevice2;
+std::string uartPipeIn1, uartPipeOut1, uartPipeIn2, uartPipeOut2;
+bool usingSerial = false;
+bool usingPipes = false;
+#endif
+
+// Global variable declaration for debug flags to be used in callback
+#ifdef __EMSCRIPTEN__
+bool enableKeyboardDebug = false;  // Disable debug now that keyboard input is working
+#else
+bool enableKeyboardDebug = false;
+#endif
+
+// Keyboard event handler callback for single key events
+void handleKeyEvent(u16 keyCode, u16 mod) {
+    // Add a static counter to track events processed by this handler
+    static unsigned int eventCounter = 0;
+
+    if (keyCode > 0) {
+        eventCounter++;
+
+        // Debug output disabled for production
+        /*
+        std::cout << "CALLBACK handleKeyEvent: #" << eventCounter << " code=0x" << std::hex << keyCode 
+                  << " mod=0x" << mod << std::dec << " - calling KCTL->update()" << std::endl;
+        */
+
+        // Note: We're casting to u8 here, since KCTL expects 8-bit keycodes
+        // This limits us to ASCII/Latin-1 range characters
+        keyboardController->update(keyCode & 0xFF, mod & 0xFF);
+        textDisplayAdapter->update();
+        pcdScreen->refresh();
+    }
+}
+
+// Multi-key event handler callback - more efficient than processing keys individually
+void handleMultiKeyEvent(const u8* keycodes, u8 keyCount, u8 mod) {
+    // Add a static counter to track reports processed by this handler
+    static unsigned int reportCounter = 0;
+
+    if (keyCount > 0) {
+        reportCounter++;
+
+        // Debug output disabled for production
+        /*
+        std::cout << "CALLBACK handleMultiKeyEvent: #" << reportCounter << " count=" << (int)keyCount 
+                  << " mod=0x" << std::hex << (int)mod << std::dec << " - calling KCTL->updateMultiKey()" << std::endl;
+        */
+
+        // Use the more efficient multi-key update function
+        keyboardController->updateMultiKey(keycodes, keyCount, mod);
+        textDisplayAdapter->update();
+        pcdScreen->refresh();
+    }
 }
 
 // Main loop
 bool mainLoop() {
-    bool exit, clearKbdInt = false;
-
-    // yield
-    //std::this_thread::sleep_for(std::chrono::nanoseconds(2));
+    static int inputCounter = 0;
+    bool exit = false, clearKbdInt = false;
 
     // Process input and update screen
     i64 clocks = pcdCpu->getClock();
+
+    // Prioritize keyboard input polling - do this more frequently
+    inputCounter++;
+    if (inputCounter >= INPUT_FACTOR) {
+        // Poll for keyboard events more aggressively
+        exit = !keyboardInput->poll();
+        inputCounter = 0;
+
+        // Static counter for input polling iterations - only show every 100000 cycles for performance
+        static unsigned int pollCounter = 0;
+        pollCounter++;
+
+        if (enableKeyboardDebug && pollCounter % 100000 == 0) {
+            std::cout << "mainLoop - poll #" << pollCounter
+                      << " - KCTL report count: " << (int)keyboardController->registers.pendingReportCount
+                      << "/" << KCTL::REPORT_STACK_SIZE << std::endl;
+        }
+
+        // Poll UART for data
+        uartController->poll();
+
+#ifndef __EMSCRIPTEN__
+        // Poll serial ports or pipes for native builds
+        if (usingSerial) {
+            uartController->pollSerial();
+        }
+        else if (usingPipes) {
+            uartController->pollPipes();
+        }
+#endif
+
+        // Flag to clear keyboard interrupt
+        clearKbdInt = true;
+    }
 
     // Input processing / peripheral servicing
     if (clocks % CYCLE_FACTOR == 0) {
@@ -69,32 +210,36 @@ bool mainLoop() {
             pcdScreen->advance(1);
         }
 
-        // Process input only a fraction
-        if (clocks % (CYCLE_FACTOR * INPUT_FACTOR) == 0) {
-            exit = !handleEvents(&keyCode);
-
-            if (keyCode > 0) {
-                keyboardController->update(keyCode, mod);
-                textDisplayAdapter->update();
-                pcdScreen->refresh();
-                keyCode = 0;
-                mod = 0;
-                clearKbdInt = true;
-            }
-        }
-
-        //std::cout << "Clocks: " << clocks << std::endl;
         textDisplayAdapter->update();
         pcdScreen->refresh();
     }
 
-    //std::cout << "\n\nBefore Instruction: \n\n" << std::endl;
-    //pcdCpu->printState();
-
-    // Advance CPU
-    pcdCpu->execute();
+    // Execute multiple CPU instructions per loop to improve throughput
+    // This greatly improves performance for keyboard-intensive applications
+#ifdef __EMSCRIPTEN__
+    static const int INSTRUCTIONS_PER_LOOP = 1000;  // Balanced for web builds
+#else
+    static const int INSTRUCTIONS_PER_LOOP = 200;   // Dramatically increased
+#endif
+    for (int i = 0; i < INSTRUCTIONS_PER_LOOP; i++) {
+        pcdCpu->execute();
+    }
+    
+    if (benchmark) {
+        // Record all instructions at once for better performance
+        for (int i = 0; i < INSTRUCTIONS_PER_LOOP; i++) {
+            benchmark->recordInstruction();
+        }
+        benchmark->recordCycle();
+        benchmark->reportPerformance();
+    }
 
     if (clearKbdInt) {
+        // Only log keyboard clearing when pending count is nonzero
+        if (enableKeyboardDebug && keyboardController->registers.pendingReportCount > 0) {
+            std::cout << "mainLoop - Calling keyboardController->clear() - report count: "
+                      << (int)keyboardController->registers.pendingReportCount << std::endl;
+        }
         keyboardController->clear();
         clearKbdInt = false;
     }
@@ -102,27 +247,110 @@ bool mainLoop() {
     return exit;
 }
 
+// Print usage information
+void printUsage(const char* programName) {
+    std::cout << "Usage: " << programName << " [ROM_FILE] [OPTIONS]" << std::endl;
+    std::cout << "Options:" << std::endl;
+    std::cout << "  -nf              Disable full E-Ink emulation" << std::endl;
+    std::cout << "  -debug-uart      Enable UART debug mode (trace data flow)" << std::endl;
+    std::cout << "  -debug-tda       Enable TDA debug mode (trace text display updates)" << std::endl;
+    std::cout << "  -debug-kbd       Enable keyboard debug mode (trace keyboard events)" << std::endl;
+    std::cout << "  -debug-all       Enable all debug modes" << std::endl;
+    std::cout << "  -benchmark       Enable performance benchmarking" << std::endl;
+#ifndef __EMSCRIPTEN__
+    std::cout << "  -serial1 <dev>    Connect UART1 to serial device (e.g., /dev/tty.usbserial)" << std::endl;
+    std::cout << "  -serial2 <dev>    Connect UART2 to serial device" << std::endl;
+    std::cout << "  -pipe-in1 <path>  Input pipe for UART1 (e.g., /tmp/uart1_in)" << std::endl;
+    std::cout << "  -pipe-out1 <path> Output pipe for UART1 (e.g., /tmp/uart1_out)" << std::endl;
+    std::cout << "  -pipe-in2 <path>  Input pipe for UART2" << std::endl;
+    std::cout << "  -pipe-out2 <path> Output pipe for UART2" << std::endl;
+#endif
+}
+
 // Main (Load a program binary, set up I/O and begin execution)
 int main(int argc, char** argv) {
+    // Allocate ROM + RAM:
+    systemRom = (u8*)malloc(CPU::ROM_SIZE);
+    systemRam = (u8*)malloc(CPU::RAM_SIZE);
+
+    if (systemRom == nullptr || systemRam == nullptr) {
+        std::cerr << "Unable to allocate memory for system RAM + ROM" << std::endl;
+        return -1;
+    }
+
     // Default to using full E-Ink emulation:
-    bool fullEmulation = true;
+    bool fullEmulation = false;
+    bool enableUartDebug = false;
+    bool enableTdaDebug = false;
+#ifdef __EMSCRIPTEN__
+    bool enableBenchmark = false;  // Disable by default for clean production experience
+#else
+    bool enableBenchmark = false;
+#endif
+    // (enableKeyboardDebug is defined globally for access in callback)
+    
+    // Process command line arguments
+    std::string romFile;
+    bool romProvided = false;
+    
+    for (int i = 1; i < argc; i++) {
+        std::string arg = argv[i];
+        if (arg == "-nf") {
+            fullEmulation = false;
+        } else if (arg == "-debug-uart") {
+            enableUartDebug = true;
+        } else if (arg == "-debug-tda") {
+            enableTdaDebug = true;
+        } else if (arg == "-debug-kbd") {
+            enableKeyboardDebug = true;
+        } else if (arg == "-debug-all") {
+            enableUartDebug = true;
+            enableTdaDebug = true;
+            enableKeyboardDebug = true;
+        } else if (arg == "-benchmark") {
+            enableBenchmark = true;
+        } else if (arg == "-h" || arg == "--help") {
+            printUsage(argv[0]);
+            return 0;
+#ifndef __EMSCRIPTEN__
+        } else if (arg == "-serial1" && i+1 < argc) {
+            uartSerialDevice1 = argv[++i];
+            usingSerial = true;
+        } else if (arg == "-serial2" && i+1 < argc) {
+            uartSerialDevice2 = argv[++i];
+            usingSerial = true;
+        } else if (arg == "-pipe-in1" && i+1 < argc) {
+            uartPipeIn1 = argv[++i];
+            usingPipes = true;
+        } else if (arg == "-pipe-out1" && i+1 < argc) {
+            uartPipeOut1 = argv[++i];
+            usingPipes = true;
+        } else if (arg == "-pipe-in2" && i+1 < argc) {
+            uartPipeIn2 = argv[++i];
+        } else if (arg == "-pipe-out2" && i+1 < argc) {
+            uartPipeOut2 = argv[++i];
+#endif
+        } else if (!romProvided) {
+            romFile = arg;
+            romProvided = true;
+        }
+    }
+    
     // Load program into systemRom memory
-    if (argc < 2) {
+    if (!romProvided) {
         memcpy(systemRom, text_demo_bin, text_demo_bin_len);
     } else {
-        if (argc > 2) {
-            // second arg is fullEmulation flag
-            if (std::string(argv[2]).compare("-nf") == 0) {
-                fullEmulation = false;
-            }
+        std::ifstream programBinaryFile(romFile, std::ios::binary);
+        if (!programBinaryFile.is_open()) {
+            std::cerr << "Failed to open ROM file: " << romFile << std::endl;
+            return -1;
         }
-
-        std::ifstream programBinaryFile(argv[1], std::ios::binary);
+        
         programBinaryFile.seekg(0, programBinaryFile.end);
         int size = programBinaryFile.tellg();
         programBinaryFile.seekg(0, programBinaryFile.beg);
 
-        std::cout << "Loading file: " << argv[1] << "(" << size << ")" << std::endl;
+        std::cout << "Loading file: " << romFile << " (" << size << " bytes)" << std::endl;
 
         programBinaryFile.read(reinterpret_cast<char*>(systemRom + 0x00), size);
     }
@@ -134,28 +362,127 @@ int main(int argc, char** argv) {
     pcdScreen = new Screen_SDL(Screen::BASE_ADDR, sizeof(Screen::Registers) + sizeof(Screen::framebufferMem), fullEmulation);
     textDisplayAdapter = new TDA(pcdCpu, pcdScreen, TDA::BASE_ADDR, sizeof(TDA::textMapMem) + sizeof(TDA::Registers));
     keyboardController = new KCTL(pcdCpu, KCTL::BASE_ADDR, sizeof(KCTL::Registers));
+    uartController = new UART(pcdCpu, UART::BASE_ADDR, sizeof(UART::Registers));
+
+    // Enable debug modes if requested
+    if (enableUartDebug) {
+        uartController->setDebugMode(true);
+    }
+    
+    if (enableTdaDebug) {
+        textDisplayAdapter->setDebugMode(true);
+    }
+    
+    if (enableKeyboardDebug) {
+        keyboardController->setDebugMode(true);
+    }
+    
+    // For web builds, disable debug for production
+#ifdef __EMSCRIPTEN__
+    keyboardController->setDebugMode(false);
+    std::cout << "KCTL debug mode disabled for web build" << std::endl;
+#endif
+    
+    // Initialize benchmark if requested
+    if (enableBenchmark) {
+        benchmark = new PerformanceBenchmark();
+        std::cout << "Performance benchmarking enabled" << std::endl;
+    }
+    
+    // Initialize keyboard input
+    std::cout << "Creating keyboard input..." << std::endl;
+    keyboardInput = createKeyboardInput();
+    std::cout << "Keyboard input created successfully" << std::endl;
+    
+    if (enableKeyboardDebug) {
+        std::cout << "Enabling keyboard debug mode..." << std::endl;
+        keyboardInput->setDebugMode(true);
+    }
+    
+    std::cout << "Setting keyboard callbacks..." << std::endl;
+    keyboardInput->setKeyEventCallback(handleKeyEvent);
+    keyboardInput->setKeyMultiEventCallback(handleMultiKeyEvent);
+    
+    std::cout << "Initializing keyboard input..." << std::endl;
+    int kbd_result = keyboardInput->init();
+    if (kbd_result != 0) {
+        std::cerr << "Failed to initialize keyboard input, result: " << kbd_result << std::endl;
+        return -1;
+    }
+    std::cout << "Keyboard input initialization complete" << std::endl;
 
     // Attach to CPU
     pcdCpu->attachPeripheral(pcdScreen);
     pcdCpu->attachPeripheral(textDisplayAdapter);
     pcdCpu->attachPeripheral(keyboardController);
+    pcdCpu->attachPeripheral(uartController);
 
     // Any that require init()
     int result = pcdScreen->init();
+    result = uartController->init();
+
+    // This keyboard input initialization was moved up
+
+#ifdef __EMSCRIPTEN__
+    // Connect UART to websocket for Emscripten target
+    const char* webSocketUrl1 = "ws://localhost:8080";
+    const char* webSocketUrl2 = "ws://localhost:8081";
+    std::cout << "Attempting to connect UART to WebSockets (non-fatal if this fails):" << std::endl;
+    std::cout << "  UART1: " << webSocketUrl1 << std::endl;
+    std::cout << "  UART2: " << webSocketUrl2 << std::endl;
+    uartController->connectWebsocket(webSocketUrl1, webSocketUrl2);
+    std::cout << "PCD-68 emulator running with or without WebSocket connections." << std::endl;
+    std::cout << "WebSocket connection failures are normal when running in browser." << std::endl;
+#else
+    // For native builds, check for serial or pipe connections
+    if (usingSerial) {
+        // Check required arguments
+        if (uartSerialDevice1.empty()) {
+            std::cerr << "Serial device for UART1 must be specified with -serial1" << std::endl;
+            return -1;
+        }
+        
+        result = uartController->connectSerial(
+            uartSerialDevice1.c_str(), 
+            uartSerialDevice2.empty() ? nullptr : uartSerialDevice2.c_str()
+        );
+        
+        if (result != 0) {
+            std::cerr << "Failed to connect UART to serial ports" << std::endl;
+            return -1;
+        }
+    }
+    else if (usingPipes) {
+        // Check required arguments
+        if (uartPipeIn1.empty() || uartPipeOut1.empty()) {
+            std::cerr << "Both input and output pipes for UART1 must be specified with -pipe-in1 and -pipe-out1" << std::endl;
+            return -1;
+        }
+        
+        result = uartController->connectPipes(
+            uartPipeIn1.c_str(),
+            uartPipeOut1.c_str(),
+            uartPipeIn2.empty() ? nullptr : uartPipeIn2.c_str(),
+            uartPipeOut2.empty() ? nullptr : uartPipeOut2.c_str()
+        );
+        
+        if (result != 0) {
+            std::cerr << "Failed to connect UART to named pipes" << std::endl;
+            return -1;
+        }
+    }
+#endif
 
     // And/or reset()
     keyboardController->reset();
     textDisplayAdapter->reset();
+    uartController->reset();
 
     // And then proceed to reset/start CPU:
-
     pcdCpu->debugger.enableLogging();
     pcdCpu->reset();
     // Clear all interrupts:
     pcdCpu->setIPL(0x00);
-
-    //pcdCpu->debugger.watchpoints.addAt(0x103a);
-    //pcdCpu->debugger.watchpoints.addAt(0x2002);
 
     // Initial screen:
     textDisplayAdapter->update();
@@ -167,6 +494,15 @@ int main(int argc, char** argv) {
     while (!mainLoop()) continue;
 #endif
 
+    // Clean up
+    delete keyboardInput;
+    delete uartController;
+    
+    if (benchmark) {
+        benchmark->reportPerformance(true);  // Force final report
+        delete benchmark;
+    }
+    
     std::cout << "Clocks: " << std::dec << pcdCpu->getClock() << std::endl;
     return 0;
 }

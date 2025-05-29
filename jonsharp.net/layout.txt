@@ -1,0 +1,43 @@
+/* PCD-68 Terminal Display Layout (80x23) */
+
++------------------------------------------------------------------------------+  Line 0
+|                            HEADER AREA                                       |  Line 1
+|                                                                              |  Line 2
+o------------------------------------------------------------------------------o  Line 3
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                             CONTENT AREA                                         Lines 4-17
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+.------------------------------------------------------------------------------.  Line 18
+|                              STATUS LINE                                     |  Line 19
++------------------------------------------------------------------------------+  Line 20
+|                              FOOTER AREA                                     |  Line 21
++------------------------------------------------------------------------------+  Line 22
+
+LAYOUT SPECIFICATIONS:
+
+1. HEADER AREA (Line 0-3)
+   - Line 0: Border line with title
+   - Reserved for app title, version, and (some?) status
+   - Line 3: Border line
+
+3. CONTENT AREA (Lines 4-17)
+   - 14 lines for content display
+   - Used for menu items or text content
+   - Menu items start at line 4, one item per line
+   - Text content uses full area with word wrap
+
+4. STATUS LINE (Line 19)
+   - For navigation help and status
+   - Shows current menu position, selection
+   - Debug registers, etc., right-aligned
+
+5. FOOTER AREA (Line 21)
+   - Shows available commands and navigation keys
+   - Eg: "Commands: [H]ome [B]ack [?]Help"

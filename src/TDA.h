@@ -1,6 +1,6 @@
 #pragma once
 
-#include "CPU.h"
+#include "PCD68_CPU.h"
 #include "Peripheral.h"
 #include "Screen.h"
 #include <cstring>
@@ -15,6 +15,7 @@ public:
      * Video/Text mode
      */
     enum Mode : u8 {
+        NONE = 0x00,
         COL50 = 0x01,
         COL80 = 0x02,
     };
@@ -45,14 +46,37 @@ public:
     u16 read16(u32 addr) override;
     void write8(u32 addr, u8 val) override;
     void write16(u32 addr, u16 val) override;
+    
+    /**
+     * Enable or disable debug mode
+     * 
+     * @param enabled true to enable debug mode, false to disable
+     */
+    void setDebugMode(bool enabled);
+    
+    /**
+     * Check if debug mode is enabled
+     * 
+     * @return true if debug mode is enabled, false otherwise
+     */
+    bool isDebugMode() const;
 
-    unsigned char textMapMem[50 * 37];
+    // Text memory map - sized for 80x23 characters (80-column mode max)
+    // 80 columns * 23 rows = 1840 characters 
+    // (400px / 5px per char = 80 cols, 299px / 13px per char = 23 rows)
+    unsigned char textMapMem[80 * 23];
 
 private:
     CPU* cpu;
     Screen* screen;
     Registers registers;
     bool refreshFlag;
+    bool debugMode;
+    
+    // Tracks the last known write position in the text map
+    u32 lastTextMapWriteAddr;
+    
+    // Font data
     int five_by_thirteen[(16 * (128 - 32))] = {
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //    32 ' '
         0x00, 0x00, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, //    33 '!'
