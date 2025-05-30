@@ -65,13 +65,13 @@ pub fn build(b: *std.Build) void {
         const web_dir = "zig-out/web";
         const mkdir_cmd = b.addSystemCommand(&.{ "mkdir", "-p", web_dir });
 
-        // Copy CSS and image files
-        const cp_css = b.addSystemCommand(&.{ "cp", "src/emscripten/pcd68-home.css", web_dir });
-        cp_css.step.dependOn(&mkdir_cmd.step);
+        // Copy background image
+        const cp_bg = b.addSystemCommand(&.{ "cp", "src/emscripten/FRST1_Homepage_bg.png", web_dir });
+        cp_bg.step.dependOn(&mkdir_cmd.step);
 
         // Copy ROM files
         const cp_roms = b.addSystemCommand(&.{ "mkdir", "-p", b.fmt("{s}/roms", .{web_dir}) });
-        cp_roms.step.dependOn(&cp_css.step);
+        cp_roms.step.dependOn(&cp_bg.step);
 
         // Copy jonsharp.net/program.bin (main ROM) to both locations:
         // 1. As text_demo.bin (one of the options in the ROM selector)

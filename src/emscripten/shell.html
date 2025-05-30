@@ -27,21 +27,316 @@
     <!-- Additional meta tags -->
     <meta name="theme-color" content="#00ff41">
     <meta name="robots" content="index, follow">
-    
+
     <style>
-      /* Reset and base styles */
+      /* Mobile/Text-Only Interface Styles */
+      .mobile-text-interface {
+        display: none;
+        font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
+        background: #000;
+        color: #00ff41;
+        padding: 20px;
+        line-height: 1.6;
+        max-width: 100%;
+        overflow-x: auto;
+      }
+      
+      .mobile-text-interface h1 {
+        color: #fb16bb;
+        text-align: center;
+        border-bottom: 2px solid #fb16bb;
+        padding-bottom: 10px;
+        margin-bottom: 20px;
+        font-size: 1.5em;
+      }
+      
+      .mobile-text-interface h2 {
+        color: #00ff41;
+        margin-top: 30px;
+        margin-bottom: 15px;
+        font-size: 1.2em;
+      }
+      
+      .mobile-text-interface h3 {
+        color: #fb16bb;
+        margin-top: 20px;
+        margin-bottom: 10px;
+        font-size: 1.1em;
+      }
+      
+      .mobile-text-interface p {
+        margin-bottom: 15px;
+        color: #cccccc;
+      }
+      
+      .mobile-text-interface .ascii-art {
+        color: #00ff41;
+        white-space: pre;
+        font-size: 0.8em;
+        margin: 20px 0;
+        text-align: center;
+        overflow-x: auto;
+      }
+      
+      .mobile-text-interface .nav-section {
+        background: rgba(251, 22, 187, 0.1);
+        border: 1px solid #fb16bb;
+        padding: 15px;
+        margin: 20px 0;
+        border-radius: 5px;
+      }
+      
+      .mobile-text-interface .nav-item {
+        margin: 8px 0;
+        color: #00ff41;
+      }
+      
+      .mobile-text-interface .footer {
+        margin-top: 40px;
+        padding-top: 20px;
+        border-top: 1px solid #444;
+        text-align: center;
+        color: #666;
+        font-size: 0.9em;
+      }
+      
+      .mobile-text-interface a {
+        color: #fb16bb;
+        text-decoration: none;
+      }
+      
+      .mobile-text-interface a:hover {
+        text-decoration: underline;
+      }
+      
+      .desktop-upgrade-notice {
+        background: rgba(0, 255, 65, 0.1);
+        border: 1px solid #00ff41;
+        padding: 15px;
+        margin: 20px 0;
+        border-radius: 5px;
+      }
+      
+      .desktop-upgrade-notice h3 {
+        color: #00ff41;
+        margin-top: 0;
+      }
+
+      /* Reset and base styles for desktop */
       * {
         box-sizing: border-box;
         margin: 0;
         padding: 0;
       }
       
-      body {
-        font-family: "Helvetica Neue", Helvetica, "Arial", sans-serif;
-        background: #000000;
-        color: #e0e0e0;
-        min-height: 100vh;
-        overflow-x: hidden;
+      /* Dual-mode container setup */
+      .view-container {
+        width: 100vw;
+        height: 100vh;
+        position: relative;
+        overflow: hidden;
+        transition: all 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      }
+      
+      /* Background image mode (initial state) */
+      .view-container.background-mode {
+        background-image: url("FRST1_Homepage_bg.png");
+        background-repeat: no-repeat;
+        background-position: center -180px;
+        background-size: 2800px;
+        background-color: #cccccc;
+      }
+      
+      /* Focused mode (after transition) - keep background image visible */
+      .view-container.focused-mode {
+        background-image: url("FRST1_Homepage_bg.png");
+        background-repeat: no-repeat;
+        background-position: center -180px;
+        background-size: 2800px;
+        background-color: #cccccc;
+      }
+      
+      /* Grid animation for focused mode overlay */
+      @keyframes gridFlow {
+        0% { background-position: 0 0, 0 0, 50% 50%; }
+        100% { background-position: 40px 40px, 40px 40px, 50% 50%; }
+      }
+      
+      @keyframes borderGlow {
+        from { opacity: 0.3; }
+        to { opacity: 0.6; }
+      }
+      
+      @keyframes borderFlow {
+        0% { 
+          background-position: 0% 50%;
+          opacity: 0.4;
+        }
+        50% { 
+          background-position: 100% 50%;
+          opacity: 0.8;
+        }
+        100% { 
+          background-position: 0% 50%;
+          opacity: 0.4;
+        }
+      }
+      
+      /* Background overlay for transition */
+      .background-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0);
+        transition: background 1.5s ease;
+        pointer-events: none;
+        z-index: 1;
+      }
+      
+      .view-container.focused-mode .background-overlay {
+        background: rgba(0, 0, 0, 0.5);
+      }
+      
+      /* Add retro grid as separate overlay for focused mode */
+      .view-container.focused-mode .background-overlay::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-image: 
+          linear-gradient(rgba(251, 22, 187, 0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(251, 22, 187, 0.03) 1px, transparent 1px),
+          radial-gradient(circle at 50% 50%, rgba(251, 22, 187, 0.05) 0%, transparent 50%);
+        background-size: 40px 40px, 40px 40px, 200px 200px;
+        background-position: 0 0, 0 0, 50% 50%;
+        pointer-events: none;
+      }
+      
+      /* NEON MODE STYLES - Enable all animations and colored effects */
+      .view-container.neon-mode canvas.emscripten {
+        border: 2px solid #333;
+      }
+      
+      .view-container.neon-mode.focused-mode .background-overlay::before {
+        animation: gridFlow 20s linear infinite;
+      }
+      
+      .view-container.neon-mode .terminal-container {
+        border: 3px solid #fb16bb;
+        box-shadow: 
+          0 0 10px rgba(251, 22, 187, 0.2),
+          inset 0 0 10px rgba(251, 22, 187, 0.05);
+      }
+      
+      .view-container.neon-mode.focused-mode .terminal-container {
+        background: 
+          linear-gradient(135deg, rgba(0, 0, 0, 0.9) 0%, rgba(20, 20, 20, 0.8) 100%),
+          radial-gradient(circle at 30% 30%, rgba(251, 22, 187, 0.05) 0%, transparent 50%);
+        box-shadow: 
+          0 0 20px rgba(251, 22, 187, 0.3),
+          inset 0 0 15px rgba(251, 22, 187, 0.08),
+          0 0 40px rgba(251, 22, 187, 0.1);
+      }
+      
+      .view-container.neon-mode .terminal-container::before {
+        display: block; /* Enable in neon mode */
+        background: linear-gradient(45deg, #fb16bb, #d914a3, #fb16bb);
+        animation: borderGlow 2s ease-in-out infinite alternate;
+      }
+      
+      .view-container.neon-mode.focused-mode .terminal-container::before {
+        display: block; /* Enable in neon mode */
+        opacity: 1;
+        background: linear-gradient(
+          45deg, 
+          #fb16bb 0%, 
+          #d914a3 25%, 
+          #00ff41 50%, 
+          #d914a3 75%, 
+          #fb16bb 100%
+        );
+        background-size: 300% 300%;
+        animation: borderFlow 4s ease-in-out infinite;
+      }
+      
+      .view-container.neon-mode.focused-mode .terminal-header {
+        color: #00ff41;
+        text-shadow: 
+          0 0 5px rgba(0, 255, 65, 0.5),
+          0 0 10px rgba(0, 255, 65, 0.3);
+      }
+      
+      .view-container.neon-mode .focus-trigger {
+        background: rgba(251, 22, 187, 0.8);
+        border-color: #fb16bb;
+        box-shadow: 0 0 10px rgba(251, 22, 187, 0.3);
+      }
+      
+      .view-container.neon-mode .focus-trigger:hover {
+        background: rgba(251, 22, 187, 1);
+        box-shadow: 0 0 15px rgba(251, 22, 187, 0.5);
+      }
+      
+      .view-container.neon-mode canvas.emscripten:hover {
+        border-color: #fb16bb;
+        box-shadow: 0 0 8px rgba(251, 22, 187, 0.2);
+      }
+      
+      .view-container.neon-mode canvas.emscripten:focus {
+        border-color: #00ff41;
+        box-shadow: 0 0 12px rgba(0, 255, 65, 0.3);
+      }
+      
+      .view-container.neon-mode.focused-mode canvas.emscripten {
+        border-color: #fb16bb;
+      }
+      
+      .view-container.neon-mode .controls-panel h3 {
+        color: #fb16bb;
+      }
+      
+      .view-container.neon-mode .keyboard-status {
+        background: rgba(251, 22, 187, 0.1);
+        border-color: #fb16bb;
+        color: #fb16bb;
+        box-shadow: 0 0 6px rgba(251, 22, 187, 0.2);
+      }
+      
+      .view-container.neon-mode .help-link {
+        color: #fb16bb;
+      }
+      
+      .view-container.neon-mode .help-link:hover {
+        color: #d914a3;
+        text-shadow: 0 0 3px rgba(251, 22, 187, 0.3);
+      }
+      
+      /* Canvas container with dual modes */
+      .canvas-container {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        transition: all 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        z-index: 5; /* Higher z-index to ensure visibility */
+      }
+      
+      /* Initial 3D canvas state */
+      .view-container.background-mode .canvas-container {
+        transform: translate(-50%, -50%) translate(-35px, -75px) 
+                   perspective(5000px) rotateY(13deg) rotateZ(-1.5deg) rotateX(10deg) 
+                   scale(0.66);
+      }
+      
+      /* Focused canvas state */
+      .view-container.focused-mode .canvas-container {
+        transform: translate(-50%, -50%) scale(1);
+        width: 100vw;
+        height: 100vh;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -49,27 +344,26 @@
         padding: 20px;
       }
       
-      /* Main container */
-      .main-container {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 20px;
-        width: 100%;
-        max-width: 800px;
-      }
-      
-      /* Computer terminal container - properly sized around canvas */
+      /* Terminal container styling - Default: MINIMAL */
       .terminal-container {
         background: rgba(0, 0, 0, 0.8);
-        border: 3px solid #fb16bb;
+        border: 2px solid #444;
         border-radius: 15px;
         padding: 15px;
-        box-shadow: 
-          0 0 10px rgba(251, 22, 187, 0.2),
-          inset 0 0 10px rgba(251, 22, 187, 0.05);
+        box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
         position: relative;
         display: inline-block;
+        opacity: 1;
+        transition: all 0.5s ease 1s;
+        z-index: 10;
+      }
+      
+      .view-container.focused-mode .terminal-container {
+        opacity: 1;
+        background: 
+          linear-gradient(135deg, rgba(0, 0, 0, 0.9) 0%, rgba(20, 20, 20, 0.8) 100%);
+        backdrop-filter: blur(5px);
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
       }
       
       .terminal-container::before {
@@ -79,15 +373,17 @@
         left: -2px;
         right: -2px;
         bottom: -2px;
-        background: linear-gradient(45deg, #fb16bb, #d914a3, #fb16bb);
+        background: linear-gradient(45deg, #444, #666, #444);
         border-radius: 15px;
         z-index: -1;
-        animation: borderGlow 2s ease-in-out infinite alternate;
+        opacity: 0;
+        display: none; /* Completely hidden in default mode */
+        transition: opacity 0.5s ease 1s;
       }
       
-      @keyframes borderGlow {
-        from { opacity: 0.3; }
-        to { opacity: 0.6; }
+      .view-container.focused-mode .terminal-container::before {
+        opacity: 0; /* No border effect in default mode */
+        display: none; /* Completely hidden in default mode */
       }
       
       .terminal-header {
@@ -96,30 +392,77 @@
         color: #ffffff;
         font-weight: bold;
         font-size: 0.9em;
+        opacity: 0;
+        transition: all 0.5s ease 1.2s;
       }
       
-      /* Canvas styling - centered and properly contained */
+      .view-container.focused-mode .terminal-header {
+        opacity: 1;
+        color: #cccccc;
+        font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
+        letter-spacing: 1px;
+      }
+      
+      /* Canvas styling - Default: NO BORDER (bare canvas) */
       canvas.emscripten {
-        border: 2px solid #333;
+        border: none;
         background-color: #000;
         display: block;
         border-radius: 5px;
         cursor: pointer;
-        transition: all 0.3s ease;
+        transition: all 0.5s ease 1s;
+      }
+      
+      .view-container.focused-mode canvas.emscripten {
+        filter: contrast(1.05) brightness(1.02) saturate(1.1);
+        image-rendering: pixelated;
+        image-rendering: -moz-crisp-edges;
+        image-rendering: crisp-edges;
       }
       
       canvas.emscripten:hover {
-        border-color: #fb16bb;
-        box-shadow: 0 0 8px rgba(251, 22, 187, 0.2);
+        /* No border styling in default mode */
       }
       
       canvas.emscripten:focus {
         outline: none;
-        border-color: #fb16bb;
-        box-shadow: 0 0 12px rgba(251, 22, 187, 0.3);
+        /* No border styling in default mode */
       }
       
-      /* Controls panel */
+      /* Focus trigger button - Default: MINIMAL */
+      .focus-trigger {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: rgba(100, 100, 100, 0.8);
+        color: #fff;
+        border: 2px solid #666;
+        border-radius: 25px;
+        padding: 12px 24px;
+        font-weight: bold;
+        font-size: 0.9em;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        z-index: 10;
+        font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+      }
+      
+      .focus-trigger:hover {
+        background: rgba(120, 120, 120, 1);
+        transform: scale(1.05);
+        box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+      }
+      
+      .view-container.focused-mode .focus-trigger {
+        opacity: 0;
+        pointer-events: none;
+        transform: scale(0.8);
+      }
+      
+      /* Controls panel for focused mode */
       .controls-panel {
         background: rgba(0, 0, 0, 0.6);
         border: 2px solid #444;
@@ -127,10 +470,17 @@
         padding: 15px;
         width: 100%;
         max-width: 500px;
+        margin-top: 20px;
+        opacity: 0;
+        transition: opacity 0.5s ease 1.5s;
+      }
+      
+      .view-container.focused-mode .controls-panel {
+        opacity: 1;
       }
       
       .controls-panel h3 {
-        color: #fb16bb;
+        color: #cccccc;
         margin-bottom: 12px;
         text-align: center;
         font-size: 1.1em;
@@ -145,10 +495,10 @@
         margin-bottom: 15px;
         transition: all 0.3s ease;
         border: 2px solid;
-        background: rgba(251, 22, 187, 0.1);
-        border-color: #fb16bb;
-        color: #fb16bb;
-        box-shadow: 0 0 6px rgba(251, 22, 187, 0.2);
+        background: rgba(100, 100, 100, 0.1);
+        border-color: #666;
+        color: #cccccc;
+        box-shadow: 0 0 3px rgba(0, 0, 0, 0.2);
         font-size: 0.9em;
       }
       
@@ -158,7 +508,7 @@
       }
       
       .help-link {
-        color: #fb16bb;
+        color: #cccccc;
         text-decoration: none;
         font-size: 0.9em;
         cursor: pointer;
@@ -166,379 +516,283 @@
       }
       
       .help-link:hover {
-        color: #d914a3;
-        text-shadow: 0 0 3px rgba(251, 22, 187, 0.3);
+        color: #ffffff;
       }
       
-      /* Help dialog */
-      .help-dialog {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.8);
-        z-index: 1000;
-        justify-content: center;
-        align-items: center;
-      }
-      
-      .help-dialog.show {
-        display: flex;
-      }
-      
-      .help-content {
-        background: #111;
-        border: 2px solid #fb16bb;
-        border-radius: 10px;
-        padding: 20px;
-        max-width: 500px;
-        width: 90%;
-        color: #e0e0e0;
-        box-shadow: 0 0 15px rgba(251, 22, 187, 0.3);
-      }
-      
-      .help-content h3 {
-        color: #fb16bb;
-        margin-bottom: 15px;
-        text-align: center;
-      }
-      
-      .help-content p {
-        line-height: 1.5;
-        margin-bottom: 15px;
-        font-size: 0.9em;
-      }
-      
-      .help-content .key {
-        background: #333;
-        color: #fb16bb;
-        padding: 2px 6px;
-        border-radius: 3px;
-        font-weight: bold;
-        border: 1px solid #555;
-        font-size: 0.8em;
-      }
-      
-      .close-help {
-        background: #fb16bb;
-        color: #000;
-        border: none;
-        padding: 8px 16px;
-        border-radius: 5px;
-        cursor: pointer;
-        font-weight: bold;
-        float: right;
-        transition: background 0.3s ease;
-      }
-      
-      .close-help:hover {
-        background: #d914a3;
-      }
-      
-      /* Footer */
-      .footer {
-        text-align: center;
-        padding: 20px;
-        color: #888;
-        margin-top: 30px;
-        font-size: 0.8em;
-      }
-      
-      .footer a {
-        color: #fb16bb;
-        text-decoration: none;
-        transition: color 0.3s ease;
-      }
-      
-      .footer a:hover {
-        color: #d914a3;
-        text-shadow: 0 0 3px rgba(251, 22, 187, 0.3);
-      }
-      
-      /* Responsive design */
-      @media (max-width: 768px) {
-        body {
-          padding: 10px;
-        }
-        
-        .terminal-container {
-          padding: 10px;
-        }
-        
-        .controls-panel {
-          padding: 12px;
-        }
-        
-        canvas.emscripten {
-          max-width: 100%;
-          height: auto;
-        }
-      }
-      
-      @media (max-width: 480px) {
-        .terminal-container {
-          border-radius: 10px;
-          padding: 8px;
-        }
-        
-        canvas.emscripten {
-          width: 100%;
-          max-width: 350px;
-        }
-      }
-      
-      /* Accessibility improvements */
-      @media (prefers-reduced-motion: reduce) {
-        .spinner,
-        .terminal-container::before {
-          animation: none;
-        }
-        
-        * {
-          transition: none !important;
-        }
-      }
-      
-      /* High contrast mode */
-      @media (prefers-contrast: high) {
-        .terminal-container {
-          border-width: 4px;
-        }
-        
-        .keyboard-status {
-          border-width: 3px;
-        }
-      }
-      
-      /* Mobile enhancements */
-      .mobile-controls {
-        display: none;
-        margin-top: 15px;
-        text-align: center;
-      }
-      
-      .mobile-keyboard {
-        display: none;
-        background: rgba(0, 0, 0, 0.9);
-        border: 2px solid #fb16bb;
-        border-radius: 10px;
-        padding: 15px;
-        margin-top: 15px;
-        position: relative;
-      }
-      
-      .mobile-keyboard h4 {
-        color: #fb16bb;
-        margin-bottom: 10px;
-        font-size: 0.9em;
-        text-align: center;
-      }
-      
-      .key-row {
-        display: flex;
-        justify-content: center;
-        gap: 5px;
-        margin-bottom: 8px;
-        flex-wrap: wrap;
-      }
-      
-      .virtual-key {
-        background: #333;
-        color: #fb16bb;
-        border: 1px solid #fb16bb;
-        border-radius: 5px;
-        padding: 8px 12px;
-        font-size: 0.9em;
-        font-weight: bold;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        min-width: 35px;
-        text-align: center;
-        user-select: none;
-      }
-      
-      .virtual-key:active,
-      .virtual-key:hover {
-        background: rgba(251, 22, 187, 0.2);
-        box-shadow: 0 0 8px rgba(251, 22, 187, 0.4);
-      }
-      
-      .virtual-key.wide {
-        min-width: 60px;
-      }
-      
-      .show-keyboard-btn {
-        background: #fb16bb;
-        color: #000;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 5px;
-        font-weight: bold;
-        cursor: pointer;
-        margin: 5px;
-        transition: background 0.3s ease;
-      }
-      
-      .show-keyboard-btn:hover {
-        background: #d914a3;
-      }
-      
-      .mobile-hint {
-        display: none;
-        background: rgba(251, 22, 187, 0.1);
-        border: 1px solid #fb16bb;
-        border-radius: 5px;
-        padding: 10px;
-        margin-top: 10px;
-        font-size: 0.8em;
-        text-align: center;
-        color: #fb16bb;
-      }
-      
-      .hidden-input {
+      /* Back button for focused mode */
+      .back-trigger {
         position: absolute;
-        left: -9999px;
+        top: 20px;
+        left: 20px;
+        background: rgba(0, 255, 65, 0.8);
+        color: #000;
+        border: 2px solid #00ff41;
+        border-radius: 25px;
+        padding: 12px 24px;
+        font-weight: bold;
+        font-size: 0.9em;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        z-index: 10;
+        font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
         opacity: 0;
         pointer-events: none;
       }
       
-      /* Mobile-specific responsive adjustments */
-      @media (max-width: 768px) and (pointer: coarse) {
-        .mobile-controls,
-        .mobile-hint {
-          display: block;
-        }
-        
-        .terminal-container {
-          margin-bottom: 10px;
-        }
-        
-        .controls-panel {
-          padding: 12px;
-        }
-        
-        canvas.emscripten {
-          max-width: 100%;
-          height: auto;
-        }
-        
-        .help-content {
-          padding: 15px;
-          max-width: 95%;
-        }
+      .view-container.focused-mode .back-trigger {
+        opacity: 1;
+        pointer-events: all;
       }
       
-      @media (max-width: 480px) {
-        .virtual-key {
-          padding: 6px 8px;
-          font-size: 0.8em;
-          min-width: 30px;
-        }
-        
-        .key-row {
-          gap: 3px;
-          margin-bottom: 6px;
+      .back-trigger:hover {
+        background: rgba(0, 255, 65, 1);
+        transform: scale(1.05);
+        box-shadow: 0 0 15px rgba(0, 255, 65, 0.5);
+      }
+      
+      /* Accessibility improvements */
+      @media (prefers-reduced-motion: reduce) {
+        .view-container,
+        .canvas-container,
+        .terminal-container,
+        .terminal-container::before,
+        .terminal-header,
+        canvas.emscripten,
+        .controls-panel,
+        .background-overlay {
+          transition: none;
+          animation: none;
         }
       }
     </style>
-    <link rel="stylesheet" href="pcd68-home.css">
   </head>
   <body>
-    <!-- Main Content -->
-    <main class="main-container">
-      <!-- Terminal Display -->
-      <div class="terminal-container">
-        <div class="terminal-header">PCD-68 DISPLAY TERMINAL</div>
-        <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" 
-                tabindex="0" width="400" height="300" 
-                aria-label="PCD-68 computer display"
-                title="PCD-68 Virtual Computer Display"></canvas>
+    <!-- Mobile/Text-Only Interface -->
+    <div class="mobile-text-interface" id="mobileInterface">
+      <h1>PCD-68 Virtual Computer</h1>
+      <p><strong>JonSharp.net Retro Computing Experience</strong></p>
+      
+      <div class="desktop-upgrade-notice">
+        <h3>🖥️ Enhanced Experience Available</h3>
+        <p>For the full interactive PCD-68 virtual computer experience with graphics and keyboard input, please visit this site on a desktop or laptop computer.</p>
       </div>
-
-      <!-- Controls Panel -->
-      <div class="controls-panel">
-        <!-- Keyboard Status -->
-        <div id="keyboard-status" class="keyboard-status hidden">
-          ⌨️ Keyboard input ready - System active
-        </div>
-
-        <!-- Help Section -->
-        <div class="help-section">
-          <a href="#" class="help-link" onclick="toggleHelp(); return false;">help</a>
-        </div>
-
-        <!-- Mobile Controls -->
-        <div class="mobile-controls">
-          <button class="show-keyboard-btn" onclick="toggleMobileKeyboard()">Show Virtual Keyboard</button>
-          <button class="show-keyboard-btn" onclick="showIOSKeyboard()">Show iOS Keyboard</button>
-        </div>
-
-        <!-- Mobile Hint -->
-        <div class="mobile-hint">
-          📱 On mobile? Use the virtual keyboard above or tap "Show iOS Keyboard" to bring up your device's keyboard.
-        </div>
-
-        <!-- Virtual Keyboard -->
-        <div id="mobile-keyboard" class="mobile-keyboard">
-          <h4>PCD-68 Virtual Keyboard</h4>
-          <div class="key-row">
-            <div class="virtual-key" onclick="sendKey('1')">1</div>
-            <div class="virtual-key" onclick="sendKey('2')">2</div>
-            <div class="virtual-key" onclick="sendKey('3')">3</div>
-            <div class="virtual-key" onclick="sendKey('4')">4</div>
-            <div class="virtual-key" onclick="sendKey('5')">5</div>
-            <div class="virtual-key" onclick="sendKey('6')">6</div>
-            <div class="virtual-key" onclick="sendKey('7')">7</div>
-            <div class="virtual-key" onclick="sendKey('8')">8</div>
-            <div class="virtual-key" onclick="sendKey('9')">9</div>
-          </div>
-          <div class="key-row">
-            <div class="virtual-key wide" onclick="sendKey('j')">J<br><small>Down</small></div>
-            <div class="virtual-key wide" onclick="sendKey('k')">K<br><small>Up</small></div>
-            <div class="virtual-key wide" onclick="sendKey('p')">P<br><small>Art</small></div>
-            <div class="virtual-key wide" onclick="sendKey('t')">T<br><small>Text</small></div>
-          </div>
-        </div>
+      
+      <div class="ascii-art">
+┌─────────────────────────────────────┐
+│          PCD-68 COMPUTER            │
+│         68000-Based System          │
+└─────────────────────────────────────┘
       </div>
-    </main>
-
-    <!-- Help Dialog -->
-    <div id="help-dialog" class="help-dialog">
-      <div class="help-content">
-        <h3>Welcome to JonSharp.net running on PCD-68</h3>
-        <p>This is my virtual retro computer running a custom 68000 assembly program.</p>
-        <p><strong>How to navigate:</strong></p>
-        <p>Follow the 'Keys:' key on screen</p>
-        <p>
-        • Press <span class="key">j/k</span> to scroll down/up the content<br>
-        • Press <span class="key">number keys</span> to scrub through sections<br>
-        • Press <span class="key">a/t</span> to toggle between art and text modes</p>
-        <div id="mobile-help" style="display: none;">
-          <p><strong>📱 On Mobile/Tablet:</strong></p>
-          <p>• Use the virtual keyboard below the screen<br>
-          • Tap "Show iOS Keyboard" to use your device's keyboard<br>
-          • All the same commands work with touch!</p>
-        </div>
-        <p>Just start typing - the keyboard input should be ready!  If not, click on the display area.</p>
-        <button class="close-help" onclick="toggleHelp()">Close</button>
-        <div style="clear: both;"></div>
+      
+      <h2>Welcome to the PCD-68</h2>
+      <p>The PCD-68 is a virtual retro computer system based on the Motorola 68000 processor. This text-based interface provides access to the same content available in the full interactive version.</p>
+      
+      <div class="nav-section">
+        <h3>📖 Available Sections</h3>
+        <div class="nav-item">1. Introduction & Welcome</div>
+        <div class="nav-item">2. System Architecture</div>
+        <div class="nav-item">3. Programming Examples</div>
+        <div class="nav-item">4. Assembly Language Guide</div>
+        <div class="nav-item">5. Memory Map & Hardware</div>
+        <div class="nav-item">6. Sample Programs</div>
+        <div class="nav-item">7. Graphics & Display</div>
+        <div class="nav-item">8. Sound System</div>
+        <div class="nav-item">9. Development Tools</div>
+      </div>
+      
+      <h2>1. Introduction & Welcome</h2>
+      <p>Welcome to the PCD-68 virtual computer! This system recreates the experience of programming and using a 1980s-era personal computer based on the powerful Motorola 68000 processor.</p>
+      
+      <h3>System Specifications</h3>
+      <p>• Processor: Motorola 68000 @ 8MHz<br>
+      • Memory: 64KB RAM<br>
+      • Display: 400x300 pixel bitmapped screen<br>
+      • Colors: 16-color palette<br>
+      • Sound: Basic tone generator<br>
+      • Storage: ROM-based programs</p>
+      
+      <h2>2. System Architecture</h2>
+      <p>The PCD-68 follows classic computer architecture principles with a clean separation between CPU, memory, and I/O systems.</p>
+      
+      <h3>Memory Layout</h3>
+      <p>The system uses a simple memory map:</p>
+      <p>• $000000-$00FFFF: RAM (64KB)<br>
+      • $010000-$01FFFF: Video RAM<br>
+      • $020000-$03FFFF: ROM Space<br>
+      • $040000-$07FFFF: I/O Registers</p>
+      
+      <h2>3. Programming Examples</h2>
+      <p>The PCD-68 comes with several built-in programming examples demonstrating various aspects of 68000 assembly language programming.</p>
+      
+      <h3>Hello World Example</h3>
+      <div class="ascii-art">
+    ORG    $1000
+    MOVE.L #MESSAGE,A0
+    TRAP   #1
+    RTS
+MESSAGE:
+    DC.B   'Hello, PCD-68!',0
+      </div>
+      
+      <h2>4. Assembly Language Guide</h2>
+      <p>The 68000 processor provides a rich instruction set with powerful addressing modes. Key instruction categories include:</p>
+      
+      <h3>Data Movement</h3>
+      <p>• MOVE - Transfer data between locations<br>
+      • LEA - Load effective address<br>
+      • PEA - Push effective address</p>
+      
+      <h3>Arithmetic Operations</h3>
+      <p>• ADD/SUB - Addition and subtraction<br>
+      • MUL/DIV - Multiplication and division<br>
+      • CMP - Compare operations</p>
+      
+      <h2>5. Graphics & Display</h2>
+      <p>The PCD-68 features a bitmapped display system capable of rendering graphics and text in multiple colors.</p>
+      
+      <h3>Display Modes</h3>
+      <p>• Text Mode: 80x25 character display<br>
+      • Graphics Mode: 400x300 pixel bitmap<br>
+      • Mixed Mode: Graphics with text overlay</p>
+      
+      <h2>Navigation Controls</h2>
+      <div class="nav-section">
+        <h3>⌨️ Interactive Controls (Desktop Version)</h3>
+        <div class="nav-item">j/k - Scroll down/up through content</div>
+        <div class="nav-item">1-9 - Jump directly to sections</div>
+        <div class="nav-item">a - Toggle art/graphics mode</div>
+        <div class="nav-item">t - Toggle text mode</div>
+        <div class="nav-item">h - Show help information</div>
+      </div>
+      
+      <h2>About This System</h2>
+      <p>The PCD-68 virtual computer is a labor of love, recreating the experience of computing from an era when programming meant working directly with the hardware. Every aspect of the system, from the processor emulation to the custom assembly language programs, has been crafted to provide an authentic retro computing experience.</p>
+      
+      <div class="footer">
+        <p>PCD-68 Virtual Computer System | Created by Jon Sharp<br>
+        <a href="https://jonsharp.net">jonsharp.net</a> | Retro Computing Enthusiast</p>
+        
+        <p>This is a text-based version of the content. For the full interactive experience with graphics and real-time emulation, please visit on a desktop computer.</p>
       </div>
     </div>
 
-    <!-- Footer -->
-    <footer class="footer">
-      <p>
-        <a href="gopher://jonsharp.net" target="_blank">Jon Sharp in gopherspace</a> • 
-        <a href="https://github.com/jrsharp/pcd68" target="_blank">Source Code</a>
-      </p>
-    </footer>
+    <!-- Desktop Interface -->
+    <div class="view-container background-mode" id="viewContainer">
+      <!-- Background overlay for transition -->
+      <div class="background-overlay"></div>
+      
+      <!-- Focus trigger button -->
+      <button class="focus-trigger" id="focusTrigger">
+        ⚡ FOCUS TERMINAL ⚡
+      </button>
+      
+      <!-- Back trigger button -->
+      <button class="back-trigger" id="backTrigger">
+        ← OVERVIEW
+      </button>
+      
+      <!-- Canvas container with dual positioning -->
+      <div class="canvas-container">
+        <!-- Terminal Display -->
+        <div class="terminal-container">
+          <div class="terminal-header">PCD-68 DISPLAY TERMINAL</div>
+          <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" 
+                  tabindex="0" width="400" height="300" 
+                  aria-label="PCD-68 computer display"
+                  title="PCD-68 Virtual Computer Display"></canvas>
+        </div>
+
+        <!-- Controls Panel (only visible in focused mode) -->
+        <div class="controls-panel">
+          <!-- Keyboard Status -->
+          <div id="keyboard-status" class="keyboard-status">
+            ⌨️ Keyboard input ready - System active
+          </div>
+
+          <!-- Help Section -->
+          <div class="help-section">
+            <a href="#" class="help-link" onclick="toggleHelp(); return false;">help</a>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Hidden input for iOS keyboard -->
     <input type="text" id="hidden-input" class="hidden-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
 
     <script type='text/javascript'>
+      // Simple mobile detection
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                      (window.innerWidth <= 768) ||
+                      ('ontouchstart' in window);
+      
+      // Show appropriate interface based on device
+      if (isMobile) {
+        // Mobile: Show text-only interface
+        document.getElementById('mobileInterface').style.display = 'block';
+        document.getElementById('viewContainer').style.display = 'none';
+        console.log('Mobile device detected - showing text-only interface');
+      } else {
+        // Desktop: Show full emulator interface
+        document.getElementById('mobileInterface').style.display = 'none';
+        document.getElementById('viewContainer').style.display = 'block';
+        console.log('Desktop device detected - showing full emulator interface');
+      }
+      
+      // View mode management (desktop only)
+      let currentMode = 'background';
+      const viewContainer = document.getElementById('viewContainer');
+      const focusTrigger = document.getElementById('focusTrigger');
+      const backTrigger = document.getElementById('backTrigger');
+      
+      // Focus mode transition
+      function enterFocusMode() {
+        if (isMobile) return; // No mode switching on mobile
+        
+        currentMode = 'focused';
+        viewContainer.classList.remove('background-mode');
+        viewContainer.classList.add('focused-mode');
+        
+        // Auto-focus canvas after transition
+        setTimeout(() => {
+          document.getElementById('canvas').focus();
+          updateKeyboardStatus(true);
+        }, 1500);
+      }
+      
+      // Background mode transition
+      function enterBackgroundMode() {
+        if (isMobile) return; // No mode switching on mobile
+        
+        currentMode = 'background';
+        viewContainer.classList.remove('focused-mode');
+        viewContainer.classList.add('background-mode');
+        updateKeyboardStatus(false);
+      }
+      
+      // Event listeners (desktop only)
+      if (!isMobile) {
+        focusTrigger.addEventListener('click', enterFocusMode);
+        backTrigger.addEventListener('click', enterBackgroundMode);
+        
+        // Double-click canvas to enter focus mode (when in background mode)
+        document.getElementById('canvas').addEventListener('dblclick', function() {
+          if (currentMode === 'background') {
+            enterFocusMode();
+          }
+        });
+        
+        // ESC key to return to background mode
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && currentMode === 'focused') {
+            enterBackgroundMode();
+          }
+        });
+      }
+      
       // DOM elements
       var keyboardStatus = document.getElementById('keyboard-status');
       var canvas = document.getElementById('canvas');
@@ -547,28 +801,35 @@
       // State tracking
       var systemReady = false;
       var initializationStartTime = Date.now();
-      var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
       var canvasFocused = false;
       
       // Update keyboard status display
       function updateKeyboardStatus(focused) {
         canvasFocused = focused;
         var statusElement = document.getElementById('keyboard-status');
+        var isNeonMode = viewContainer.classList.contains('neon-mode');
         
-        if (!systemReady) {
-          statusElement.textContent = '⏳ System initializing...';
-          statusElement.style.borderColor = '#666';
-          statusElement.style.color = '#666';
-          statusElement.style.background = 'rgba(102, 102, 102, 0.1)';
-          statusElement.style.boxShadow = '0 0 3px rgba(102, 102, 102, 0.2)';
-        } else if (focused) {
+        if (focused && currentMode === 'focused') {
           statusElement.textContent = '⌨️ Keyboard input ready - System active';
-          statusElement.style.borderColor = '#fb16bb';
-          statusElement.style.color = '#fb16bb';
-          statusElement.style.background = 'rgba(251, 22, 187, 0.1)';
-          statusElement.style.boxShadow = '0 0 6px rgba(251, 22, 187, 0.2)';
+          if (isNeonMode) {
+            statusElement.style.borderColor = '#fb16bb';
+            statusElement.style.color = '#fb16bb';
+            statusElement.style.background = 'rgba(251, 22, 187, 0.1)';
+            statusElement.style.boxShadow = '0 0 6px rgba(251, 22, 187, 0.2)';
+          } else {
+            statusElement.style.borderColor = '#666';
+            statusElement.style.color = '#cccccc';
+            statusElement.style.background = 'rgba(100, 100, 100, 0.1)';
+            statusElement.style.boxShadow = '0 0 3px rgba(0, 0, 0, 0.2)';
+          }
+        } else if (currentMode === 'focused') {
+          statusElement.textContent = '⌨️ Click canvas to activate keyboard input';
+          statusElement.style.borderColor = '#666';
+          statusElement.style.color = '#999';
+          statusElement.style.background = 'rgba(102, 102, 102, 0.05)';
+          statusElement.style.boxShadow = '0 0 3px rgba(102, 102, 102, 0.1)';
         } else {
-          statusElement.textContent = '⌨️ Click display area to activate keyboard input';
+          statusElement.textContent = '⌨️ Click FOCUS TERMINAL to activate input';
           statusElement.style.borderColor = '#666';
           statusElement.style.color = '#999';
           statusElement.style.background = 'rgba(102, 102, 102, 0.05)';
@@ -576,118 +837,20 @@
         }
       }
       
-      // Mobile keyboard functions
-      function toggleMobileKeyboard() {
-        var keyboard = document.getElementById('mobile-keyboard');
-        if (keyboard.style.display === 'none' || keyboard.style.display === '') {
-          keyboard.style.display = 'block';
-        } else {
-          keyboard.style.display = 'none';
-        }
-      }
-      
-      function showIOSKeyboard() {
-        hiddenInput.focus();
-        hiddenInput.click();
-        setTimeout(function() {
-          hiddenInput.focus();
-        }, 100);
-      }
-      
-      function sendKey(key) {
-        if (!systemReady) return;
-        
-        // Send key to the canvas/emscripten module
-        var event = new KeyboardEvent('keydown', {
-          key: key,
-          code: 'Key' + key.toUpperCase(),
-          charCode: key.charCodeAt(0),
-          keyCode: key.charCodeAt(0),
-          which: key.charCodeAt(0),
-          bubbles: true
-        });
-        
-        canvas.dispatchEvent(event);
-        
-        // Also send keyup event
-        var eventUp = new KeyboardEvent('keyup', {
-          key: key,
-          code: 'Key' + key.toUpperCase(),
-          charCode: key.charCodeAt(0),
-          keyCode: key.charCodeAt(0),
-          which: key.charCodeAt(0),
-          bubbles: true
-        });
-        
-        canvas.dispatchEvent(eventUp);
-        
-        console.log('Virtual key sent:', key);
-      }
-      
-      // Setup hidden input for iOS keyboard
-      function setupIOSKeyboard() {
-        hiddenInput.addEventListener('input', function(e) {
-          var value = this.value;
-          if (value.length > 0) {
-            var lastChar = value.charAt(value.length - 1);
-            sendKey(lastChar);
-            // Clear the input to allow for repeated characters
-            setTimeout(() => { this.value = ''; }, 50);
-          }
-        });
-        
-        hiddenInput.addEventListener('keydown', function(e) {
-          // Handle special keys
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            sendKey('\r');
-          } else if (e.key === 'Backspace') {
-            e.preventDefault();
-            sendKey('\b');
-          }
-        });
-      }
-      
       // Help dialog functionality
       function toggleHelp() {
-        var dialog = document.getElementById('help-dialog');
-        var mobileHelp = document.getElementById('mobile-help');
-        
-        dialog.classList.toggle('show');
-        
-        // Show mobile-specific help if on mobile device
-        if (isMobile && dialog.classList.contains('show')) {
-          mobileHelp.style.display = 'block';
-        }
-        
-        // If closing dialog, refocus canvas
-        if (!dialog.classList.contains('show') && systemReady) {
-          setTimeout(function() {
-            canvas.focus();
-          }, 100);
-        }
+        alert('PCD-68 Virtual Computer\n\nClick "FOCUS TERMINAL" to enter full-screen mode\nDouble-click the screen for quick focus\nPress ESC or click "OVERVIEW" to return to background view\n\nNavigation:\n• j/k: scroll down/up\n• 1-9: jump to sections\n• a/t: toggle art/text modes');
       }
-      
-      // Close dialog when clicking outside
-      document.getElementById('help-dialog').addEventListener('click', function(e) {
-        if (e.target === this) {
-          toggleHelp();
-        }
-      });
       
       // Auto-focus canvas and setup keyboard handling
       function initializeCanvas() {
         console.log('Initializing canvas focus...');
         
-        // Setup mobile features if on mobile device
-        if (isMobile) {
-          setupIOSKeyboard();
-          console.log('Mobile device detected - iOS keyboard support enabled');
+        // Only auto-focus if in focused mode
+        if (currentMode === 'focused') {
+          canvas.focus();
+          updateKeyboardStatus(true);
         }
-        
-        // Force focus immediately
-        canvas.focus();
-        updateKeyboardStatus(true);
         
         // Set up focus maintenance with live status updates
         canvas.addEventListener('focus', function() {
@@ -698,37 +861,27 @@
         canvas.addEventListener('blur', function() {
           console.log('Canvas lost focus');
           updateKeyboardStatus(false);
-          
-          // Re-focus after a short delay to avoid conflicts (if system ready)
-          setTimeout(function() {
-            if (systemReady) {
-              canvas.focus();
-            }
-          }, 50);
         });
         
-        // Handle clicks to maintain focus
+        // Handle clicks to maintain focus (only in focused mode)
         canvas.addEventListener('click', function() {
-          canvas.focus();
-          updateKeyboardStatus(true);
+          if (currentMode === 'focused') {
+            canvas.focus();
+            updateKeyboardStatus(true);
+          }
         });
         
         // Prevent context menu
         canvas.addEventListener('contextmenu', function(e) {
           e.preventDefault();
-          canvas.focus();
-          updateKeyboardStatus(true);
+          if (currentMode === 'focused') {
+            canvas.focus();
+            updateKeyboardStatus(true);
+          }
         });
-        
-        // Additional focus enforcement
-        setTimeout(function() {
-          canvas.focus();
-          updateKeyboardStatus(true);
-          console.log('Canvas focused on page load');
-        }, 300);
       }
       
-      // Module readiness checking with better timeout handling
+      // Module readiness checking
       function isModuleReady() {
         return typeof Module !== 'undefined' && 
                Module.ready === true && 
@@ -737,7 +890,7 @@
                typeof Module.HEAPU8 !== 'undefined';
       }
       
-      // Wait for module with more generous timeout and better error handling
+      // Wait for module
       function waitForModule(callback, timeout = 30000) {
         if (isModuleReady()) {
           callback();
@@ -752,13 +905,11 @@
           } else if (Date.now() - startTime > timeout) {
             clearInterval(checkInterval);
             console.error('Module initialization timed out after', timeout, 'ms');
-            console.log('System may still be loading in the background...');
-            // System often works anyway, so don't show intrusive alert
           }
-        }, 250); // Check less frequently to reduce CPU usage
+        }, 250);
       }
       
-      // Enhanced heap availability checking with better error handling
+      // Enhanced heap availability checking
       function ensureHeapAvailable(callback, maxAttempts = 20) {
         var attempts = 0;
         
@@ -772,7 +923,6 @@
           attempts++;
           if (attempts >= maxAttempts) {
             console.error('Failed to initialize WebAssembly memory after', maxAttempts, 'attempts');
-            console.log('Memory initialization failed - this may be a browser compatibility issue');
             return;
           }
           
@@ -783,7 +933,7 @@
         checkHeap();
       }
       
-      // Load internal ROM with better error handling
+      // Load internal ROM
       function loadInternalROM() {
         waitForModule(function() {
           ensureHeapAvailable(function() {
@@ -792,7 +942,7 @@
               console.log('Successfully loaded internal JonSharp.net ROM');
               systemReady = true;
               
-              // Initialize canvas focus immediately when ROM is loaded
+              // Initialize canvas focus
               initializeCanvas();
               
               // Update status to reflect system is ready
@@ -800,13 +950,12 @@
               
             } catch (error) {
               console.error('Error loading internal ROM:', error);
-              console.log('ROM loading failed - please refresh the page to try again');
             }
           });
         });
       }
 
-      // Enhanced Module configuration with better initialization
+      // Enhanced Module configuration
       var Module = {
         preRun: [
           function() {
@@ -818,7 +967,7 @@
             console.log("PCD-68 system post-initialization");
             Module.ready = true;
             
-            // Auto-load internal ROM with shorter delay
+            // Auto-load internal ROM
             setTimeout(function() {
               if (typeof Module.ccall === 'function') {
                 loadInternalROM();
@@ -839,7 +988,6 @@
         })(),
         canvas: canvas,
         setStatus: function(text) {
-          // Simplified status handling - just log to console
           if (text) {
             console.log('[PCD-68 Status]', text);
           }
@@ -851,7 +999,6 @@
           if (left === 0) {
             console.log('All system dependencies loaded');
             
-            // Shorter timeout for better responsiveness
             setTimeout(function() {
               if (typeof Module.HEAPU8 !== 'undefined') {
                 Module.ready = true;
@@ -870,80 +1017,17 @@
         }
       };
       
-      // Enhanced error handling
-      window.onerror = function(msg, url, lineNo, columnNo, error) {
-        console.error('System error:', { msg, url, lineNo, columnNo, error });
-        Module.setStatus = function(text) {
-          if (text) console.error('[post-error status]', text);
-        };
-      };
-      
-      // Unhandled promise rejection handling
-      window.addEventListener('unhandledrejection', function(event) {
-        console.error('Unhandled promise rejection:', event.reason);
-      });
-      
-      // Performance monitoring
-      function trackPerformance() {
-        if ('performance' in window) {
-          window.addEventListener('load', function() {
-            setTimeout(function() {
-              var perfData = performance.getEntriesByType('navigation')[0];
-              if (perfData) {
-                var loadTime = Math.round(perfData.loadEventEnd - perfData.fetchStart);
-                console.log('Performance metrics:', {
-                  loadTime: loadTime,
-                  domReady: Math.round(perfData.domContentLoadedEventEnd - perfData.fetchStart),
-                  firstPaint: performance.getEntriesByType('paint').find(entry => entry.name === 'first-paint')?.startTime || 0
-                });
-                
-                // Log initialization time
-                var initTime = Date.now() - initializationStartTime;
-                console.log('Total initialization time:', initTime, 'ms');
-              }
-            }, 1000);
-          });
-        }
-      }
-      
-      // User experience tracking
-      function trackUserExperience() {
-        var startTime = Date.now();
-        var interactionCount = 0;
-        
-        // Track meaningful interactions
-        ['click', 'keydown', 'focus'].forEach(function(eventType) {
-          document.addEventListener(eventType, function() {
-            interactionCount++;
-          });
-        });
-        
-        // Track session duration
-        window.addEventListener('beforeunload', function() {
-          var sessionDuration = Date.now() - startTime;
-          console.log('Session metrics:', {
-            duration: Math.round(sessionDuration / 1000),
-            interactions: interactionCount,
-            systemReady: systemReady
-          });
-        });
-      }
-      
-      // Initialize tracking
-      trackPerformance();
-      trackUserExperience();
-
-      // Initialize canvas focus as soon as page loads
+      // Initialize on page load
       document.addEventListener('DOMContentLoaded', function() {
-        console.log('DOM loaded, attempting early canvas focus...');
-        updateKeyboardStatus(false); // Show initializing state
-        canvas.focus();
-      });
-      
-      // Additional focus attempt when window loads
-      window.addEventListener('load', function() {
-        console.log('Window loaded, attempting canvas focus...');
-        canvas.focus();
+        console.log('DOM loaded, dual-mode interface ready');
+        
+        // Only initialize desktop functionality if not mobile
+        if (!isMobile) {
+          updateKeyboardStatus(false);
+          
+          // Initialize canvas immediately for keyboard handling
+          initializeCanvas();
+        }
       });
     </script>
     {{{ SCRIPT }}}
