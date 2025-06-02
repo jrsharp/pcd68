@@ -69,9 +69,13 @@ pub fn build(b: *std.Build) void {
         const cp_bg = b.addSystemCommand(&.{ "cp", "src/emscripten/FRST1_Homepage_bg.png", web_dir });
         cp_bg.step.dependOn(&mkdir_cmd.step);
 
+        // Copy M1 small image  
+        const cp_m1 = b.addSystemCommand(&.{ "cp", "src/emscripten/M1_small.png", web_dir });
+        cp_m1.step.dependOn(&cp_bg.step);
+
         // Copy ROM files
         const cp_roms = b.addSystemCommand(&.{ "mkdir", "-p", b.fmt("{s}/roms", .{web_dir}) });
-        cp_roms.step.dependOn(&cp_bg.step);
+        cp_roms.step.dependOn(&cp_m1.step);
 
         // Copy jonsharp.net/program.bin (main ROM) to both locations:
         // 1. As text_demo.bin (one of the options in the ROM selector)
@@ -112,6 +116,8 @@ pub fn build(b: *std.Build) void {
             "-ffast-math",
             "-DNDEBUG",
             "-std=c++17",
+            "-funroll-loops",
+            "-finline-functions",
             "src/PCD68_CPU.cpp",
             "src/KCTL.cpp",
             "src/UART.cpp",
@@ -130,7 +136,6 @@ pub fn build(b: *std.Build) void {
             output_html,
             "-sUSE_SDL=2",
             "-sUSE_WEBGL2=1",
-            "-sUSE_PTHREADS=1",
             "-sASYNCIFY",
             "-sWEBSOCKET_DEBUG=0",
             "-sMIN_WEBGL_VERSION=2",
@@ -138,7 +143,10 @@ pub fn build(b: *std.Build) void {
             "-sWASM=1",
             "-sFETCH=1",
             "-sASSERTIONS=0",
-            "-sMALLOC=emmalloc",
+            "-sMALLOC=dlmalloc",
+            "-sINITIAL_MEMORY=134217728",
+            "-sSTACK_SIZE=8388608",
+            "-sWASM_BIGINT=1",
             "-lwebsocket",
             "-sWEBSOCKET_URL=\"ws://\"",
             "-sWEBSOCKET_SUBPROTOCOL=\"binary\"",

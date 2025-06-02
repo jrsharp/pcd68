@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PCD-68 Virtual Computer | JonSharp.net</title>
+    <title>JonSharp.net on PCD-68 Virtual Computer</title>
     <meta name="description" content="Experience the PCD-68 virtual retro computer - a complete 68000-based system with custom assembly programming and vintage computing aesthetics.">
     <meta name="keywords" content="retro computing, 68000, assembly programming, virtual computer, PCD-68, Jon Sharp">
     <meta name="author" content="Jon Sharp">
@@ -19,109 +19,333 @@
     <meta property="og:url" content="https://jonsharp.net">
     <meta property="og:site_name" content="JonSharp.net">
     
-    <!-- Twitter Card -->
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="PCD-68 Virtual Computer">
-    <meta name="twitter:description" content="Experience a complete 68000-based virtual computer running in your browser">
-    
     <!-- Additional meta tags -->
-    <meta name="theme-color" content="#00ff41">
     <meta name="robots" content="index, follow">
 
     <style>
       /* Mobile/Text-Only Interface Styles */
       .mobile-text-interface {
         display: none;
-        font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
-        background: #000;
-        color: #00ff41;
+        font-family: 'Times New Roman', Times, serif;
+        background: #ffffff;
+        color: #000000;
         padding: 20px;
-        line-height: 1.6;
+        line-height: 1.5;
+        max-width: 100%;
+        min-height: 100vh;
+        overflow-x: auto;
+      }
+      
+      /* Mobile content area with same styling */
+      #mobileContent {
+        display: none;
+        font-family: 'Times New Roman', Times, serif;
+        background: #ffffff;
+        color: #000000;
+        padding: 20px;
+        line-height: 1.5;
         max-width: 100%;
         overflow-x: auto;
       }
       
       .mobile-text-interface h1 {
-        color: #fb16bb;
+        color: #000000;
         text-align: center;
-        border-bottom: 2px solid #fb16bb;
-        padding-bottom: 10px;
-        margin-bottom: 20px;
-        font-size: 1.5em;
+        margin-bottom: 30px;
+        font-size: 1.8em;
+        font-weight: bold;
+        text-decoration: underline;
       }
       
       .mobile-text-interface h2 {
-        color: #00ff41;
+        color: #000000;
         margin-top: 30px;
         margin-bottom: 15px;
-        font-size: 1.2em;
+        font-size: 1.3em;
+        font-weight: bold;
       }
       
       .mobile-text-interface h3 {
-        color: #fb16bb;
+        color: #000000;
         margin-top: 20px;
         margin-bottom: 10px;
         font-size: 1.1em;
+        font-weight: bold;
       }
       
       .mobile-text-interface p {
         margin-bottom: 15px;
-        color: #cccccc;
+        color: #000000;
+        font-size: 1em;
+        line-height: 1.6;
       }
       
       .mobile-text-interface .ascii-art {
-        color: #00ff41;
+        color: #000000;
         white-space: pre;
-        font-size: 0.8em;
+        font-size: 0.9em;
         margin: 20px 0;
         text-align: center;
         overflow-x: auto;
+        font-family: 'Courier New', monospace;
       }
       
       .mobile-text-interface .nav-section {
-        background: rgba(251, 22, 187, 0.1);
-        border: 1px solid #fb16bb;
+        margin: 25px 0;
+        border: 1px solid #000000;
         padding: 15px;
-        margin: 20px 0;
-        border-radius: 5px;
       }
       
       .mobile-text-interface .nav-item {
         margin: 8px 0;
-        color: #00ff41;
+        color: #000000;
+        font-size: 1em;
       }
       
       .mobile-text-interface .footer {
         margin-top: 40px;
         padding-top: 20px;
-        border-top: 1px solid #444;
+        border-top: 1px solid #000000;
         text-align: center;
-        color: #666;
+        color: #666666;
         font-size: 0.9em;
       }
       
       .mobile-text-interface a {
-        color: #fb16bb;
-        text-decoration: none;
+        color: #0000ff;
+        text-decoration: underline;
+        font-weight: normal;
+      }
+      
+      .mobile-text-interface a:visited {
+        color: #800080;
       }
       
       .mobile-text-interface a:hover {
+        color: #ff0000;
+      }
+      
+      .mobile-text-interface hr {
+        border: none;
+        border-top: 1px solid #000000;
+        margin: 2em 0;
+      }
+      
+      /* When smolweb content is copied into mobile interface, use mobile styles */
+      .mobile-text-interface .smolweb-fallback {
+        font-family: inherit !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: none !important;
+        background-image: none !important;
+        background-color: transparent !important;
+        color: inherit !important;
+        min-height: auto !important;
+      }
+      
+      /* Force mobile overrides for copied content */
+      #mobileContent .smolweb-fallback,
+      #mobileInterface .smolweb-fallback {
+        font-family: 'Times New Roman', Times, serif !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 20px !important;
+        background: #ffffff !important;
+        background-image: none !important;
+        background-attachment: initial !important;
+        color: #000000 !important;
+        min-height: auto !important;
+        line-height: 1.6 !important;
+      }
+      
+      #mobileContent .smolweb-fallback h1,
+      #mobileInterface .smolweb-fallback h1 {
+        color: #000000 !important;
+        font-weight: bold !important;
+        font-size: 1.8em !important;
+        text-align: center !important;
+        margin-bottom: 30px !important;
+        text-shadow: none !important;
+        text-decoration: underline !important;
+      }
+      
+      #mobileContent .smolweb-fallback h2,
+      #mobileInterface .smolweb-fallback h2 {
+        color: #000000 !important;
+        margin-top: 30px !important;
+        margin-bottom: 15px !important;
+        font-size: 1.3em !important;
+        font-weight: bold !important;
+        text-shadow: none !important;
+      }
+      
+      #mobileContent .smolweb-fallback p,
+      #mobileInterface .smolweb-fallback p {
+        color: #000000 !important;
+        margin-bottom: 15px !important;
+        font-size: 1em !important;
+        line-height: 1.6 !important;
+        text-shadow: none !important;
+        background: none !important;
+      }
+      
+      #mobileContent .smolweb-fallback pre,
+      #mobileInterface .smolweb-fallback pre {
+        background: #f0f0f0 !important;
+        color: #000000 !important;
+        padding: 10px !important;
+        border: 1px solid #000000 !important;
+        font-family: 'Courier New', monospace !important;
+        margin: 1em 0 !important;
+        border-radius: 0 !important;
+        overflow-x: auto !important;
+      }
+      
+      #mobileContent .smolweb-fallback a,
+      #mobileInterface .smolweb-fallback a {
+        color: #0000ff !important;
+        text-decoration: underline !important;
+        font-weight: normal !important;
+        text-shadow: none !important;
+      }
+      
+      #mobileContent .smolweb-fallback a:visited,
+      #mobileInterface .smolweb-fallback a:visited {
+        color: #800080 !important;
+      }
+      
+      #mobileContent .smolweb-fallback a:hover,
+      #mobileInterface .smolweb-fallback a:hover {
+        color: #ff0000 !important;
+      }
+      
+      #mobileContent .smolweb-fallback hr,
+      #mobileInterface .smolweb-fallback hr {
+        border: none !important;
+        border-top: 1px solid #000000 !important;
+        margin: 2em 0 !important;
+        background: none !important;
+      }
+      
+      .mobile-text-interface .smolweb-fallback h1,
+      .mobile-text-interface .smolweb-fallback h2,
+      .mobile-text-interface .smolweb-fallback p,
+      .mobile-text-interface .smolweb-fallback pre,
+      .mobile-text-interface .smolweb-fallback hr {
+        /* Inherit mobile interface styling */
+        background: none;
+        backdrop-filter: none;
+        border-radius: 0;
+        padding: 0;
+        margin-bottom: 15px;
+        text-shadow: none;
+      }
+      
+      .mobile-text-interface .smolweb-fallback pre {
+        background: #f0f0f0;
+        padding: 10px;
+        border: 1px solid #000000;
+        font-family: 'Courier New', monospace;
+        margin: 1em 0;
+        overflow-x: auto;
+      }
+      
+      /* Smolweb fallback styles - clean and readable */
+      .smolweb-fallback {
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        max-width: 80ch;
+        margin: 0 auto;
+        padding: 40px 20px;
+        line-height: 1.7;
+        background: 
+          linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)),
+          url("FRST1_Homepage_bg.png");
+        background-repeat: no-repeat;
+        background-position: center -150px;
+        background-size: 2200px;
+        background-attachment: fixed;
+        color: #ffffff;
+        min-height: 100vh;
+      }
+      
+      .smolweb-fallback h1 {
+        color: #ffffff;
+        font-weight: 300;
+        font-size: 2.5em;
+        text-align: center;
+        margin-bottom: 40px;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+      }
+      
+      .smolweb-fallback h2 {
+        margin-top: 3em;
+        margin-bottom: 1.2em;
+        color: #ffffff;
+        font-weight: 400;
+        font-size: 1.6em;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+      }
+      
+      .smolweb-fallback p {
+        margin-bottom: 1.5em;
+        font-size: 1.1em;
+        line-height: 1.8;
+        color: #ffffff;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+      }
+      
+      .smolweb-fallback ul {
+        margin-bottom: 1.5em;
+        padding-left: 30px;
+      }
+      
+      .smolweb-fallback li {
+        margin-bottom: 0.8em;
+        color: #ffffff;
+        font-size: 1.1em;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+      }
+      
+      .smolweb-fallback pre {
+        overflow-x: auto;
+        background: rgba(0, 0, 0, 0.4);
+        padding: 20px;
+        border-radius: 6px;
+        font-family: 'Courier New', monospace;
+        margin: 2em 0;
+        color: #cccccc;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      
+      .smolweb-fallback .note {
+        background: rgba(0, 0, 0, 0.3);
+        border-left: 4px solid #87ceeb;
+        padding: 20px;
+        margin: 2em 0;
+        border-radius: 4px;
+        color: #ffffff;
+      }
+      
+      .smolweb-fallback a {
+        color: #87ceeb;
+        text-decoration: none;
+        font-weight: 500;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+      }
+      
+      .smolweb-fallback a:hover {
+        color: #b0e0e6;
         text-decoration: underline;
       }
       
-      .desktop-upgrade-notice {
-        background: rgba(0, 255, 65, 0.1);
-        border: 1px solid #00ff41;
-        padding: 15px;
-        margin: 20px 0;
-        border-radius: 5px;
+      .smolweb-fallback hr {
+        border: none;
+        height: 1px;
+        background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.3), transparent);
+        margin: 3em 0;
       }
       
-      .desktop-upgrade-notice h3 {
-        color: #00ff41;
-        margin-top: 0;
-      }
-
       /* Reset and base styles for desktop */
       * {
         box-sizing: border-box;
@@ -413,6 +637,47 @@
         transition: all 0.5s ease 1s;
       }
       
+      /* Mobile-responsive canvas sizing */
+      @media (max-width: 768px) {
+        canvas.emscripten {
+          max-width: 90vw;
+          max-height: 60vh;
+          width: auto;
+          height: auto;
+          object-fit: contain;
+        }
+        
+        .view-container.focused-mode .terminal-container {
+          padding: 10px;
+          margin: 10px;
+          max-width: 95vw;
+        }
+        
+        .view-container.focused-mode .canvas-container {
+          padding: 10px;
+          justify-content: flex-start;
+          padding-top: 60px; /* Account for return button */
+        }
+        
+        .controls-panel {
+          max-width: 95vw;
+          margin-top: 10px;
+          padding: 10px;
+        }
+        
+        .keyboard-status {
+          font-size: 0.8em;
+          padding: 8px;
+        }
+        
+        .mobile-return-trigger {
+          top: 10px;
+          right: 10px;
+          padding: 8px 12px;
+          font-size: 0.8em;
+        }
+      }
+      
       .view-container.focused-mode canvas.emscripten {
         filter: contrast(1.05) brightness(1.02) saturate(1.1);
         image-rendering: pixelated;
@@ -427,6 +692,64 @@
       canvas.emscripten:focus {
         outline: none;
         /* No border styling in default mode */
+      }
+      
+      /* Subtle keyboard focus indicator for background mode */
+      .focus-indicator {
+        position: absolute;
+        bottom: -25px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 8px;
+        height: 8px;
+        background: #ff0000; /* Red for unfocused state */
+        border-radius: 50%;
+        opacity: 0.6;
+        transition: all 0.3s ease;
+        box-shadow: 
+          0 0 3px rgba(255, 191, 0, 0.3),
+          inset 0 0 2px rgba(255, 191, 0, 0.5);
+        z-index: 15;
+      }
+      
+      /* Green indicator when canvas has focus in background mode */
+      .view-container.background-mode .terminal-container:focus-within .focus-indicator {
+        background: #00ff41;
+        opacity: 0.7;
+        box-shadow: 
+          0 0 3px rgba(0, 255, 65, 0.3),
+          inset 0 0 2px rgba(0, 255, 65, 0.5);
+      }
+      
+      /* Enhanced focus indicator in neon mode */
+      .view-container.neon-mode .focus-indicator {
+        /* Red state in neon mode */
+        box-shadow: 
+          0 0 6px rgba(255, 0, 0, 0.5),
+          0 0 12px rgba(255, 0, 0, 0.2),
+          inset 0 0 3px rgba(255, 0, 0, 0.7);
+        opacity: 0.8;
+      }
+      
+      .view-container.neon-mode.background-mode .terminal-container:focus-within .focus-indicator {
+        /* Green focused state in neon mode */
+        background: #00ff41;
+        opacity: 0.9;
+        box-shadow: 
+          0 0 6px rgba(0, 255, 65, 0.5),
+          0 0 12px rgba(0, 255, 65, 0.2),
+          inset 0 0 3px rgba(0, 255, 65, 0.7);
+        animation: pulse 2s ease-in-out infinite alternate;
+      }
+      
+      @keyframes pulse {
+        from { opacity: 0.6; }
+        to { opacity: 1; }
+      }
+      
+      /* Hide focus indicator in focused mode */
+      .view-container.focused-mode .focus-indicator {
+        display: none;
       }
       
       /* Focus trigger button - Default: MINIMAL */
@@ -454,12 +777,6 @@
         background: rgba(120, 120, 120, 1);
         transform: scale(1.05);
         box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
-      }
-      
-      .view-container.focused-mode .focus-trigger {
-        opacity: 0;
-        pointer-events: none;
-        transform: scale(0.8);
       }
       
       /* Controls panel for focused mode */
@@ -553,6 +870,39 @@
         box-shadow: 0 0 15px rgba(0, 255, 65, 0.5);
       }
       
+      /* Mobile return button for mobile devices using emulator mode */
+      .mobile-return-trigger {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: rgba(251, 22, 187, 0.8);
+        color: #fff;
+        border: 2px solid #fb16bb;
+        border-radius: 25px;
+        padding: 12px 24px;
+        font-weight: bold;
+        font-size: 0.9em;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        z-index: 10;
+        font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        box-shadow: 0 0 10px rgba(251, 22, 187, 0.3);
+      }
+      
+      .mobile-return-trigger:hover {
+        background: rgba(251, 22, 187, 1);
+        transform: scale(1.05);
+        box-shadow: 0 0 15px rgba(251, 22, 187, 0.5);
+      }
+      
+      /* Hide mobile return when in focused mode */
+      .view-container.focused-mode .mobile-return-trigger {
+        opacity: 0;
+        pointer-events: none;
+      }
+      
       /* Accessibility improvements */
       @media (prefers-reduced-motion: reduce) {
         .view-container,
@@ -567,115 +917,184 @@
           animation: none;
         }
       }
+      
+      .desktop-upgrade-notice {
+        margin: 20px 0;
+        padding: 15px;
+        border: 2px solid #000000;
+        background: #ffffcc;
+      }
+      
+      .desktop-upgrade-notice h3 {
+        color: #000000;
+        margin-top: 0;
+        font-weight: bold;
+      }
+      
+      .desktop-upgrade-notice p {
+        color: #000000;
+      }
+      
+      .desktop-upgrade-notice button {
+        background: #cccccc !important;
+        color: #000000 !important;
+        border: 1px solid #000000 !important;
+        padding: 5px 10px !important;
+        font-family: inherit !important;
+        font-size: 0.9em !important;
+        cursor: pointer;
+      }
+      
+      .desktop-upgrade-notice button:hover {
+        background: #aaaaaa !important;
+      }
     </style>
   </head>
   <body>
-    <!-- Mobile/Text-Only Interface -->
-    <div class="mobile-text-interface" id="mobileInterface">
-      <h1>PCD-68 Virtual Computer</h1>
-      <p><strong>JonSharp.net Retro Computing Experience</strong></p>
-      
-      <div class="desktop-upgrade-notice">
-        <h3>🖥️ Enhanced Experience Available</h3>
-        <p>For the full interactive PCD-68 virtual computer experience with graphics and keyboard input, please visit this site on a desktop or laptop computer.</p>
-      </div>
-      
-      <div class="ascii-art">
-┌─────────────────────────────────────┐
-│          PCD-68 COMPUTER            │
-│         68000-Based System          │
-└─────────────────────────────────────┘
-      </div>
-      
-      <h2>Welcome to the PCD-68</h2>
-      <p>The PCD-68 is a virtual retro computer system based on the Motorola 68000 processor. This text-based interface provides access to the same content available in the full interactive version.</p>
-      
-      <div class="nav-section">
-        <h3>📖 Available Sections</h3>
-        <div class="nav-item">1. Introduction & Welcome</div>
-        <div class="nav-item">2. System Architecture</div>
-        <div class="nav-item">3. Programming Examples</div>
-        <div class="nav-item">4. Assembly Language Guide</div>
-        <div class="nav-item">5. Memory Map & Hardware</div>
-        <div class="nav-item">6. Sample Programs</div>
-        <div class="nav-item">7. Graphics & Display</div>
-        <div class="nav-item">8. Sound System</div>
-        <div class="nav-item">9. Development Tools</div>
-      </div>
-      
-      <h2>1. Introduction & Welcome</h2>
-      <p>Welcome to the PCD-68 virtual computer! This system recreates the experience of programming and using a 1980s-era personal computer based on the powerful Motorola 68000 processor.</p>
-      
-      <h3>System Specifications</h3>
-      <p>• Processor: Motorola 68000 @ 8MHz<br>
-      • Memory: 64KB RAM<br>
-      • Display: 400x300 pixel bitmapped screen<br>
-      • Colors: 16-color palette<br>
-      • Sound: Basic tone generator<br>
-      • Storage: ROM-based programs</p>
-      
-      <h2>2. System Architecture</h2>
-      <p>The PCD-68 follows classic computer architecture principles with a clean separation between CPU, memory, and I/O systems.</p>
-      
-      <h3>Memory Layout</h3>
-      <p>The system uses a simple memory map:</p>
-      <p>• $000000-$00FFFF: RAM (64KB)<br>
-      • $010000-$01FFFF: Video RAM<br>
-      • $020000-$03FFFF: ROM Space<br>
-      • $040000-$07FFFF: I/O Registers</p>
-      
-      <h2>3. Programming Examples</h2>
-      <p>The PCD-68 comes with several built-in programming examples demonstrating various aspects of 68000 assembly language programming.</p>
-      
-      <h3>Hello World Example</h3>
-      <div class="ascii-art">
-    ORG    $1000
-    MOVE.L #MESSAGE,A0
-    TRAP   #1
-    RTS
-MESSAGE:
-    DC.B   'Hello, PCD-68!',0
-      </div>
-      
-      <h2>4. Assembly Language Guide</h2>
-      <p>The 68000 processor provides a rich instruction set with powerful addressing modes. Key instruction categories include:</p>
-      
-      <h3>Data Movement</h3>
-      <p>• MOVE - Transfer data between locations<br>
-      • LEA - Load effective address<br>
-      • PEA - Push effective address</p>
-      
-      <h3>Arithmetic Operations</h3>
-      <p>• ADD/SUB - Addition and subtraction<br>
-      • MUL/DIV - Multiplication and division<br>
-      • CMP - Compare operations</p>
-      
-      <h2>5. Graphics & Display</h2>
-      <p>The PCD-68 features a bitmapped display system capable of rendering graphics and text in multiple colors.</p>
-      
-      <h3>Display Modes</h3>
-      <p>• Text Mode: 80x25 character display<br>
-      • Graphics Mode: 400x300 pixel bitmap<br>
-      • Mixed Mode: Graphics with text overlay</p>
-      
-      <h2>Navigation Controls</h2>
-      <div class="nav-section">
-        <h3>⌨️ Interactive Controls (Desktop Version)</h3>
-        <div class="nav-item">j/k - Scroll down/up through content</div>
-        <div class="nav-item">1-9 - Jump directly to sections</div>
-        <div class="nav-item">a - Toggle art/graphics mode</div>
-        <div class="nav-item">t - Toggle text mode</div>
-        <div class="nav-item">h - Show help information</div>
-      </div>
-      
-      <h2>About This System</h2>
-      <p>The PCD-68 virtual computer is a labor of love, recreating the experience of computing from an era when programming meant working directly with the hardware. Every aspect of the system, from the processor emulation to the custom assembly language programs, has been crafted to provide an authentic retro computing experience.</p>
-      
-      <div class="footer">
-        <p>PCD-68 Virtual Computer System | Created by Jon Sharp<br>
-        <a href="https://jonsharp.net">jonsharp.net</a> | Retro Computing Enthusiast</p>
+    <!-- Smolweb/NoScript fallback -->
+    <noscript>
+      <div class="smolweb-fallback">
+        <h1>JonSharp.net</h1>
         
-        <p>This is a text-based version of the content. For the full interactive experience with graphics and real-time emulation, please visit on a desktop computer.</p>
+        <img src="M1_small.png" alt="Render of Mobile 1 Cyberdeck by FRST Computer"/>
+
+        <p>
+          Thank you for visiting JonSharp.net.  You're currently viewing the "smolweb"
+          version of the site.  Congratulations on using a text-based, no-javascript,
+          or otherwise "limited" browser!  (If you're using a screen reader, you are extra
+          welcome!  Please let me know how I can improve navigation.)
+        </p>
+        
+        <p>
+          The most significant feature of this web mirror is the showcasing of my
+          PCD-68 virtual retrocomputer, compiled for the web using <a href="https://emscripten.org">emscripten</a>.
+          Users visiting this site on a modern browser with JavaScript and WASM
+          support enabled are greeted with a functional version of the PCD-68
+          emulator, booting up my "JonSharp.net sampler ROM".  This is a bespoke
+          demo program written in 68000 assembly which displays a plain text
+          summary of my gopher content, allowing the user to scroll through
+          this content using keyboard input.  It also includes a couple of my
+          watercolors, down-sampled to 1-bit for the PCD-68 display.
+        </p>
+
+        <p>
+          If you'd like to see the full version of the PCD-68 emulator, you
+          can either visit this site using a modern browser on a desktop or laptop
+          computer -or- you can grab the source code for the emulator and the ROM at
+          <a href="https://github.com/jrsharp/pcd68">GitHub</a>.
+        </p>
+
+        <p>The following is the text content used in the ROM:</p>
+
+        <hr>
+        <pre>
+        Welcome to my web mirror!
+        
+        This is a PCD-68 ROM sampler of my primary digital space over at 
+        gopher://jonsharp.net -- just a flavor for people who haven't yet
+        discovered the joy of port 70. If you're wondering what the heck Gopher is,
+        well... it's like the web, but a little more spartan.
+        
+        PCD-68 is a virtual retrocomputer of my design. You are reading this text
+        inside a version of my pcd68 emulator compiled for the web.
+        
+        Who Am I?
+        
+        I'm Jon Sharp, a software developer, vintage computer collector, and
+        retrocomputing enthusiast with a serious case of nostalgia for when computers
+        were actually personal.
+        
+        When I'm not homebrewing computers, hacking 68k assembly or evangelizing
+        Plan 9, you might find me hiking or risking more ER visits on my surf-skate.</p>
+        
+        The Retrocomputing Laboratory
+        
+        My digital archaeology spans everything from Apple 1 replicas to handheld game
+        consoles. Some highlights from the collection:
+        
+        Bare-metal Macintosh Programming - What happens when you throw out the Mac ROM
+        and its Toolbox? You get a blank slate for imagination (and a lot of 68k
+        assembly headaches). I've been progressively building an alternative OS for
+        the Mac Plus, because why not?
+        
+        Gameboy Ethernet Project - Back in university, I turned a Game Boy Color into
+        a remote reporting tool via Ethernet with the help of a unique embedded system.</p>
+        
+        Painted Laptops - Sometimes a computer needs more than just fresh thermal paste.
+        I've given vintage laptops the full makeover treatment: camo patterns for 486
+        machines that need to blend with the forest, "Pentium Inside/Outside" body art,
+        and hot-rod red TiBooks.
+        
+        FRST Computer: When Art Meets Computing
+        
+        My primary art project is FRST Computer - a small batch, artisan personal
+        computer company where I craft beautiful and unique machines one batch at a
+        time. Think of it as the intersection of industrial design, elegant source
+        code, and a healthy skepticism of algorithmic social networking.
+        
+        Model Three: If you're going to build a time machine...
+        
+        Models One & Two: ePaper CyberTerminals - For when you want efficiency,
+        readability, and the ability to compute without burning through your battery
+        in two hours.
+        
+        FRST represents my exploration of minimalist, sustainable computing - empowering
+        users to adopt a simpler digital lifestyle and replace ad-driven feeds with
+        real-world community building. It's an homage to the most brilliant
+        artist-engineers of the personal computing era.
+        
+        Art & Philosophy
+        
+        Someone once said that to be an artist, one needs to be unafraid to make bad
+        art. My 4" watercolor books represent one of my primary artistic outlets - tiny
+        paintings created during moments I might otherwise be tempted to scroll on a
+        smartphone. Oh, and to demonstrate that PCD-68 can do fancy graphics, I've
+        included two 1-bit versions of my watercolors in this ROM. The 'p' key
+        activates picture mode, allowing you to navigate ('j'/'k') the two stored
+        images. Use the 't' key to return to 'text mode'.
+        
+        I also believe deeply that uptime is overrated, entropy is good (and so is Lisp)
+        and that software complexity will kill us all.
+        
+        The Gopher Philosophy
+        
+        Why Gopher in 2025? Because sometimes the best way forward is to step back and
+        remember what made computing personal in the first place. Gopher is like the
+        web, but with soul - a place where content matters more than presentation,
+        where community trumps commerce, and where you can actually read something
+        without seventeen data brokers siphoning your data.
+        
+        My gopher hole has been running for a few years now, serving up everything from
+        technical deep-dives to album reviews (M83's "Hurry Up, We're Dreaming" won my
+        2011 Album of the Year award, in case you were wondering). It's a labor of
+        love, a digital garden, and proof that good things come to those who embrace
+        plain text.
+        
+        --
+        Full Gopher Experience: gopher://jonsharp.net
+        Email: jon@jonsharp.net
+        Mastodon: @jrsharp@mastodon.sdf.org
+        GitHub: @jrsharp
+        --
+        </pre>
+
+        <hr>
+      </div>
+    </noscript>
+
+    <!-- Content will be populated from noscript section -->
+    <div id="mobileContent"></div>
+
+    <!-- Mobile/Simple Device Interface (JavaScript-enabled but limited devices) -->
+    <div class="mobile-text-interface" id="mobileInterface" style="display: none;">
+      <div class="desktop-upgrade-notice">
+        <h3>🖥️ Interactive PCD-68 Emulator Available</h3>
+        <p>For the full, interactive PCD-68 virtual computer experience with graphics and keyboard input, you can launch the emulator in mobile-optimized mode, providing you have a physical keyboard handy.</p>
+        <p style="margin-top: 15px;">
+          <button onclick="launchMobileEmulator()" style="background: #fb16bb; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-weight: bold;">
+            🖥️ Launch PCD-68 Emulator
+          </button>
+        </p>
       </div>
     </div>
 
@@ -686,12 +1105,17 @@ MESSAGE:
       
       <!-- Focus trigger button -->
       <button class="focus-trigger" id="focusTrigger">
-        ⚡ FOCUS TERMINAL ⚡
+        Step up to terminal
       </button>
       
       <!-- Back trigger button -->
       <button class="back-trigger" id="backTrigger">
-        ← OVERVIEW
+        Step back
+      </button>
+      
+      <!-- Return to mobile button (only visible for mobile devices using emulator mode) -->
+      <button class="mobile-return-trigger" id="mobileReturnTrigger" style="display: none;" onclick="returnToMobileVersion()">
+        Text Version
       </button>
       
       <!-- Canvas container with dual positioning -->
@@ -703,54 +1127,99 @@ MESSAGE:
                   tabindex="0" width="400" height="300" 
                   aria-label="PCD-68 computer display"
                   title="PCD-68 Virtual Computer Display"></canvas>
+          <!-- Subtle keyboard focus indicator for background mode -->
+          <div class="focus-indicator"></div>
         </div>
 
         <!-- Controls Panel (only visible in focused mode) -->
         <div class="controls-panel">
           <!-- Keyboard Status -->
           <div id="keyboard-status" class="keyboard-status">
-            ⌨️ Keyboard input ready - System active
+            <div class="focus-indicator"></div>
+            Keyboard input ready - System active
           </div>
 
           <!-- Help Section -->
           <div class="help-section">
             <a href="#" class="help-link" onclick="toggleHelp(); return false;">help</a>
+            <span id="mobileTextReturn" style="display: none;">
+              &nbsp;|&nbsp;
+              <a href="#" class="help-link" onclick="returnToMobileVersion(); return false;">return to text</a>
+            </span>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Hidden input for iOS keyboard -->
-    <input type="text" id="hidden-input" class="hidden-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-
     <script type='text/javascript'>
-      // Simple mobile detection
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-                      (window.innerWidth <= 768) ||
-                      ('ontouchstart' in window);
+      // Enhanced mobile detection with override capability
+      const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                            (window.innerWidth <= 768) ||
+                            ('ontouchstart' in window);
       
-      // Show appropriate interface based on device
-      if (isMobile) {
+      // Check for mobile emulator preference
+      const forceMobileEmulator = localStorage.getItem('pcd68-mobile-emulator') === 'true';
+      const shouldShowMobile = isMobileDevice && !forceMobileEmulator;
+      
+      // Function to launch mobile-optimized emulator
+      function launchMobileEmulator() {
+        localStorage.setItem('pcd68-mobile-emulator', 'true');
+        location.reload();
+      }
+      
+      // Function to return to mobile text version  
+      function returnToMobileVersion() {
+        localStorage.removeItem('pcd68-mobile-emulator');
+        location.reload();
+      }
+      
+      // Show appropriate interface based on device and preferences
+      if (shouldShowMobile) {
         // Mobile: Show text-only interface
+        document.getElementById('mobileContent').style.display = 'block';
         document.getElementById('mobileInterface').style.display = 'block';
         document.getElementById('viewContainer').style.display = 'none';
         console.log('Mobile device detected - showing text-only interface');
+        
+        // Copy noscript content to mobile content area only
+        copyNoscriptContentToMobile();
       } else {
         // Desktop: Show full emulator interface
+        document.getElementById('mobileContent').style.display = 'none';
         document.getElementById('mobileInterface').style.display = 'none';
         document.getElementById('viewContainer').style.display = 'block';
         console.log('Desktop device detected - showing full emulator interface');
       }
       
+      // Function to copy noscript content to mobile interface
+      function copyNoscriptContentToMobile() {
+        const noscriptElement = document.querySelector('noscript');
+        const mobileContent = document.getElementById('mobileContent');
+        
+        if (noscriptElement && mobileContent) {
+          // Clone the noscript content to the content area only
+          const noscriptContent = noscriptElement.innerHTML;
+          mobileContent.innerHTML = noscriptContent;
+          console.log('Copied noscript content to mobile content area');
+        }
+      }
+      
       // View mode management (desktop only)
-      let currentMode = 'background';
+      let currentMode = isMobileDevice && forceMobileEmulator ? 'focused' : 'background';
       const viewContainer = document.getElementById('viewContainer');
       const focusTrigger = document.getElementById('focusTrigger');
       const backTrigger = document.getElementById('backTrigger');
       
+      // Set initial mode for mobile emulator users
+      if (isMobileDevice && forceMobileEmulator) {
+        viewContainer.classList.remove('background-mode');
+        viewContainer.classList.add('focused-mode');
+        console.log('Mobile emulator mode - starting in focused view');
+      }
+      
       // Focus mode transition
       function enterFocusMode() {
-        if (isMobile) return; // No mode switching on mobile
+        if (isMobileDevice) return; // No mode switching on mobile
         
         currentMode = 'focused';
         viewContainer.classList.remove('background-mode');
@@ -765,7 +1234,7 @@ MESSAGE:
       
       // Background mode transition
       function enterBackgroundMode() {
-        if (isMobile) return; // No mode switching on mobile
+        if (isMobileDevice) return; // No mode switching on mobile
         
         currentMode = 'background';
         viewContainer.classList.remove('focused-mode');
@@ -774,7 +1243,7 @@ MESSAGE:
       }
       
       // Event listeners (desktop only)
-      if (!isMobile) {
+      if (!isMobileDevice) {
         focusTrigger.addEventListener('click', enterFocusMode);
         backTrigger.addEventListener('click', enterBackgroundMode);
         
@@ -793,10 +1262,17 @@ MESSAGE:
         });
       }
       
+      // Hide step back button for mobile emulator users (they start in focused mode)
+      if (isMobileDevice && forceMobileEmulator) {
+        document.getElementById('backTrigger').style.display = 'none';
+        document.getElementById('focusTrigger').style.display = 'none';
+        document.getElementById('mobileReturnTrigger').style.display = 'none';
+        document.getElementById('mobileTextReturn').style.display = 'inline';
+      }
+      
       // DOM elements
       var keyboardStatus = document.getElementById('keyboard-status');
       var canvas = document.getElementById('canvas');
-      var hiddenInput = document.getElementById('hidden-input');
       
       // State tracking
       var systemReady = false;
@@ -846,8 +1322,12 @@ MESSAGE:
       function initializeCanvas() {
         console.log('Initializing canvas focus...');
         
-        // Only auto-focus if in focused mode
-        if (currentMode === 'focused') {
+        // Auto-focus canvas in background mode on desktop
+        if (currentMode === 'background' && !isMobileDevice) {
+          canvas.focus();
+          updateKeyboardStatus(true);
+          console.log('Canvas auto-focused on page load');
+        } else if (currentMode === 'focused') {
           canvas.focus();
           updateKeyboardStatus(true);
         }
@@ -863,21 +1343,17 @@ MESSAGE:
           updateKeyboardStatus(false);
         });
         
-        // Handle clicks to maintain focus (only in focused mode)
+        // Handle clicks to maintain focus (both background and focused modes)
         canvas.addEventListener('click', function() {
-          if (currentMode === 'focused') {
-            canvas.focus();
-            updateKeyboardStatus(true);
-          }
+          canvas.focus();
+          updateKeyboardStatus(true);
         });
         
-        // Prevent context menu
+        // Prevent context menu and maintain focus
         canvas.addEventListener('contextmenu', function(e) {
           e.preventDefault();
-          if (currentMode === 'focused') {
-            canvas.focus();
-            updateKeyboardStatus(true);
-          }
+          canvas.focus();
+          updateKeyboardStatus(true);
         });
       }
       
@@ -1022,7 +1498,7 @@ MESSAGE:
         console.log('DOM loaded, dual-mode interface ready');
         
         // Only initialize desktop functionality if not mobile
-        if (!isMobile) {
+        if (!isMobileDevice) {
           updateKeyboardStatus(false);
           
           // Initialize canvas immediately for keyboard handling
@@ -1033,4 +1509,3 @@ MESSAGE:
     {{{ SCRIPT }}}
   </body>
 </html>
-

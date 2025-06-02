@@ -100,34 +100,21 @@ void KeyboardInputEmscripten::submitPendingKeys() {
     // Limit to maximum keys per report
     size_t keyCount = std::min(keyCodes.size(), static_cast<size_t>(MAX_KEYS_PER_REPORT));
     
-    if (debugEnabled) {
-        std::cout << "Emscripten: Submitting multi-key report with " << keyCount << " key(s) and modifiers 0x" 
-                  << std::hex << currentModifiers << std::dec << std::endl;
-        
-        for (size_t i = 0; i < keyCount; i++) {
-            std::cout << "  Key[" << i << "]: 0x" << std::hex << (int)keyCodes[i] 
-                      << std::dec << " ('" << (char)keyCodes[i] << "')" << std::endl;
-        }
+    // Simplified debug output for production builds
+    if (debugEnabled && keyCount > 0) {
+        std::cout << "Multi-key report: " << keyCount << " keys" << std::endl;
     }
     
     // Call the callback with the multi-key report
     if (keyCount > 0) {
         // Prefer multi-key callback if available, fall back to individual key callback if not
         if (keyMultiEventCallback) {
-            if (debugEnabled) {
-                std::cout << "Emscripten: Calling keyMultiEventCallback" << std::endl;
-            }
             keyMultiEventCallback(keyCodes.data(), keyCount, currentModifiers & 0xFF);
         } else if (keyEventCallback) {
-            if (debugEnabled) {
-                std::cout << "Emscripten: Calling keyEventCallback for " << keyCount << " keys" << std::endl;
-            }
             // Fall back to sending individual key events if multi-key callback not set
             for (size_t i = 0; i < keyCount; i++) {
                 keyEventCallback(keyCodes[i], currentModifiers & 0xFF);
             }
-        } else {
-            std::cout << "Emscripten: ERROR - No callback functions set!" << std::endl;
         }
     }
     
