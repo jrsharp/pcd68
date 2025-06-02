@@ -22,6 +22,10 @@ public:
         instructionCount++;
     }
     
+    void recordInstruction(uint64_t count) {
+        instructionCount += count;
+    }
+    
     void recordCycle() {
         cycleCount++;
     }

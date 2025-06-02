@@ -18,8 +18,8 @@
 
 #ifdef __EMSCRIPTEN__
 #    include "emscripten.h"
-#    define CYCLE_FACTOR 30    // Higher refresh rate for smoother display
-#    define INPUT_FACTOR 1     // Responsive input polling
+#    define CYCLE_FACTOR 100   // Reduced refresh rate for better performance
+#    define INPUT_FACTOR 10    // Less frequent input polling for web
 #else
 #    define CYCLE_FACTOR 500   // Dramatically increased for better performance
 #    define INPUT_FACTOR 1     // Poll input every iteration for responsiveness
@@ -176,6 +176,8 @@ bool mainLoop() {
         exit = !keyboardInput->poll();
         inputCounter = 0;
 
+        // Minimal debug output for web builds to improve performance
+#ifndef __EMSCRIPTEN__
         // Static counter for input polling iterations - only show every 100000 cycles for performance
         static unsigned int pollCounter = 0;
         pollCounter++;
@@ -185,6 +187,7 @@ bool mainLoop() {
                       << " - KCTL report count: " << (int)keyboardController->registers.pendingReportCount
                       << "/" << KCTL::REPORT_STACK_SIZE << std::endl;
         }
+#endif
 
         // Poll UART for data
         uartController->poll();
@@ -204,7 +207,21 @@ bool mainLoop() {
     }
 
     // Input processing / peripheral servicing
-    if (clocks % CYCLE_FACTOR == 0) {
+    // Detect if we're in graphics/framebuffer mode (TDA disabled) for more frequent updates
+    // Check this every cycle to ensure responsive graphics rendering
+    bool inGraphicsMode = (textDisplayAdapter->read8(TDA::BASE_ADDR) == 0); // TDA mode == NONE
+    
+    // Use different update frequencies based on TDA mode
+    int updateFactor = CYCLE_FACTOR;
+#ifdef __EMSCRIPTEN__
+    if (inGraphicsMode) {
+        updateFactor = 1;  // Update every single cycle for graphics mode
+        // Ensure refresh flag is always set during graphics mode for continuous updates
+        pcdScreen->refreshFlag = true;
+    }
+#endif
+    
+    if (clocks % updateFactor == 0) {
         // Check/advance busy screen:
         if (pcdScreen->registers.busy) {
             pcdScreen->advance(1);
@@ -217,7 +234,7 @@ bool mainLoop() {
     // Execute multiple CPU instructions per loop to improve throughput
     // This greatly improves performance for keyboard-intensive applications
 #ifdef __EMSCRIPTEN__
-    static const int INSTRUCTIONS_PER_LOOP = 1000;  // Balanced for web builds
+    static const int INSTRUCTIONS_PER_LOOP = 5000;  // Significantly increased for web performance
 #else
     static const int INSTRUCTIONS_PER_LOOP = 200;   // Dramatically increased
 #endif
@@ -227,19 +244,19 @@ bool mainLoop() {
     
     if (benchmark) {
         // Record all instructions at once for better performance
-        for (int i = 0; i < INSTRUCTIONS_PER_LOOP; i++) {
-            benchmark->recordInstruction();
-        }
+        benchmark->recordInstruction(INSTRUCTIONS_PER_LOOP);
         benchmark->recordCycle();
         benchmark->reportPerformance();
     }
 
     if (clearKbdInt) {
         // Only log keyboard clearing when pending count is nonzero
+#ifndef __EMSCRIPTEN__
         if (enableKeyboardDebug && keyboardController->registers.pendingReportCount > 0) {
             std::cout << "mainLoop - Calling keyboardController->clear() - report count: "
                       << (int)keyboardController->registers.pendingReportCount << std::endl;
         }
+#endif
         keyboardController->clear();
         clearKbdInt = false;
     }

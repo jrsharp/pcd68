@@ -65,6 +65,9 @@ void Screen_SDL::reset() {
 
 // Refresh screen (memcpy + SDL refresh)
 int Screen_SDL::refresh() {
+    // For web builds, always process refresh to ensure graphics mode works properly
+    // The refreshFlag check is moved to after the Screen::refresh() call
+
     if (Screen::refresh() != 0) {
         return -1;
     }
@@ -89,39 +92,19 @@ int Screen_SDL::refresh() {
         if (wait > 1) {
             // Approximate voltage cycling effects of physical E-Ink display
 #ifdef __EMSCRIPTEN__
-            // E-ink emulation for Emscripten with ABGR format
-            if (wait < (REFRESH_INTERVAL * 0.2)) {
-                for (int i = 0; i < (SCREEN_WIDTH * SCREEN_HEIGHT); i++) {
-                    if (framebufferMem[i] == 0xFF) {
-                        outPixels[i] = 0xFF111111; // ABGR format (dark gray)
-                    } else {
-                        outPixels[i] = 0xFFEEEEEE; // ABGR format (light gray)
-                    }
-                }
-            } else if (wait < (REFRESH_INTERVAL * 0.5)) {
-                for (int i = 0; i < (SCREEN_WIDTH * SCREEN_HEIGHT); i++) {
-                    if (framebufferMem[i] == 0xFF) {
-                        outPixels[i] = 0xFFAAAAAA; // ABGR format
-                    } else {
-                        outPixels[i] = 0xFFBBBBBB; // ABGR format
-                    }
-                }
-            } else if (wait < (REFRESH_INTERVAL * 0.8)) {
-                for (int i = 0; i < (SCREEN_WIDTH * SCREEN_HEIGHT); i++) {
-                    if (framebufferMem[i] == 0xFF) {
-                        outPixels[i] = 0xFFBBBBBB; // ABGR format
-                    } else {
-                        outPixels[i] = 0xFFAAAAAA; // ABGR format
-                    }
-                }
+            // Simplified E-ink emulation for better web performance
+            uint32_t color1, color2;
+            if (wait < (REFRESH_INTERVAL * 0.5)) {
+                color1 = 0xFF333333; // ABGR format
+                color2 = 0xFFCCCCCC; // ABGR format
             } else {
-                for (int i = 0; i < (SCREEN_WIDTH * SCREEN_HEIGHT); i++) {
-                    if (framebufferMem[i] == 0xFF) {
-                        outPixels[i] = 0xFFEEEEEE; // ABGR format (light gray)
-                    } else {
-                        outPixels[i] = 0xFF111111; // ABGR format (dark gray)
-                    }
-                }
+                color1 = 0xFFEEEEEE; // ABGR format (light)
+                color2 = 0xFF111111; // ABGR format (dark)
+            }
+            
+            // Use memset-like approach for better performance
+            for (int i = 0; i < (SCREEN_WIDTH * SCREEN_HEIGHT); i++) {
+                outPixels[i] = (framebufferMem[i] == 0xFF) ? color1 : color2;
             }
 #else
             // Native version with RGBA format

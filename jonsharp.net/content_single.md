@@ -4,7 +4,8 @@ discovered the joy of port 70.  If you're wondering what the heck Gopher is,
 well... it's like the web, but a little more spartan.
 
 [1] PCD-68 is a virtual retrocomputer of my design.  You are reading this text
-inside a version of my pcd68 emulator compiled for the web.
+inside a version of my pcd68 emulator compiled for the web.  This program is a
+written in 68000 assembly and 
 
 ## Who Am I?
 
@@ -17,8 +18,8 @@ Plan 9, you might find me hiking or risking more ER visits on my surf-skate.
 
 ## The Retrocomputing Laboratory
 
-My digital archaeology spans everything from Apple 1 replicas to handheld game
-consoles.  Some highlights from the collection:
+My digital archaeology spans everything from Apple 1 replicas to Palm Pilots,
+Newtons and handheld game consoles.  Some highlights from the collection:
 
 Bare-metal Macintosh Programming - What happens when you throw out the Mac ROM
 and its Toolbox?  You get a blank slate for imagination (and a lot of 68k
@@ -42,13 +43,12 @@ code, and a healthy skepticism of algorithmic social networking.
 
 Model Three:  If you're going to build a time machine...
 
-Models One & Two:  ePaper CyberTerminals - For when you want efficiency,
-readability, and the ability to compute without burning through your battery
-in two hours.
+Models One & Two:  ePaper CyberTerminals - an exploration in "just enough"
+microcontroller-based personal computing
 
 FRST represents my exploration of minimalist, sustainable computing - empowering
 users to adopt a simpler digital lifestyle and replace ad-driven feeds with
-real-world community building.  It's an homage to the most brilliant
+real-world community building.  It's also an homage to the most brilliant
 artist-engineers of the personal computing era.
 
 ## Art & Philosophy
