@@ -353,6 +353,10 @@
         padding: 0;
       }
       
+      body {
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      }
+      
       /* Dual-mode container setup */
       .view-container {
         width: 100vw;
@@ -556,6 +560,15 @@
                    scale(0.66);
       }
       
+      /* Safari-specific vertical adjustment only */
+      @supports (-webkit-appearance: none) {
+        .view-container.background-mode .canvas-container {
+          transform: translate(-50%, -50%) translate(-35px, -85px) 
+                     perspective(5000px) rotateY(13deg) rotateZ(-1.5deg) rotateX(10deg) 
+                     scale(0.66);
+        }
+      }
+      
       /* Focused canvas state */
       .view-container.focused-mode .canvas-container {
         transform: translate(-50%, -50%) scale(1);
@@ -566,6 +579,33 @@
         align-items: center;
         justify-content: center;
         padding: 20px;
+      }
+      
+      /* Desktop focused mode - controls positioned absolutely to side */
+      @media (min-width: 900px) {
+        .view-container.focused-mode .controls-panel {
+          position: absolute;
+          top: 50%;
+          right: 20px;
+          transform: translateY(-50%);
+          width: 240px;
+          max-width: 240px;
+          margin-top: 0;
+        }
+      }
+      
+      /* Mobile focused mode - vertical layout */
+      @media (max-width: 899px) {
+        .view-container.focused-mode .canvas-container {
+          flex-direction: column;
+          padding-top: 60px; /* Account for return button */
+        }
+        
+        .view-container.focused-mode .controls-panel {
+          width: 100%;
+          max-width: 500px;
+          margin-top: 20px;
+        }
       }
       
       /* Terminal container styling - Default: MINIMAL */
@@ -623,7 +663,7 @@
       .view-container.focused-mode .terminal-header {
         opacity: 1;
         color: #cccccc;
-        font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
         letter-spacing: 1px;
       }
       
@@ -760,14 +800,14 @@
         background: rgba(100, 100, 100, 0.8);
         color: #fff;
         border: 2px solid #666;
-        border-radius: 25px;
+        border-radius: 10px;
         padding: 12px 24px;
         font-weight: bold;
         font-size: 0.9em;
         cursor: pointer;
         transition: all 0.3s ease;
         z-index: 10;
-        font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
         text-transform: uppercase;
         letter-spacing: 1px;
         box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
@@ -779,15 +819,18 @@
         box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
       }
       
+      .view-container.focused-mode .focus-trigger {
+        opacity: 0;
+        pointer-events: none;
+        transform: scale(0.8);
+      }
+      
       /* Controls panel for focused mode */
       .controls-panel {
         background: rgba(0, 0, 0, 0.6);
         border: 2px solid #444;
         border-radius: 10px;
-        padding: 15px;
-        width: 100%;
-        max-width: 500px;
-        margin-top: 20px;
+        padding: 12px;
         opacity: 0;
         transition: opacity 0.5s ease 1.5s;
       }
@@ -798,25 +841,69 @@
       
       .controls-panel h3 {
         color: #cccccc;
-        margin-bottom: 12px;
+        margin-bottom: 10px;
         text-align: center;
-        font-size: 1.1em;
+        font-size: 1em;
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
       }
       
       /* Keyboard status */
       .keyboard-status {
-        padding: 10px;
+        padding: 8px 12px 8px 28px;
         border-radius: 6px;
         text-align: center;
         font-weight: bold;
-        margin-bottom: 15px;
+        margin-bottom: 12px;
         transition: all 0.3s ease;
         border: 2px solid;
         background: rgba(100, 100, 100, 0.1);
         border-color: #666;
         color: #cccccc;
         box-shadow: 0 0 3px rgba(0, 0, 0, 0.2);
-        font-size: 0.9em;
+        font-size: 0.8em;
+        line-height: 1.2;
+        position: relative;
+      }
+      
+      /* Keyboard status dot indicator */
+      .keyboard-status::before {
+        content: '';
+        position: absolute;
+        left: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 8px;
+        height: 8px;
+        background: #ff0000; /* Red for unfocused state */
+        border-radius: 50%;
+        transition: all 0.3s ease;
+        box-shadow: 
+          0 0 3px rgba(255, 0, 0, 0.3),
+          inset 0 0 2px rgba(255, 0, 0, 0.5);
+      }
+      
+      /* Green dot when focused */
+      .keyboard-status.focused::before {
+        background: #00ff41;
+        box-shadow: 
+          0 0 3px rgba(0, 255, 65, 0.3),
+          inset 0 0 2px rgba(0, 255, 65, 0.5);
+      }
+      
+      /* Enhanced dots in neon mode */
+      .view-container.neon-mode .keyboard-status::before {
+        box-shadow: 
+          0 0 6px rgba(255, 0, 0, 0.5),
+          0 0 12px rgba(255, 0, 0, 0.2),
+          inset 0 0 3px rgba(255, 0, 0, 0.7);
+      }
+      
+      .view-container.neon-mode .keyboard-status.focused::before {
+        box-shadow: 
+          0 0 6px rgba(0, 255, 65, 0.5),
+          0 0 12px rgba(0, 255, 65, 0.2),
+          inset 0 0 3px rgba(0, 255, 65, 0.7);
+        animation: pulse 2s ease-in-out infinite alternate;
       }
       
       /* Help link */
@@ -827,9 +914,10 @@
       .help-link {
         color: #cccccc;
         text-decoration: none;
-        font-size: 0.9em;
+        font-size: 0.85em;
         cursor: pointer;
         transition: color 0.3s ease;
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
       }
       
       .help-link:hover {
@@ -844,14 +932,14 @@
         background: rgba(0, 255, 65, 0.8);
         color: #000;
         border: 2px solid #00ff41;
-        border-radius: 25px;
+        border-radius: 10px;
         padding: 12px 24px;
         font-weight: bold;
         font-size: 0.9em;
         cursor: pointer;
         transition: all 0.3s ease;
         z-index: 10;
-        font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
         text-transform: uppercase;
         letter-spacing: 1px;
         box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
@@ -878,14 +966,14 @@
         background: rgba(251, 22, 187, 0.8);
         color: #fff;
         border: 2px solid #fb16bb;
-        border-radius: 25px;
+        border-radius: 10px;
         padding: 12px 24px;
         font-weight: bold;
         font-size: 0.9em;
         cursor: pointer;
         transition: all 0.3s ease;
         z-index: 10;
-        font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
         text-transform: uppercase;
         letter-spacing: 1px;
         box-shadow: 0 0 10px rgba(251, 22, 187, 0.3);
@@ -954,9 +1042,7 @@
     <!-- Smolweb/NoScript fallback -->
     <noscript>
       <div class="smolweb-fallback">
-        <h1>JonSharp.net</h1>
-        
-        <img src="M1_small.png" alt="Render of Mobile 1 Cyberdeck by FRST Computer"/>
+        <center><img src="M1_small.png" alt="Render of Mobile 1 Cyberdeck by FRST Computer"/></center>
 
         <p>
           Thank you for visiting JonSharp.net.  You're currently viewing the "smolweb"
@@ -1122,7 +1208,7 @@
       <div class="canvas-container">
         <!-- Terminal Display -->
         <div class="terminal-container">
-          <div class="terminal-header">PCD-68 DISPLAY TERMINAL</div>
+          <div class="terminal-header">PCD-68 DISPLAY</div>
           <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" 
                   tabindex="0" width="400" height="300" 
                   aria-label="PCD-68 computer display"
@@ -1285,8 +1371,15 @@
         var statusElement = document.getElementById('keyboard-status');
         var isNeonMode = viewContainer.classList.contains('neon-mode');
         
+        // Update focused class for dot indicator
+        if (focused) {
+          statusElement.classList.add('focused');
+        } else {
+          statusElement.classList.remove('focused');
+        }
+        
         if (focused && currentMode === 'focused') {
-          statusElement.textContent = '⌨️ Keyboard input ready - System active';
+          statusElement.textContent = 'Keyboard input ready - System active';
           if (isNeonMode) {
             statusElement.style.borderColor = '#fb16bb';
             statusElement.style.color = '#fb16bb';
@@ -1299,13 +1392,13 @@
             statusElement.style.boxShadow = '0 0 3px rgba(0, 0, 0, 0.2)';
           }
         } else if (currentMode === 'focused') {
-          statusElement.textContent = '⌨️ Click canvas to activate keyboard input';
+          statusElement.textContent = 'Click canvas to activate keyboard input';
           statusElement.style.borderColor = '#666';
           statusElement.style.color = '#999';
           statusElement.style.background = 'rgba(102, 102, 102, 0.05)';
           statusElement.style.boxShadow = '0 0 3px rgba(102, 102, 102, 0.1)';
         } else {
-          statusElement.textContent = '⌨️ Click FOCUS TERMINAL to activate input';
+          statusElement.textContent = 'Click FOCUS TERMINAL to activate input';
           statusElement.style.borderColor = '#666';
           statusElement.style.color = '#999';
           statusElement.style.background = 'rgba(102, 102, 102, 0.05)';
