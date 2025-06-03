@@ -555,15 +555,17 @@
       
       /* Initial 3D canvas state */
       .view-container.background-mode .canvas-container {
-        transform: translate(-50%, -50%) translate(-35px, -75px) 
+        /* Use calc() to position relative to background image offset */
+        /* Background is at center -180px, so adjust canvas accordingly */
+        transform: translate(-50%, -50%) translate(-35px, calc(-180px + 105px)) 
                    perspective(5000px) rotateY(13deg) rotateZ(-1.5deg) rotateX(10deg) 
                    scale(0.66);
       }
       
-      /* Safari-specific vertical adjustment only */
+      /* Safari-specific adjustment - slightly higher */
       @supports (-webkit-appearance: none) {
         .view-container.background-mode .canvas-container {
-          transform: translate(-50%, -50%) translate(-35px, -85px) 
+          transform: translate(-50%, -50%) translate(-35px, calc(-180px + 95px)) 
                      perspective(5000px) rotateY(13deg) rotateZ(-1.5deg) rotateX(10deg) 
                      scale(0.66);
         }
@@ -817,12 +819,6 @@
         background: rgba(120, 120, 120, 1);
         transform: scale(1.05);
         box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
-      }
-      
-      .view-container.focused-mode .focus-trigger {
-        opacity: 0;
-        pointer-events: none;
-        transform: scale(0.8);
       }
       
       /* Controls panel for focused mode */
@@ -1296,11 +1292,26 @@
       const focusTrigger = document.getElementById('focusTrigger');
       const backTrigger = document.getElementById('backTrigger');
       
-      // Set initial mode for mobile emulator users
+      // Mobile iPad/keyboard support - start in focused mode and ensure canvas focus
       if (isMobileDevice && forceMobileEmulator) {
         viewContainer.classList.remove('background-mode');
         viewContainer.classList.add('focused-mode');
         console.log('Mobile emulator mode - starting in focused view');
+        
+        // For mobile emulator, ensure keyboard focus is always available
+        setTimeout(() => {
+          const canvas = document.getElementById('canvas');
+          canvas.focus();
+          updateKeyboardStatus(true);
+          console.log('Mobile: Canvas focused for physical keyboard input');
+          
+          // Add periodic focus maintenance for mobile
+          setInterval(() => {
+            if (!document.hasFocus() || document.activeElement !== canvas) {
+              canvas.focus();
+            }
+          }, 2000);
+        }, 500);
       }
       
       // Focus mode transition
@@ -1425,6 +1436,30 @@
           updateKeyboardStatus(true);
         }
         
+        // Enhanced mobile focus handling for iPad with physical keyboards
+        if (isMobileDevice && forceMobileEmulator) {
+          canvas.focus();
+          updateKeyboardStatus(true);
+          
+          // Make canvas always focusable on mobile
+          canvas.setAttribute('tabindex', '0');
+          canvas.style.touchAction = 'manipulation'; // Prevent zoom gestures
+          
+          // Aggressive focus maintenance for mobile
+          const maintainFocus = () => {
+            if (document.activeElement !== canvas) {
+              canvas.focus();
+              updateKeyboardStatus(true);
+            }
+          };
+          
+          // Re-focus on any touch/interaction
+          document.addEventListener('touchstart', maintainFocus);
+          document.addEventListener('click', maintainFocus);
+          
+          console.log('Enhanced mobile focus handling enabled');
+        }
+        
         // Set up focus maintenance with live status updates
         canvas.addEventListener('focus', function() {
           console.log('Canvas gained focus');
@@ -1434,6 +1469,14 @@
         canvas.addEventListener('blur', function() {
           console.log('Canvas lost focus');
           updateKeyboardStatus(false);
+          
+          // For mobile, immediately regain focus
+          if (isMobileDevice && forceMobileEmulator) {
+            setTimeout(() => {
+              canvas.focus();
+              updateKeyboardStatus(true);
+            }, 100);
+          }
         });
         
         // Handle clicks to maintain focus (both background and focused modes)
@@ -1448,6 +1491,15 @@
           canvas.focus();
           updateKeyboardStatus(true);
         });
+        
+        // Enhanced touch support for mobile
+        if (isMobileDevice) {
+          canvas.addEventListener('touchend', function(e) {
+            e.preventDefault();
+            canvas.focus();
+            updateKeyboardStatus(true);
+          });
+        }
       }
       
       // Module readiness checking
