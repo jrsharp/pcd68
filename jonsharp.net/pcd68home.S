@@ -762,6 +762,14 @@ process_keyboard_input:
     beq     jump_section_4
     cmpb    #KEY_5, %d0
     beq     jump_section_5
+    cmpb    #KEY_6, %d0
+    beq     jump_section_6
+    cmpb    #KEY_7, %d0
+    beq     jump_section_7
+    cmpb    #KEY_8, %d0
+    beq     jump_section_8
+    cmpb    #KEY_9, %d0
+    beq     jump_section_9
     cmpb    #KEY_0, %d0
     beq     jump_top
     
@@ -772,31 +780,40 @@ jump_top:
     jsr     set_display_update_flag
     bra     finish_key_input
 
+/* Section-to-line mapping follows: */
 jump_section_1:
-    movel   #6, scroll_offset    /* Line 6 = Section 1 */
+    movel   #8, scroll_offset    /* Line 8 = Section 1 */
     jsr     set_display_update_flag
     bra     finish_key_input
 
 jump_section_2:
-    movel   #22, scroll_offset   /* Line 22 = Section 2 */
+    movel   #17, scroll_offset   /* Line 17 = Section 2 */
     jsr     set_display_update_flag
     bra     finish_key_input
 
 jump_section_3:
-    movel   #36, scroll_offset   /* Line 36 = Section 3 */
+    movel   #35, scroll_offset   /* Line 35 = Section 3 */
     jsr     set_display_update_flag
     bra     finish_key_input
 
 jump_section_4:
-    movel   #58, scroll_offset   /* Line 58 = Section 4 */
+    movel   #52, scroll_offset   /* Line 52 = Section 4 */
     jsr     set_display_update_flag
     bra     finish_key_input
 
 jump_section_5:
-    movel   #70, scroll_offset   /* Line 70 = Section 5 */
+    movel   #64, scroll_offset   /* Line 64 = Section 5 */
     jsr     set_display_update_flag
     bra     finish_key_input
 
+jump_section_6:
+jump_section_7:
+jump_section_8:
+jump_section_9:
+    movel   #79, scroll_offset   /* Line 79 = Section last */
+    jsr     set_display_update_flag
+    bra     finish_key_input
+    
 /* Key processing wrappers - ensure all keys go through finish_key_input */
 process_key_home:
     jsr     key_home
@@ -1536,9 +1553,9 @@ enter_text_mode:
 .global counter_text
 
 header_title:
-    .string "JonSharp.net Cyberterminal Access"
+    .string "JonSharp.net Cyberterminal (limited) Access"
 version_text:
-    .string "[sampler ROM v1.1-2025]"
+    .string "[sampler ROM v1.2-2025]"
 .equ version_text_length, 23
 
 footer_commands:
