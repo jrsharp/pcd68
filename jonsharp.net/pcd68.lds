@@ -3,8 +3,8 @@ OUTPUT_FORMAT("elf32-m68k", "elf32-m68k", "elf32-m68k")
 OUTPUT_ARCH(m68k)
 
 MEMORY {
-    rom (rx) : org = 0x000000, l = 128K
-    ram (rw) : org = 0x010000, l = 4M
+    rom (rx) : org = 0x000000, l = 4M
+    ram (rw) : org = 0x020000, l = 4M
 }
 
 SECTIONS {

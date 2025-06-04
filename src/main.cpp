@@ -106,8 +106,11 @@ extern "C" {
 // For native builds, UART connection options
 #ifndef __EMSCRIPTEN__
 std::string uartSerialDevice1, uartSerialDevice2;
+std::string uartTcpHost1, uartTcpHost2;
+int uartTcpPort1 = 0, uartTcpPort2 = 0;
 std::string uartPipeIn1, uartPipeOut1, uartPipeIn2, uartPipeOut2;
 bool usingSerial = false;
+bool usingTcp = false;
 bool usingPipes = false;
 #endif
 
@@ -193,9 +196,12 @@ bool mainLoop() {
         uartController->poll();
 
 #ifndef __EMSCRIPTEN__
-        // Poll serial ports or pipes for native builds
+        // Poll serial ports, TCP sockets, or pipes for native builds
         if (usingSerial) {
             uartController->pollSerial();
+        }
+        else if (usingTcp) {
+            uartController->pollTCP();
         }
         else if (usingPipes) {
             uartController->pollPipes();
@@ -277,6 +283,8 @@ void printUsage(const char* programName) {
 #ifndef __EMSCRIPTEN__
     std::cout << "  -serial1 <dev>    Connect UART1 to serial device (e.g., /dev/tty.usbserial)" << std::endl;
     std::cout << "  -serial2 <dev>    Connect UART2 to serial device" << std::endl;
+    std::cout << "  -tcp1 <host:port> Connect UART1 to TCP socket (e.g., localhost:8081)" << std::endl;
+    std::cout << "  -tcp2 <host:port> Connect UART2 to TCP socket" << std::endl;
     std::cout << "  -pipe-in1 <path>  Input pipe for UART1 (e.g., /tmp/uart1_in)" << std::endl;
     std::cout << "  -pipe-out1 <path> Output pipe for UART1 (e.g., /tmp/uart1_out)" << std::endl;
     std::cout << "  -pipe-in2 <path>  Input pipe for UART2" << std::endl;
@@ -336,6 +344,28 @@ int main(int argc, char** argv) {
         } else if (arg == "-serial2" && i+1 < argc) {
             uartSerialDevice2 = argv[++i];
             usingSerial = true;
+        } else if (arg == "-tcp1" && i+1 < argc) {
+            std::string tcpArg = argv[++i];
+            size_t colonPos = tcpArg.find(':');
+            if (colonPos != std::string::npos) {
+                uartTcpHost1 = tcpArg.substr(0, colonPos);
+                uartTcpPort1 = std::stoi(tcpArg.substr(colonPos + 1));
+                usingTcp = true;
+            } else {
+                std::cerr << "Invalid TCP format for -tcp1. Use host:port (e.g., localhost:8081)" << std::endl;
+                return -1;
+            }
+        } else if (arg == "-tcp2" && i+1 < argc) {
+            std::string tcpArg = argv[++i];
+            size_t colonPos = tcpArg.find(':');
+            if (colonPos != std::string::npos) {
+                uartTcpHost2 = tcpArg.substr(0, colonPos);
+                uartTcpPort2 = std::stoi(tcpArg.substr(colonPos + 1));
+                usingTcp = true;
+            } else {
+                std::cerr << "Invalid TCP format for -tcp2. Use host:port (e.g., localhost:8082)" << std::endl;
+                return -1;
+            }
         } else if (arg == "-pipe-in1" && i+1 < argc) {
             uartPipeIn1 = argv[++i];
             usingPipes = true;
@@ -466,6 +496,25 @@ int main(int argc, char** argv) {
         
         if (result != 0) {
             std::cerr << "Failed to connect UART to serial ports" << std::endl;
+            return -1;
+        }
+    }
+    else if (usingTcp) {
+        // Check required arguments
+        if (uartTcpHost1.empty() || uartTcpPort1 == 0) {
+            std::cerr << "TCP host:port for UART1 must be specified with -tcp1" << std::endl;
+            return -1;
+        }
+        
+        result = uartController->connectTCP(
+            uartTcpHost1.c_str(),
+            uartTcpPort1,
+            uartTcpHost2.empty() ? nullptr : uartTcpHost2.c_str(),
+            uartTcpPort2
+        );
+        
+        if (result != 0) {
+            std::cerr << "Failed to connect UART to TCP sockets" << std::endl;
             return -1;
         }
     }

@@ -49,9 +49,10 @@ public:
 
     /** Memory location of system ROM */
     static constexpr int ROM_BASE = 0x000000;
-    /** Size of ROM (64k) */
+    /** Size of ROM (4MB) */
     //static constexpr int ROM_SIZE = 0x0A000;
-    static constexpr int ROM_SIZE = 0x10000;
+    //static constexpr int ROM_SIZE = 0x10000;
+    static constexpr int ROM_SIZE = 0x400000;
     /** Memory location of system RAM */
     static constexpr int RAM_BASE = 0x800000;
     /** Size of RAM (4MB) */

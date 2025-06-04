@@ -51,6 +51,7 @@
 .equ KEY_J, 106                /* 'j' for scroll down */
 .equ KEY_K, 107                /* 'k' for scroll up */
 .equ KEY_A, 97                 /* 'a' for Art mode */
+.equ KEY_C, 99                 /* 'c' for Chat mode */
 .equ KEY_T, 116                /* 't' for Text mode (return from art mode) */
 .equ KEY_UP_ARROW, 16          /* Up arrow key (SDL maps to ASCII 16) */
 .equ KEY_DOWN_ARROW, 17        /* Down arrow key (SDL maps to ASCII 17) */
@@ -210,12 +211,25 @@ init_low_ok:
     
 /* Main Program Loop */
 main_loop:
+    /* Check if we're in chat mode */
+    cmpl    #1, chat_mode_active
+    beq     chat_mode_loop
+    
     /* Check if we're in art mode */
     cmpl    #1, picture_mode_active
     beq     art_mode_loop
     
     /* Normal text mode processing */
     jsr     process_text_mode
+    bra     main_loop
+
+chat_mode_loop:
+    /* Chat mode - poll for aether messages and handle input */
+    jsr     aether_poll  /* Poll for incoming messages */
+    
+    /* Process keyboard input for chat */
+    jsr     process_chat_input
+    
     bra     main_loop
 
 art_mode_loop:
@@ -239,6 +253,10 @@ art_mode_loop:
     /* Check if it's the 'k' key (previous image) */
     cmpb    #KEY_K, %d0
     beq     previous_image
+    
+    /* Check if it's the 'c' key (Chat mode) */
+    cmpb    #KEY_C, %d0
+    beq     process_key_chat
     
     /* Consume the key and continue */
     moveb   #1, KCTLNextReport
@@ -742,6 +760,8 @@ process_keyboard_input:
     beq     process_key_quit
     cmpb    #KEY_A, %d0        /* 'a' for Art mode */
     beq     process_key_picture
+    cmpb    #KEY_C, %d0        /* 'c' for Chat mode */
+    beq     process_key_chat
     cmpb    #KEY_J, %d0        /* 'j' for scroll down */
     beq     process_key_scroll_down
     cmpb    #KEY_K, %d0        /* 'k' for scroll up */
@@ -833,6 +853,10 @@ process_key_quit:
 
 process_key_picture:
     jsr     enter_picture_mode
+    bra     finish_key_input
+
+process_key_chat:
+    jsr     process_chat_mode
     bra     finish_key_input
 
 process_key_scroll_down:
@@ -1559,7 +1583,7 @@ version_text:
 .equ version_text_length, 23
 
 footer_commands:
-    .string "Keys: j=down, k=up, 0=top, 1-9=sections, a=art mode, t=text mode"
+    .string "Keys: j=down, k=up, 0=top, 1-9=sections, a=art mode, c=chat mode, t=text mode"
 status_text:
     .string "Loc: "
 selection_text:
@@ -1667,6 +1691,20 @@ content_total_lines:
 /* Art mode variables */
 picture_mode_active:
     .dc.l    0               /* Flag for art mode (0=text, 1=art) */
+
+/* Chat mode variables */
+chat_mode_active:
+    .dc.l    0               /* Flag for chat mode (0=off, 1=active) */
+chat_network_status:
+    .dc.l    0               /* Network status (0=disconnected, 1=connecting, 2=connected) */
+chat_input_buffer:
+    .ds.b    80              /* Buffer for typing chat messages */
+chat_input_length:
+    .dc.l    0               /* Current length of input buffer */
+chat_history_lines:
+    .dc.l    0               /* Number of lines in chat history */
+chat_history_buffer:
+    .ds.b    160             /* Chat history buffer (2 lines x 80 chars) */
 
 /* Multi-image support */
 .equ NumImages, 2            /* Number of images available */
@@ -1811,3 +1849,357 @@ prev_image_no_wrap:
     
     movel   (%sp)+, %d0
     rts
+
+/* ======================================================================
+ * CHAT MODE FUNCTIONS
+ * ====================================================================== */
+
+/* Process chat mode activation */
+process_chat_mode:
+    movel   %d0, -(%sp)
+    movel   %d1, -(%sp)
+    movel   %d2, -(%sp)
+    movel   %a0, -(%sp)
+    
+    /* Check if already in chat mode */
+    cmpl    #1, chat_mode_active
+    beq     toggle_chat_off
+    
+    /* Enter chat mode */
+    movel   #1, chat_mode_active
+    
+    /* Clear screen and display chat interface */
+    jsr     clear_text_screen
+    jsr     display_chat_interface
+    
+    /* Initialize aether modem if not already done */
+    jsr     initialize_aether_if_needed
+    
+    bra     chat_mode_done
+    
+toggle_chat_off:
+    /* Exit chat mode */
+    movel   #0, chat_mode_active
+    jsr     set_display_update_flag  /* Return to normal content display */
+    
+chat_mode_done:
+    movel   (%sp)+, %a0
+    movel   (%sp)+, %d2
+    movel   (%sp)+, %d1
+    movel   (%sp)+, %d0
+    rts
+
+/* Initialize aether modem if needed */
+initialize_aether_if_needed:
+    movel   %d0, -(%sp)
+    
+    /* Check if already connected */
+    cmpl    #2, chat_network_status  /* 2 = connected */
+    beq     aether_init_done
+    
+    /* Set status to connecting */
+    movel   #1, chat_network_status
+    
+    /* Initialize and connect to aether network */
+    jsr     aether_init
+    cmpl    #0, %d0  /* AT_OK */
+    bne     aether_init_failed
+    
+    jsr     aether_connect
+    cmpl    #0, %d0  /* AT_OK */
+    bne     aether_init_failed
+    
+    /* Join default chat room */
+    lea     default_chat_room_name, %a0
+    jsr     aether_chat_join
+    
+    /* Set status to connected */
+    movel   #2, chat_network_status
+    bra     aether_init_done
+    
+aether_init_failed:
+    /* Set status to error/disconnected */
+    movel   #0, chat_network_status
+    
+aether_init_done:
+    movel   (%sp)+, %d0
+    rts
+
+/* Display chat interface */
+display_chat_interface:
+    movel   %d0, -(%sp)
+    movel   %d1, -(%sp)
+    movel   %a0, -(%sp)
+    movel   %a1, -(%sp)
+    
+    /* Display chat header */
+    moveal  #TDABase + 1, %a1
+    lea     chat_header_msg, %a0
+    jsr     copy_string_to_screen
+    
+    /* Display status line */
+    moveal  #TDABase + 1 + (2 * ScreenWidth), %a1
+    lea     chat_status_prefix, %a0
+    jsr     copy_string_to_screen
+    
+    /* Add network status */
+    cmpl    #0, chat_network_status
+    beq     status_disconnected
+    cmpl    #1, chat_network_status
+    beq     status_connecting
+    cmpl    #2, chat_network_status
+    beq     status_connected
+    
+status_disconnected:
+    lea     status_disconnected_msg, %a0
+    bra     display_status
+status_connecting:
+    lea     status_connecting_msg, %a0
+    bra     display_status
+status_connected:
+    lea     status_connected_msg, %a0
+    
+display_status:
+    jsr     copy_string_to_screen
+    
+    /* Display chat history */
+    jsr     display_chat_history
+    
+    /* Display input prompt at bottom */
+    moveal  #TDABase + 1 + (22 * ScreenWidth), %a1
+    lea     chat_input_prompt, %a0
+    jsr     copy_string_to_screen
+    
+    movel   (%sp)+, %a1
+    movel   (%sp)+, %a0
+    movel   (%sp)+, %d1
+    movel   (%sp)+, %d0
+    rts
+
+/* Display chat history */
+display_chat_history:
+    movel   %d0, -(%sp)
+    movel   %d1, -(%sp)
+    movel   %a0, -(%sp)
+    movel   %a1, -(%sp)
+    
+    /* Start displaying from line 4 (after header and status) */
+    moveal  #TDABase + 1 + (4 * ScreenWidth), %a1
+    lea     chat_history_buffer, %a0
+    
+    /* Display up to 18 lines of history (lines 4-21) */
+    movel   chat_history_lines, %d0
+    cmpl    #18, %d0
+    ble     history_lines_ok
+    movel   #18, %d0  /* Limit to 18 lines */
+    
+history_lines_ok:
+    cmpl    #0, %d0
+    beq     history_done
+    
+history_loop:
+    /* Copy one line */
+    movel   #0, %d1
+copy_history_line:
+    cmpl    #79, %d1  /* Line width - 1 */
+    bge     next_history_line
+    moveb   (%a0)+, (%a1)+
+    addl    #1, %d1
+    bra     copy_history_line
+    
+next_history_line:
+    /* Skip to next screen line */
+    addl    #1, %a1  /* Skip to start of next line */
+    subl    #1, %d0
+    bne     history_loop
+    
+history_done:
+    movel   (%sp)+, %a1
+    movel   (%sp)+, %a0
+    movel   (%sp)+, %d1
+    movel   (%sp)+, %d0
+    rts
+
+/* Clear text screen (for chat mode) */
+clear_text_screen:
+    movel   %d0, -(%sp)
+    movel   %a0, -(%sp)
+    
+    moveal  #TDABase + 1, %a0
+    movel   #(ScreenWidth * ScreenHeight)-1, %d0
+clear_text_loop:
+    moveb   #' ', (%a0)+
+    dbra    %d0, clear_text_loop
+    
+    movel   (%sp)+, %a0
+    movel   (%sp)+, %d0
+    rts
+
+/* Copy string to screen helper */
+copy_string_to_screen:
+    /* A0 = source string, A1 = destination screen location */
+    moveb   (%a0)+, %d0
+    beq     copy_string_done
+    moveb   %d0, (%a1)+
+    bra     copy_string_to_screen
+copy_string_done:
+    rts
+
+/* Process keyboard input in chat mode */
+process_chat_input:
+    movel   %d0, -(%sp)
+    movel   %d1, -(%sp)
+    movel   %d2, -(%sp)
+    movel   %a0, -(%sp)
+    
+    /* Check if there are any keys in the report */
+    moveb   KCTLReportSize, %d0
+    beq     chat_input_done     /* No keys in report, finish */
+    
+    /* Read the first key from the report */
+    moveal  #KCTLKeys, %a0
+    moveb   (%a0), %d0
+    
+    /* Check for ESC key to exit chat mode */
+    cmpb    #KEY_ESC, %d0
+    beq     exit_chat_mode
+    
+    /* Check for Enter key to send message */
+    cmpb    #KEY_ENTER, %d0
+    beq     send_chat_message
+    
+    /* Check for backspace */
+    cmpb    #KEY_BACKSPACE, %d0
+    beq     handle_backspace
+    
+    /* Handle printable characters */
+    cmpl    #32, %d0           /* Space */
+    blt     consume_key
+    cmpl    #126, %d0          /* Tilde */
+    bgt     consume_key
+    
+    /* Add character to input buffer if there's room */
+    movel   chat_input_length, %d1
+    cmpl    #79, %d1           /* Max input length */
+    bge     consume_key
+    
+    /* Add character to buffer */
+    lea     chat_input_buffer, %a0
+    moveb   %d0, (%a0,%d1)
+    addl    #1, chat_input_length
+    
+    /* Update display */
+    jsr     update_chat_input_display
+    bra     consume_key
+
+exit_chat_mode:
+    movel   #0, chat_mode_active
+    jsr     set_display_update_flag  /* Return to normal display */
+    bra     consume_key
+
+send_chat_message:
+    /* Send the current input buffer as a message */
+    cmpl    #0, chat_input_length
+    beq     consume_key         /* Nothing to send */
+    
+    /* Null terminate the message */
+    movel   chat_input_length, %d1
+    lea     chat_input_buffer, %a0
+    moveb   #0, (%a0,%d1)
+    
+    /* Send via aether */
+    jsr     aether_chat_send
+    
+    /* Clear input buffer */
+    movel   #0, chat_input_length
+    
+    /* Update display */
+    jsr     update_chat_input_display
+    bra     consume_key
+
+handle_backspace:
+    /* Remove last character if any */
+    cmpl    #0, chat_input_length
+    beq     consume_key
+    
+    subl    #1, chat_input_length
+    jsr     update_chat_input_display
+    bra     consume_key
+
+consume_key:
+    /* Consume the key report */
+    moveb   #1, KCTLNextReport
+    
+chat_input_done:
+    movel   (%sp)+, %a0
+    movel   (%sp)+, %d2
+    movel   (%sp)+, %d1
+    movel   (%sp)+, %d0
+    rts
+
+/* Update chat input display */
+update_chat_input_display:
+    movel   %d0, -(%sp)
+    movel   %d1, -(%sp)
+    movel   %a0, -(%sp)
+    movel   %a1, -(%sp)
+    
+    /* Clear input line */
+    moveal  #TDABase + 1 + (22 * ScreenWidth), %a1
+    movel   #0, %d1
+clear_input_line:
+    cmpl    #ScreenWidth-1, %d1
+    bge     display_prompt
+    moveb   #' ', (%a1)+
+    addl    #1, %d1
+    bra     clear_input_line
+    
+display_prompt:
+    /* Redisplay prompt */
+    moveal  #TDABase + 1 + (22 * ScreenWidth), %a1
+    lea     chat_input_prompt, %a0
+    jsr     copy_string_to_screen
+    
+    /* Display current input */
+    lea     chat_input_buffer, %a0
+    movel   chat_input_length, %d1
+    cmpl    #0, %d1
+    beq     input_display_done
+    
+copy_input_chars:
+    moveb   (%a0)+, (%a1)+
+    subl    #1, %d1
+    bne     copy_input_chars
+    
+input_display_done:
+    movel   (%sp)+, %a1
+    movel   (%sp)+, %a0
+    movel   (%sp)+, %d1
+    movel   (%sp)+, %d0
+    rts
+
+/* Chat mode strings */
+.section .rodata
+chat_header_msg:
+    .string "=== AETHER NETWORK CHAT - PCD68 VINTAGE COMPUTER ==="
+chat_status_prefix:
+    .string "Network: "
+status_disconnected_msg:
+    .string "Disconnected"
+status_connecting_msg:
+    .string "Connecting..."
+status_connected_msg:
+    .string "Connected to mesh"
+chat_input_prompt:
+    .string "> Type message (ESC to exit chat mode)"
+default_chat_room_name:
+    .string "retro"
+
+/* ======================================================================
+ * AETHER MODEM LIBRARY INTEGRATION
+ * ====================================================================== */
+
+.section .text
+
+/* Include the aether modem library */
+.include "aether_modem.S"

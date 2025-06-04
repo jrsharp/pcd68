@@ -20,7 +20,7 @@ u8 CPU::read8(u32 addr) {
             return p->read8(addr);
         }
     }
-    if (addr >= ROM_BASE && addr < ROM_SIZE) {
+    if (addr >= ROM_BASE && addr < (ROM_BASE + ROM_SIZE)) {
         return get8(systemRom, addr - ROM_BASE);
     } else if (addr >= RAM_BASE && addr < (RAM_BASE + RAM_SIZE)) {
         return get8(systemRam, addr - RAM_BASE);
@@ -37,7 +37,7 @@ u16 CPU::read16(u32 addr) {
             return p->read16(addr);
         }
     }
-    if (addr >= ROM_BASE && addr < ROM_SIZE) {
+    if (addr >= ROM_BASE && addr < (ROM_BASE + ROM_SIZE)) {
         return get16(systemRom, addr - ROM_BASE);
     } else if (addr >= RAM_BASE && addr < (RAM_BASE + RAM_SIZE)) {
         return get16(systemRam, addr - RAM_BASE);
@@ -48,7 +48,7 @@ u16 CPU::read16(u32 addr) {
 
 // Read Word
 u16 CPU::read16Dasm(u32 addr) {
-    if (addr >= ROM_BASE && addr < ROM_SIZE) {
+    if (addr >= ROM_BASE && addr < (ROM_BASE + ROM_SIZE)) {
         return get16(systemRom, addr - ROM_BASE);
     } else if (addr >= RAM_BASE && addr < (RAM_BASE + RAM_SIZE)) {
         return get16(systemRam, addr - RAM_BASE);
@@ -59,7 +59,7 @@ u16 CPU::read16Dasm(u32 addr) {
 
 // Read Word
 u16 CPU::read16OnReset(u32 addr) {
-    if (addr >= ROM_BASE && addr < ROM_SIZE) {
+    if (addr >= ROM_BASE && addr < (ROM_BASE + ROM_SIZE)) {
         return get16(systemRom, addr - ROM_BASE);
     } else if (addr >= RAM_BASE && addr < (RAM_BASE + RAM_SIZE)) {
         return get16(systemRam, addr - RAM_BASE);

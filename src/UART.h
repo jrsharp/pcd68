@@ -23,6 +23,10 @@ static EM_BOOL websocket_open_callback(int eventType, const EmscriptenWebSocketO
 #include <unistd.h>
 #include <sys/stat.h>
 #include <errno.h>
+// TCP socket support
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #endif
 
 extern u8* systemRam;
@@ -228,6 +232,22 @@ public:
     void pollSerial();
     
     /**
+     * Connect to TCP sockets
+     * 
+     * @param host1 Host address for UART1 (e.g., "localhost")
+     * @param port1 Port number for UART1 (e.g., 8081)
+     * @param host2 Host address for UART2 (optional)
+     * @param port2 Port number for UART2 (optional)
+     * @return 0 on success, non-zero on failure
+     */
+    int connectTCP(const char* host1, int port1, const char* host2 = nullptr, int port2 = 0);
+    
+    /**
+     * Poll TCP sockets for data
+     */
+    void pollTCP();
+    
+    /**
      * Connect to named pipes
      * 
      * @param inPipe1 Input pipe for UART1
@@ -276,8 +296,14 @@ private:
     std::array<int, 2> serialFd;       // File descriptors for serial ports
     std::array<bool, 2> serialConnected; // Connected status for serial ports
     
+    std::array<int, 2> tcpSocketFd;    // File descriptors for TCP sockets
+    std::array<bool, 2> tcpConnected;  // Connected status for TCP sockets
+    
     std::array<int, 2> pipeFdIn;       // File descriptors for input pipes
     std::array<int, 2> pipeFdOut;      // File descriptors for output pipes
     std::array<bool, 2> pipeConnected; // Connected status for pipes
+    
+    // TCP helper method
+    bool connectToHost(const char* host, int port, int& socket_fd);
 #endif
 }; 

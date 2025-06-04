@@ -29,6 +29,11 @@ UART::UART(CPU* cpu, uint32_t start, uint32_t size) :
     serialConnected[UART1] = false;
     serialConnected[UART2] = false;
     
+    tcpSocketFd[UART1] = -1;
+    tcpSocketFd[UART2] = -1;
+    tcpConnected[UART1] = false;
+    tcpConnected[UART2] = false;
+    
     pipeFdIn[UART1] = -1;
     pipeFdIn[UART2] = -1;
     pipeFdOut[UART1] = -1;
@@ -260,43 +265,85 @@ void UART::send(Channel channel, u8 byte) {
 }
 
 void UART::poll() {
-    // Process both UARTs
+    // Process TX FIFOs and send data if available
     for (int i = 0; i < 2; i++) {
-        Channel channel = static_cast<Channel>(i);
+        Channel ch = static_cast<Channel>(i);
         
-        // Process TX FIFO if transmitter is enabled
-        if (registers.uart[channel].control & CTRL_TX_ENABLE) {
+        {
             std::lock_guard<std::mutex> txLock(txMutex);
-            if (!txFifo[channel].empty()) {
-                // Get byte from TX FIFO
-                u8 byte = txFifo[channel].front();
-                txFifo[channel].pop();
+            if (!txFifo[i].empty()) {
+                u8 byte = txFifo[i].front();
+                txFifo[i].pop();
                 
-                // Actually transmit the byte
 #ifdef __EMSCRIPTEN__
-                if (connected[channel]) {
-                    sendWebsocket(channel, &byte, 1);
-                } else if (debugMode) {
-                    // In debug mode, show that byte was dropped due to no connection
-                    std::cerr << "DEBUG: UART" << (channel + 1) << " TX byte dropped (WebSocket not connected): 0x" 
-                              << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(byte) 
-                              << std::dec << std::endl;
+                if (connected[i]) {
+                    sendWebsocket(ch, &byte, 1);
+                }
+#else
+                // Send via serial port
+                if (serialConnected[i] && serialFd[i] >= 0) {
+                    if (write(serialFd[i], &byte, 1) > 0) {
+                        if (debugMode) {
+                            std::cout << "DEBUG Serial UART" << (i + 1) << " sent: 0x"
+                                      << std::hex << std::setw(2) << std::setfill('0') 
+                                      << static_cast<int>(byte) << " '" 
+                                      << (isprint(byte) ? static_cast<char>(byte) : '.') << "'" 
+                                      << std::dec << std::endl;
+                        }
+                    } else {
+                        std::cerr << "Error writing to serial port" << std::endl;
+                    }
+                }
+                
+                // Send via TCP socket
+                if (tcpConnected[i] && tcpSocketFd[i] >= 0) {
+                    if (write(tcpSocketFd[i], &byte, 1) > 0) {
+                        if (debugMode) {
+                            std::cout << "DEBUG TCP UART" << (i + 1) << " sent: 0x"
+                                      << std::hex << std::setw(2) << std::setfill('0') 
+                                      << static_cast<int>(byte) << " '" 
+                                      << (isprint(byte) ? static_cast<char>(byte) : '.') << "'" 
+                                      << std::dec << std::endl;
+                        }
+                    } else {
+                        std::cerr << "Error writing to TCP socket" << std::endl;
+                    }
+                }
+                
+                // Send via named pipe
+                if (pipeConnected[i] && pipeFdOut[i] >= 0) {
+                    if (write(pipeFdOut[i], &byte, 1) > 0) {
+                        if (debugMode) {
+                            std::cout << "DEBUG Pipe UART" << (i + 1) << " sent: 0x"
+                                      << std::hex << std::setw(2) << std::setfill('0') 
+                                      << static_cast<int>(byte) << " '" 
+                                      << (isprint(byte) ? static_cast<char>(byte) : '.') << "'" 
+                                      << std::dec << std::endl;
+                        }
+                    } else {
+                        std::cerr << "Error writing to named pipe" << std::endl;
+                    }
                 }
 #endif
-                
-                // If loopback is enabled, also send to RX
-                if (registers.uart[channel].control & CTRL_LOOPBACK) {
-                    send(channel, byte);
-                }
-            }
-            
-            // Update TX_EMPTY status
-            if (txFifo[channel].empty()) {
-                registers.uart[channel].status |= STAT_TX_EMPTY;
-                updateInterrupts(channel);
             }
         }
+        
+        // Update TX_EMPTY flag based on FIFO state
+        std::lock_guard<std::mutex> txLock(txMutex);
+        if (txFifo[i].empty()) {
+            registers.uart[i].status |= STAT_TX_EMPTY;
+        } else {
+            registers.uart[i].status &= ~STAT_TX_EMPTY;
+        }
+        updateInterrupts(ch);
     }
+    
+#ifndef __EMSCRIPTEN__
+    // Poll external interfaces for received data
+    pollSerial();
+    pollTCP();
+    pollPipes();
+#endif
 }
 
 void UART::updateInterrupts(Channel channel) {
@@ -762,6 +809,89 @@ void UART::pollPipes() {
         }
     }
 }
+
+bool UART::connectToHost(const char* host, int port, int& socket_fd) {
+    socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (socket_fd < 0) {
+        std::cerr << "Failed to create TCP socket" << std::endl;
+        return false;
+    }
+    
+    // Make socket non-blocking
+    int flags = fcntl(socket_fd, F_GETFL, 0);
+    fcntl(socket_fd, F_SETFL, flags | O_NONBLOCK);
+    
+    struct sockaddr_in server_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(port);
+    
+    if (inet_pton(AF_INET, host, &server_addr.sin_addr) <= 0) {
+        std::cerr << "Invalid host address: " << host << std::endl;
+        close(socket_fd);
+        socket_fd = -1;
+        return false;
+    }
+    
+    int result = connect(socket_fd, (struct sockaddr*)&server_addr, sizeof(server_addr));
+    if (result < 0 && errno != EINPROGRESS) {
+        std::cerr << "Failed to connect to " << host << ":" << port << std::endl;
+        close(socket_fd);
+        socket_fd = -1;
+        return false;
+    }
+    
+    std::cout << "TCP connection established to " << host << ":" << port << std::endl;
+    return true;
+}
+
+int UART::connectTCP(const char* host1, int port1, const char* host2, int port2) {
+    // Connect UART1
+    if (host1 && port1 > 0) {
+        if (connectToHost(host1, port1, tcpSocketFd[UART1])) {
+            tcpConnected[UART1] = true;
+            std::cout << "UART1 connected via TCP to " << host1 << ":" << port1 << std::endl;
+        }
+    }
+    
+    // Connect UART2 if specified
+    if (host2 && port2 > 0) {
+        if (connectToHost(host2, port2, tcpSocketFd[UART2])) {
+            tcpConnected[UART2] = true;
+            std::cout << "UART2 connected via TCP to " << host2 << ":" << port2 << std::endl;
+        }
+    }
+    
+    return 0;
+}
+
+void UART::pollTCP() {
+    for (int i = 0; i < 2; i++) {
+        if (tcpConnected[i] && tcpSocketFd[i] >= 0) {
+            char buffer[256];
+            int n = read(tcpSocketFd[i], buffer, sizeof(buffer));
+            
+            if (n > 0) {
+                // Process received data
+                if (debugMode) {
+                    std::cout << "DEBUG TCP UART" << (i + 1) << " received " << n << " bytes" << std::endl;
+                }
+                
+                std::lock_guard<std::mutex> lock(rxMutex);
+                for (int j = 0; j < n; j++) {
+                    send(static_cast<Channel>(i), static_cast<u8>(buffer[j]));
+                }
+            } else if (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
+                // Connection error
+                std::cerr << "TCP connection lost for UART" << (i + 1) << std::endl;
+                tcpConnected[i] = false;
+                close(tcpSocketFd[i]);
+                tcpSocketFd[i] = -1;
+            }
+        }
+    }
+}
+
 #endif
 
 void UART::setDebugMode(bool enabled) {
