@@ -54,7 +54,7 @@ public:
     static constexpr u32 BASE_ADDR = 0x450000;
     
     /** Size of transmit and receive FIFOs */
-    static constexpr u32 FIFO_SIZE = 16;
+    static constexpr u32 FIFO_SIZE = 256;
     
     /** Register offsets for UART 1 */
     enum UART1Regs : u8 {
@@ -276,6 +276,10 @@ protected:
     std::mutex txMutex;          // Mutex for TX FIFO access
     
     bool debugMode;              // Debug mode flag
+    
+    // Debug counters for tight loop detection
+    mutable uint32_t statusReadCount[2];    // Count of status register reads per channel
+    mutable uint32_t lastStatusReadReport[2]; // Last count when we reported
 
     // Helper methods
     void updateInterrupts(Channel channel);

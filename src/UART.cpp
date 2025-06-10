@@ -18,6 +18,12 @@ UART::UART(CPU* cpu, uint32_t start, uint32_t size) :
     this->cpu = cpu;
     this->debugMode = false;
 
+    // Initialize debug counters
+    statusReadCount[0] = 0;
+    statusReadCount[1] = 0;
+    lastStatusReadReport[0] = 0;
+    lastStatusReadReport[1] = 0;
+
 #ifdef __EMSCRIPTEN__
     websocketId[UART1] = -1;
     websocketId[UART2] = -1;
@@ -75,30 +81,86 @@ u8 UART::read8(u32 addr) {
         if (offset <= UART1_CONTROL) {
             switch (offset) {
                 case UART1_RX:
-                    // Reading from RX data register clears RX_READY bit
-                    {
+                    // Reading from RX register gets received data
+                    if (registers.uart[UART1].control & CTRL_RX_ENABLE) {
                         std::lock_guard<std::mutex> lock(rxMutex);
                         if (!rxFifo[UART1].empty()) {
-                            registers.uart[UART1].rxData = rxFifo[UART1].front();
+                            u8 data = rxFifo[UART1].front();
                             rxFifo[UART1].pop();
+                            registers.uart[UART1].rxData = data;
                             
-                            // If FIFO is now empty, clear RX_READY bit
+                            // Clear RX_READY bit if FIFO is now empty
                             if (rxFifo[UART1].empty()) {
                                 registers.uart[UART1].status &= ~STAT_RX_READY;
                                 updateInterrupts(UART1);
                             }
+                            
+                            if (debugMode) {
+                                std::cout << "DEBUG UART1 READ RX: 0x" << std::hex << std::setw(2) << std::setfill('0') 
+                                          << static_cast<int>(data) << " '" << (isprint(data) ? static_cast<char>(data) : '.') 
+                                          << "' (FIFO remaining: " << std::dec << rxFifo[UART1].size() << ")" << std::endl;
+                            }
+                            
+                            return data;
+                        } else {
+                            if (debugMode) {
+                                std::cout << "DEBUG UART1 READ RX: FIFO empty, returning 0x00" << std::endl;
+                            }
+                            return 0;
                         }
                     }
-                    return registers.uart[UART1].rxData;
+                    if (debugMode) {
+                        std::cout << "DEBUG UART1 READ RX: RX disabled, returning 0x00" << std::endl;
+                    }
+                    return 0;
                     
                 case UART1_STATUS:
+                    statusReadCount[UART1]++;
+                    if (debugMode) {
+                        // Report every 10000 status reads to detect tight loops
+                        if ((statusReadCount[UART1] - lastStatusReadReport[UART1]) >= 10000) {
+                            std::cout << "DEBUG UART1 STATUS READ #" << statusReadCount[UART1] 
+                                      << " (possible tight loop detected)" << std::endl;
+                            lastStatusReadReport[UART1] = statusReadCount[UART1];
+                        }
+                        
+                        // Only show status reads when status actually changes
+                        static u8 lastStatus1 = 0xFF; // Initialize to impossible value
+                        bool statusChanged = (registers.uart[UART1].status != lastStatus1);
+                        
+                        if (statusChanged) {
+                            std::cout << "DEBUG UART1 read STATUS: 0x" << std::hex << std::setw(2) << std::setfill('0') 
+                                      << static_cast<int>(registers.uart[UART1].status) << " [";
+                            if (registers.uart[UART1].status & STAT_RX_READY) std::cout << "RX_RDY ";
+                            if (registers.uart[UART1].status & STAT_TX_EMPTY) std::cout << "TX_EMP ";
+                            if (registers.uart[UART1].status & STAT_RX_OVERRUN) std::cout << "RX_OVR ";
+                            if (registers.uart[UART1].status & STAT_FRAME_ERR) std::cout << "FRM_ERR ";
+                            if (registers.uart[UART1].status & STAT_BREAK) std::cout << "BRK ";
+                            std::cout << "] (changed from 0x" << std::hex << std::setw(2) << std::setfill('0') 
+                                      << static_cast<int>(lastStatus1) << ")" << std::dec << std::endl;
+                            lastStatus1 = registers.uart[UART1].status;
+                        }
+                    }
                     return registers.uart[UART1].status;
                     
                 case UART1_CONTROL:
+                    if (debugMode) {
+                        std::cout << "DEBUG UART1 READ CONTROL: 0x" << std::hex << std::setw(2) << std::setfill('0') 
+                                  << static_cast<int>(registers.uart[UART1].control) << " [";
+                        if (registers.uart[UART1].control & CTRL_RX_ENABLE) std::cout << "RX_EN ";
+                        if (registers.uart[UART1].control & CTRL_TX_ENABLE) std::cout << "TX_EN ";
+                        if (registers.uart[UART1].control & CTRL_RX_INT_EN) std::cout << "RX_INT ";
+                        if (registers.uart[UART1].control & CTRL_TX_INT_EN) std::cout << "TX_INT ";
+                        if (registers.uart[UART1].control & CTRL_RESET_ERR) std::cout << "RST_ERR ";
+                        std::cout << "]" << std::dec << std::endl;
+                    }
                     return registers.uart[UART1].control;
                     
                 case UART1_TX:
-                    // TX register is write-only, reading returns 0
+                    // TX register is write-only, return 0
+                    if (debugMode) {
+                        std::cout << "DEBUG UART1 READ TX: write-only register, returning 0x00" << std::endl;
+                    }
                     return 0;
             }
         }
@@ -107,30 +169,86 @@ u8 UART::read8(u32 addr) {
         if (offset >= UART2_TX && offset <= UART2_CONTROL) {
             switch (offset) {
                 case UART2_RX:
-                    // Reading from RX data register clears RX_READY bit
-                    {
+                    // Reading from RX register gets received data
+                    if (registers.uart[UART2].control & CTRL_RX_ENABLE) {
                         std::lock_guard<std::mutex> lock(rxMutex);
                         if (!rxFifo[UART2].empty()) {
-                            registers.uart[UART2].rxData = rxFifo[UART2].front();
+                            u8 data = rxFifo[UART2].front();
                             rxFifo[UART2].pop();
+                            registers.uart[UART2].rxData = data;
                             
-                            // If FIFO is now empty, clear RX_READY bit
+                            // Clear RX_READY bit if FIFO is now empty
                             if (rxFifo[UART2].empty()) {
                                 registers.uart[UART2].status &= ~STAT_RX_READY;
                                 updateInterrupts(UART2);
                             }
+                            
+                            if (debugMode) {
+                                std::cout << "DEBUG UART2 READ RX: 0x" << std::hex << std::setw(2) << std::setfill('0') 
+                                          << static_cast<int>(data) << " '" << (isprint(data) ? static_cast<char>(data) : '.') 
+                                          << "' (FIFO remaining: " << std::dec << rxFifo[UART2].size() << ")" << std::endl;
+                            }
+                            
+                            return data;
+                        } else {
+                            if (debugMode) {
+                                std::cout << "DEBUG UART2 READ RX: FIFO empty, returning 0x00" << std::endl;
+                            }
+                            return 0;
                         }
                     }
-                    return registers.uart[UART2].rxData;
+                    if (debugMode) {
+                        std::cout << "DEBUG UART2 READ RX: RX disabled, returning 0x00" << std::endl;
+                    }
+                    return 0;
                     
                 case UART2_STATUS:
+                    statusReadCount[UART2]++;
+                    if (debugMode) {
+                        // Report every 10000 status reads to detect tight loops
+                        if ((statusReadCount[UART2] - lastStatusReadReport[UART2]) >= 10000) {
+                            std::cout << "DEBUG UART2 STATUS READ #" << statusReadCount[UART2] 
+                                      << " (possible tight loop detected)" << std::endl;
+                            lastStatusReadReport[UART2] = statusReadCount[UART2];
+                        }
+                        
+                        // Only show status reads when status actually changes
+                        static u8 lastStatus2 = 0xFF; // Initialize to impossible value
+                        bool statusChanged = (registers.uart[UART2].status != lastStatus2);
+                        
+                        if (statusChanged) {
+                            std::cout << "DEBUG UART2 read STATUS: 0x" << std::hex << std::setw(2) << std::setfill('0') 
+                                      << static_cast<int>(registers.uart[UART2].status) << " [";
+                            if (registers.uart[UART2].status & STAT_RX_READY) std::cout << "RX_RDY ";
+                            if (registers.uart[UART2].status & STAT_TX_EMPTY) std::cout << "TX_EMP ";
+                            if (registers.uart[UART2].status & STAT_RX_OVERRUN) std::cout << "RX_OVR ";
+                            if (registers.uart[UART2].status & STAT_FRAME_ERR) std::cout << "FRM_ERR ";
+                            if (registers.uart[UART2].status & STAT_BREAK) std::cout << "BRK ";
+                            std::cout << "] (changed from 0x" << std::hex << std::setw(2) << std::setfill('0') 
+                                      << static_cast<int>(lastStatus2) << ")" << std::dec << std::endl;
+                            lastStatus2 = registers.uart[UART2].status;
+                        }
+                    }
                     return registers.uart[UART2].status;
                     
                 case UART2_CONTROL:
+                    if (debugMode) {
+                        std::cout << "DEBUG UART2 READ CONTROL: 0x" << std::hex << std::setw(2) << std::setfill('0') 
+                                  << static_cast<int>(registers.uart[UART2].control) << " [";
+                        if (registers.uart[UART2].control & CTRL_RX_ENABLE) std::cout << "RX_EN ";
+                        if (registers.uart[UART2].control & CTRL_TX_ENABLE) std::cout << "TX_EN ";
+                        if (registers.uart[UART2].control & CTRL_RX_INT_EN) std::cout << "RX_INT ";
+                        if (registers.uart[UART2].control & CTRL_TX_INT_EN) std::cout << "TX_INT ";
+                        if (registers.uart[UART2].control & CTRL_RESET_ERR) std::cout << "RST_ERR ";
+                        std::cout << "]" << std::dec << std::endl;
+                    }
                     return registers.uart[UART2].control;
                     
                 case UART2_TX:
-                    // TX register is write-only, reading returns 0
+                    // TX register is write-only, return 0
+                    if (debugMode) {
+                        std::cout << "DEBUG UART2 READ TX: write-only register, returning 0x00" << std::endl;
+                    }
                     return 0;
             }
         }
@@ -200,6 +318,12 @@ void UART::write8(u32 addr, u8 val) {
                     // Writing to TX register sends data
                     if (registers.uart[UART2].control & CTRL_TX_ENABLE) {
                         registers.uart[UART2].txData = val;
+                        
+                        if (debugMode) {
+                            std::cout << "DEBUG UART2 TX: 0x" << std::hex << std::setw(2) << std::setfill('0') 
+                                      << static_cast<int>(val) << " '" << (isprint(val) ? static_cast<char>(val) : '.') 
+                                      << "'" << std::dec << std::endl;
+                        }
                         
                         // Add to TX FIFO
                         std::lock_guard<std::mutex> lock(txMutex);
@@ -672,8 +796,8 @@ void UART::pollSerial() {
     for (int i = 0; i < 2; i++) {
         if (serialConnected[i]) {
             // Read data
-            uint8_t buffer[64];
-            int n = read(serialFd[i], buffer, sizeof(buffer));
+                    uint8_t buffer[256];
+        int n = read(serialFd[i], buffer, sizeof(buffer));
             if (n > 0) {
                 Channel channel = static_cast<Channel>(i);
                 if (debugMode) {
@@ -771,8 +895,8 @@ void UART::pollPipes() {
     for (int i = 0; i < 2; i++) {
         if (pipeConnected[i]) {
             // Read data
-            uint8_t buffer[64];
-            int n = read(pipeFdIn[i], buffer, sizeof(buffer));
+                    uint8_t buffer[256];
+        int n = read(pipeFdIn[i], buffer, sizeof(buffer));
             if (n > 0) {
                 Channel channel = static_cast<Channel>(i);
                 if (debugMode) {
@@ -877,7 +1001,6 @@ void UART::pollTCP() {
                     std::cout << "DEBUG TCP UART" << (i + 1) << " received " << n << " bytes" << std::endl;
                 }
                 
-                std::lock_guard<std::mutex> lock(rxMutex);
                 for (int j = 0; j < n; j++) {
                     send(static_cast<Channel>(i), static_cast<u8>(buffer[j]));
                 }
