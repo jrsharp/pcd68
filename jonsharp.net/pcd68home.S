@@ -120,8 +120,8 @@ vectors:
     dc.l    0x000000
     dc.l    0x000000
     dc.l    keyboard_handler     /* IRQ Level 3 (keyboard) */
-    dc.l    0x000000
-    dc.l    0x000000
+    dc.l    uart1_interrupt_handler  /* IRQ Level 4 (UART1) */
+    dc.l    0x000000             /* IRQ Level 5 (UART2) */
     dc.l    0x000000
     dc.l    0x000000
     /* Fill remaining vectors */
@@ -720,37 +720,7 @@ clear_chat_status_end:
     moveal  %a0, %a2
     addl    #2, %a2            /* Skip | and space */
     
-    /* Show network status */
-    lea     net_status_msg, %a5
-    jsr     print_string_no_advance
-    
-    /* Show connection status */
-    moveb   network_status, %d0
-    cmpi.b  #2, %d0  /* NET_CONNECTED */
-    beq     show_chat_connected
-    cmpi.b  #1, %d0  /* NET_CONNECTING */
-    beq     show_chat_connecting
-    
-    /* Disconnected */
-    lea     status_disconnected_msg, %a5
-    jsr     print_string_no_advance
-    bra     chat_status_continue
-    
-show_chat_connecting:
-    lea     status_connecting_msg, %a5
-    jsr     print_string_no_advance
-    bra     chat_status_continue
-    
-show_chat_connected:
-    lea     status_connected_msg, %a5
-    jsr     print_string_no_advance
-    
-    /* Add neighbor count if connected */
-    moveb   #' ', (%a2)+
-    lea     neighbors_short_msg, %a5
-    jsr     print_string_no_advance
-    movew   neighbor_count, %d0
-    jsr     display_decimal_number_short
+    /* Simplified status line - no connection status display */
     
 chat_status_continue:
     /* Close status line with right border */
@@ -1311,6 +1281,52 @@ process_text:
 keyboard_handler:
     /* Just clear the interrupt and return */
     moveb   #STATUS_CLEAR_INTERRUPT, KCTLStatus
+    rte
+
+/* UART1 interrupt handler - Level 4 */
+uart1_interrupt_handler:
+    movem.l %d0-%d2/%a0-%a1, -(%sp)
+    
+    /* Skip verbose interrupt logging - too noisy */
+uart1_skip_log:
+    /* Check UART1 status */
+    moveb   UART1_STATUS, %d0
+    
+    /* Check for RX data available */
+    btst    #0, %d0  /* RX_READY bit */
+    beq     uart1_check_tx
+    
+    /* Read received character */
+    moveb   UART1_RX, %d1
+    
+    /* Add to line buffer if we're in chat mode */
+    cmpl    #1, chat_mode_active
+    bne     uart1_check_tx
+    
+    /* Add character to line buffer */
+    jsr     add_char_to_line_buffer
+    
+    /* Check if it's a line ending (CR or LF) */
+    cmpi.b  #13, %d1  /* CR */
+    beq     uart1_line_complete
+    cmpi.b  #10, %d1  /* LF */
+    beq     uart1_line_complete
+    bra     uart1_check_tx
+    
+uart1_line_complete:
+    /* Complete line received - add to chat history */
+    jsr     process_complete_line
+    
+uart1_check_tx:
+    /* Check for TX empty (ready to send more) */
+    btst    #1, %d0  /* TX_EMPTY bit */
+    beq     uart1_done
+    
+    /* TX interrupt - could resume sending here if needed */
+    /* For now, just log that TX is ready */
+    
+uart1_done:
+    movem.l (%sp)+, %d0-%d2/%a0-%a1
     rte
 
 /* Default exception handler */
@@ -2015,7 +2031,7 @@ chat_mode_active:
 
 /* Network disable flag - set to 1 to disable all UART/aether functions */
 chat_network_disabled:
-    .dc.l    1               /* 1=disabled (bare-bones), 0=enabled (full network) */
+    .dc.l    0               /* 0=enabled (full network), 1=disabled (bare-bones) */
 
 /* Debug mode variables */
 debug_mode_active:
@@ -2235,6 +2251,9 @@ process_chat_mode:
     jsr     init_chat_history
     jsr     display_chat_interface
     
+    /* Initialize aether network connection - WITH SAFETY CHECK */
+    jsr     initialize_aether_safe
+    
     /* Initialize async polling counter */
     movel   #0, chat_poll_counter
     movel   #0, chat_display_dirty
@@ -2268,14 +2287,26 @@ initialize_aether_if_needed:
     /* Set status to connecting */
     movel   #1, chat_network_status
     
+    /* Log aether initialization start */
+    lea     log_aether_init_start, %a0
+    jsr     add_chat_line
+    
     /* Initialize and connect to aether network with new protocol */
     jsr     aether_init
     cmpl    #0, %d0  /* AT_OK */
     bne     aether_init_failed
     
+    /* Log successful init, starting connection */
+    lea     log_aether_connecting, %a0
+    jsr     add_chat_line
+    
     jsr     aether_connect  /* Uses new AT+NETALIAS → AT+INIT → AT+NETJOIN sequence */
     cmpl    #0, %d0  /* AT_OK */
     bne     aether_init_failed
+    
+    /* Log successful connection */
+    lea     log_aether_connected, %a0
+    jsr     add_chat_line
     
     /* Join default chat room */
     lea     default_chat_room_name, %a0
@@ -2290,6 +2321,10 @@ initialize_aether_if_needed:
     bra     aether_init_done
     
 aether_init_failed:
+    /* Log initialization failure */
+    lea     log_aether_failed, %a0
+    jsr     add_chat_line
+    
     /* Allow debugging even if init failed */
     movel   #2, chat_network_status  /* Allow debugging */
     bra     aether_init_done
@@ -2301,6 +2336,393 @@ aether_init_disabled:
 aether_init_done:
     movel   (%sp)+, %d0
     rts
+
+/* Safe aether initialization that won't block the system */
+initialize_aether_safe:
+    movel   %d0, -(%sp)
+    
+    /* Check if network functionality is disabled */
+    cmpl    #1, chat_network_disabled
+    beq     aether_safe_disabled
+    
+    /* Check if already connected */
+    cmpl    #2, chat_network_status  /* 2 = connected */
+    beq     aether_safe_done
+    
+    /* Log that we're attempting connection */
+    lea     log_aether_init_start, %a0
+    jsr     add_chat_line
+    jsr     display_chat_history  /* Update display immediately */
+    
+    /* Quick UART connectivity test - check if UART is responsive */
+    jsr     test_uart_connectivity
+    cmpl    #0, %d0
+    bne     aether_safe_failed
+    
+    /* UART seems responsive, try initialization */
+    movel   #1, chat_network_status  /* Set to connecting */
+    
+    /* Try aether_init with timeout protection */
+    jsr     aether_init_with_timeout
+    cmpl    #0, %d0  /* AT_OK */
+    bne     aether_safe_failed
+    
+    /* Log successful init */
+    lea     log_aether_connecting, %a0
+    jsr     add_chat_line
+    jsr     display_chat_history  /* Update display immediately */
+    
+    /* Try connection with timeout protection */
+    jsr     aether_connect_with_timeout
+    cmpl    #0, %d0  /* AT_OK */
+    bne     aether_safe_failed
+    
+    /* Success! */
+    lea     log_aether_connected, %a0
+    jsr     add_chat_line
+    jsr     display_chat_history  /* Update display immediately */
+    movel   #2, chat_network_status  /* Set to connected */
+    bra     aether_safe_done
+    
+aether_safe_failed:
+    /* Log failure and continue in debug mode */
+    lea     log_aether_failed, %a0
+    jsr     add_chat_line
+    jsr     display_chat_history  /* Update display immediately */
+    movel   #2, chat_network_status  /* Allow debugging */
+    bra     aether_safe_done
+    
+aether_safe_disabled:
+    /* Network disabled */
+    movel   #0, chat_network_status
+    
+aether_safe_done:
+    movel   (%sp)+, %d0
+    rts
+
+/* Test if UART is responsive without blocking
+ * Returns: 0 if responsive, 1 if not responsive
+ */
+test_uart_connectivity:
+    movel   %d1, -(%sp)
+    movel   %d2, -(%sp)
+    
+    /* Try to read UART status register a few times */
+    moveq   #10, %d1  /* Try 10 times */
+    
+test_uart_loop:
+    moveb   UART1_STATUS, %d0
+    /* If we can read the status register without hanging, UART is probably OK */
+    /* Add a small delay */
+    moveq   #100, %d2
+test_delay:
+    subql   #1, %d2
+    bne     test_delay
+    
+    subql   #1, %d1
+    bne     test_uart_loop
+    
+    /* If we got here, UART seems responsive */
+    moveq   #0, %d0  /* Success */
+    
+    movel   (%sp)+, %d2
+    movel   (%sp)+, %d1
+    rts
+
+/* Aether init with timeout protection - INTERRUPT DRIVEN VERSION */
+aether_init_with_timeout:
+    movel   %d1, -(%sp)
+    
+    /* Enable UART1 with interrupts - FIXED */
+    moveb   #0x07, UART1_CONTROL  /* RX_EN | TX_EN | RX_INT_EN */
+    
+    /* Verify UART1 control register was set correctly */
+    moveb   UART1_CONTROL, %d1
+    lea     log_uart_control_set, %a0
+    jsr     add_chat_line
+    jsr     display_chat_history
+    
+    /* Log that we're enabling interrupts */
+    lea     log_uart_interrupts, %a0
+    jsr     add_chat_line
+    jsr     display_chat_history
+    
+    /* Send basic AT command to test connectivity */
+    jsr     send_at_command_async
+    
+    /* Return success - actual response will come via interrupt */
+    moveq   #0, %d0  /* Return AT_OK */
+    
+    movel   (%sp)+, %d1
+    rts
+
+/* Aether connect with timeout protection - INTERRUPT DRIVEN VERSION */
+aether_connect_with_timeout:
+    movel   %d1, -(%sp)
+    
+    /* Send AT+NETALIAS command */
+    jsr     send_netalias_command_async
+    
+    /* Also send AT+INIT command */
+    jsr     send_init_command_async
+    
+    /* Also send AT+NETJOIN command */
+    jsr     send_netjoin_command_async
+    
+    /* Return success - actual response will come via interrupt */
+    moveq   #0, %d0  /* Return AT_OK */
+    
+    movel   (%sp)+, %d1
+    rts
+
+/* Send AT command asynchronously (non-blocking) */
+send_at_command_async:
+    movel   %d0, -(%sp)
+    movel   %a0, -(%sp)
+    
+    /* Send "AT" command */
+    lea     str_at_test, %a0
+    jsr     send_string_async
+    
+    movel   (%sp)+, %a0
+    movel   (%sp)+, %d0
+    rts
+
+/* Send AT+NETALIAS command asynchronously */
+send_netalias_command_async:
+    movel   %d0, -(%sp)
+    movel   %a0, -(%sp)
+    
+    /* Send AT+NETALIAS=PCD68xxx command */
+    lea     str_netalias_cmd, %a0
+    jsr     send_string_async
+    
+    movel   (%sp)+, %a0
+    movel   (%sp)+, %d0
+    rts
+
+/* Send AT+INIT command asynchronously */
+send_init_command_async:
+    movel   %d0, -(%sp)
+    movel   %a0, -(%sp)
+    
+    /* Send AT+INIT command */
+    lea     str_init_cmd, %a0
+    jsr     send_string_async
+    
+    movel   (%sp)+, %a0
+    movel   (%sp)+, %d0
+    rts
+
+/* Send AT+NETJOIN command asynchronously */
+send_netjoin_command_async:
+    movel   %d0, -(%sp)
+    movel   %a0, -(%sp)
+    
+    /* Send AT+NETJOIN command */
+    lea     str_netjoin_cmd, %a0
+    jsr     send_string_async
+    
+    movel   (%sp)+, %a0
+    movel   (%sp)+, %d0
+    rts
+
+/* Send string to UART1 asynchronously (non-blocking) */
+send_string_async:
+    movel   %d0, -(%sp)
+    movel   %d1, -(%sp)
+    movel   %d2, -(%sp)
+    
+    /* Send each character with a small delay to allow TX buffer to clear */
+send_string_loop:
+    moveb   (%a0)+, %d0
+    beq     send_string_done
+    
+    /* Wait for TX to be ready with timeout */
+    moveq   #100, %d2  /* Timeout counter */
+async_wait_tx_ready:
+    moveb   UART1_STATUS, %d1
+    btst    #1, %d1  /* TX_EMPTY bit */
+    bne     async_tx_is_ready
+    
+    /* Add small delay */
+    moveq   #10, %d1
+async_tx_delay:
+    subql   #1, %d1
+    bne     async_tx_delay
+    
+    subql   #1, %d2
+    bne     async_wait_tx_ready
+    
+    /* Timeout - exit without sending rest */
+    bra     send_async_exit
+    
+async_tx_is_ready:
+    /* Send character */
+    moveb   %d0, UART1_TX
+    bra     send_string_loop
+    
+send_string_done:
+    /* Send CR+LF */
+    /* Send CR */
+    moveq   #100, %d2
+async_wait_cr_ready:
+    moveb   UART1_STATUS, %d1
+    btst    #1, %d1
+    bne     async_cr_ready
+    moveq   #10, %d1
+async_cr_delay:
+    subql   #1, %d1
+    bne     async_cr_delay
+    subql   #1, %d2
+    bne     async_wait_cr_ready
+    bra     send_async_exit
+    
+async_cr_ready:
+    moveb   #13, UART1_TX
+    
+    /* Send LF */
+    moveq   #100, %d2
+async_wait_lf_ready:
+    moveb   UART1_STATUS, %d1
+    btst    #1, %d1
+    bne     async_lf_ready
+    moveq   #10, %d1
+async_lf_delay:
+    subql   #1, %d1
+    bne     async_lf_delay
+    subql   #1, %d2
+    bne     async_wait_lf_ready
+    bra     send_async_exit
+    
+async_lf_ready:
+    moveb   #10, UART1_TX
+    
+send_async_exit:
+    movel   (%sp)+, %d2
+    movel   (%sp)+, %d1
+    movel   (%sp)+, %d0
+    rts
+
+/* Add character to line buffer */
+add_char_to_line_buffer:
+    movem.l %d0-%d2/%a0, -(%sp)
+    
+    /* Get current position */
+    movew   uart_line_pos, %d0
+    
+    /* Check for buffer overflow */
+    cmpi.w  #126, %d0  /* Leave room for null terminator */
+    bge     uart_add_char_done
+    
+    /* Add character to buffer */
+    lea     uart_line_buffer, %a0
+    moveb   %d1, (%a0, %d0.w)
+    
+    /* Increment position */
+    addq.w  #1, %d0
+    movew   %d0, uart_line_pos
+    
+uart_add_char_done:
+    movem.l (%sp)+, %d0-%d2/%a0
+    rts
+
+/* Process complete line */
+process_complete_line:
+    movem.l %d0-%d2/%a0, -(%sp)
+    
+    /* Null terminate the line */
+    movew   uart_line_pos, %d0
+    lea     uart_line_buffer, %a0
+    moveb   #0, (%a0, %d0.w)
+    
+    /* Only add non-empty lines */
+    cmpi.w  #0, %d0
+    beq     process_line_reset
+    
+    /* Check for special AT responses that update status */
+    lea     uart_line_buffer, %a0
+    jsr     check_for_status_updates
+    
+    /* Add line to chat history with AT prefix */
+    lea     uart_line_buffer, %a0
+    jsr     add_at_response_to_chat
+    
+process_line_reset:
+    /* Reset line buffer */
+    movew   #0, uart_line_pos
+    
+    movem.l (%sp)+, %d0-%d2/%a0
+    rts
+
+/* Add AT response to chat with prefix */
+add_at_response_to_chat:
+    movem.l %d0-%d2/%a0-%a1, -(%sp)
+    
+    /* Copy "[NET] AT: " prefix to uart_rx_buffer */
+    lea     uart_rx_buffer, %a1
+    lea     log_at_prefix, %a0
+    jsr     copy_string_simple
+    
+    /* Append the response */
+    lea     uart_line_buffer, %a0
+    jsr     append_string_simple
+    
+    /* Add to chat history */
+    lea     uart_rx_buffer, %a0
+    jsr     add_chat_line
+    jsr     display_chat_history
+    
+    movem.l (%sp)+, %d0-%d2/%a0-%a1
+    rts
+
+/* Simple string copy */
+copy_string_simple:
+    moveb   (%a0)+, (%a1)+
+    bne     copy_string_simple
+    subq.l  #1, %a1  /* Back up to overwrite null terminator */
+    rts
+
+/* Simple string append */
+append_string_simple:
+    moveb   (%a0)+, (%a1)+
+    bne     append_string_simple
+    rts
+
+/* Check for status-updating AT responses */
+check_for_status_updates:
+    movem.l %d0-%d2/%a0-%a1, -(%sp)
+    
+    /* Check for "+NETJOIN: CONNECTED" */
+    lea     uart_line_buffer, %a0
+    lea     str_netjoin_connected, %a1
+    jsr     string_starts_with
+    cmpl    #1, %d0
+    beq     set_connected_status
+    
+    /* Check for "+NETJOIN: DISCONNECTED" */
+    lea     uart_line_buffer, %a0
+    lea     str_netjoin_disconnected, %a1
+    jsr     string_starts_with
+    cmpl    #1, %d0
+    beq     set_disconnected_status
+    
+    bra     status_check_done
+    
+set_connected_status:
+    /* Update network status to connected */
+    movel   #2, chat_network_status  /* 2 = connected */
+    bra     status_check_done
+    
+set_disconnected_status:
+    /* Update network status to disconnected */
+    movel   #0, chat_network_status  /* 0 = disconnected */
+    
+status_check_done:
+    movem.l (%sp)+, %d0-%d2/%a0-%a1
+    rts
+
+
 
 /* Display chat interface */
 display_chat_interface:
@@ -2403,18 +2825,65 @@ history_done:
     movel   (%sp)+, %d0
     rts
 
-/* Clear text screen (for chat mode) */
+/* Clear text screen (for chat mode) - preserve borders */
 clear_text_screen:
     movel   %d0, -(%sp)
+    movel   %d1, -(%sp)
     movel   %a0, -(%sp)
     
-    moveal  #TDABase + 1, %a0
-    movel   #(ScreenWidth * ScreenHeight)-1, %d0
-clear_text_loop:
+    /* Clear only the content areas, not the borders */
+    /* Clear lines 3-17 (content area) */
+    movel   #3, %d1
+clear_content_lines:
+    cmpl    #18, %d1
+    bge     clear_status_area
+    
+    /* Calculate line position */
+    movel   %d1, %d0
+    muls    #ScreenWidth, %d0
+    lea     TDABase + 1, %a0
+    addl    %d0, %a0
+    addl    #2, %a0               /* Skip left border and space */
+    
+    /* Clear content (leave 3 chars for borders) */
+    movel   #ScreenWidth - 3, %d0
+clear_line_loop:
     moveb   #' ', (%a0)+
-    dbra    %d0, clear_text_loop
+    subql   #1, %d0
+    bne     clear_line_loop
+    
+    addql   #1, %d1
+    bra     clear_content_lines
+    
+clear_status_area:
+    /* Clear line 19 (status area) */
+    movel   #19, %d0
+    muls    #ScreenWidth, %d0
+    lea     TDABase + 1, %a0
+    addl    %d0, %a0
+    addl    #2, %a0               /* Skip left border and space */
+    
+    movel   #ScreenWidth - 3, %d0
+clear_status_loop:
+    moveb   #' ', (%a0)+
+    subql   #1, %d0
+    bne     clear_status_loop
+    
+    /* Clear line 21 (input area) */
+    movel   #21, %d0
+    muls    #ScreenWidth, %d0
+    lea     TDABase + 1, %a0
+    addl    %d0, %a0
+    addl    #2, %a0               /* Skip left border and space */
+    
+    movel   #ScreenWidth - 3, %d0
+clear_input_loop:
+    moveb   #' ', (%a0)+
+    subql   #1, %d0
+    bne     clear_input_loop
     
     movel   (%sp)+, %a0
+    movel   (%sp)+, %d1
     movel   (%sp)+, %d0
     rts
 
@@ -2455,45 +2924,8 @@ draw_chat_header:
     moveb   #'|', (%a2)+
     moveb   #' ', (%a2)+
     
-    /* Draw chat mode title - check if network is disabled */
-    cmpl    #1, chat_network_disabled
-    beq     use_bare_bones_header
+    /* Draw chat mode title - simplified without connection status */
     lea     chat_header_msg, %a5
-    bra     print_header_title
-use_bare_bones_header:
-    lea     chat_bare_bones_header_msg, %a5
-print_header_title:
-    jsr     print_string_no_advance
-    
-    /* Position cursor for connection status (right side) */
-    moveal  #TDABase + 1 + ScreenWidth + 55, %a2
-    
-    /* Show connection status - check if network is disabled first */
-    cmpl    #1, chat_network_disabled
-    beq     show_header_disabled
-    
-    cmpl    #2, chat_network_status  /* 2 = connected */
-    beq     show_header_connected
-    cmpl    #1, chat_network_status  /* 1 = connecting */
-    beq     show_header_connecting
-    
-    /* Disconnected */
-    lea     status_disconnected_msg, %a5
-    jsr     print_string_no_advance
-    bra     chat_header_done
-
-show_header_disabled:
-    lea     status_disabled_msg, %a5
-    jsr     print_string_no_advance
-    bra     chat_header_done
-    
-show_header_connecting:
-    lea     status_connecting_msg, %a5
-    jsr     print_string_no_advance
-    bra     chat_header_done
-    
-show_header_connected:
-    lea     status_connected_msg, %a5
     jsr     print_string_no_advance
     
 chat_header_done:
@@ -3050,7 +3482,38 @@ handle_incoming_chat_simple:
     cmpl    #1, chat_mode_active
     bne     simple_chat_done
     
-    /* Simply add the raw line to chat history */
+    /* Check if this is a chat message or AT response */
+    movea.l %a0, %a1
+    cmpi.b  #'+', (%a1)
+    beq     handle_at_response
+    
+    /* Regular message - simply add the raw line to chat history */
+    jsr     add_chat_line
+    bra     simple_chat_done
+    
+handle_at_response:
+    /* Check if it's a +CHAT notification */
+    move.l  %a0, %a2
+    addq.l  #6, %a2  /* Skip "+CHAT:" */
+    cmpi.b  #' ', -1(%a2)  /* Check if 6th char is space ("+CHAT: ") */
+    bne     log_other_response
+    
+    /* Log incoming chat message */
+    lea     log_incoming_message, %a0
+    jsr     add_chat_line
+    
+    /* Add the actual message */
+    movea.l %a1, %a0  /* Restore original pointer */
+    jsr     add_chat_line
+    bra     simple_chat_done
+    
+log_other_response:
+    /* Log other AT responses */
+    lea     log_at_response, %a0
+    jsr     add_chat_line
+    
+    /* Add the actual response */
+    movea.l %a1, %a0  /* Restore original pointer */
     jsr     add_chat_line
     
     /* Refresh chat display */
@@ -3157,6 +3620,50 @@ message_sent_confirmation:
     .string "Message sent successfully!"
 message_sent_msg:
     .string "Message sent! (local only)"
+
+/* Aether network log messages */
+log_aether_init_start:
+    .string "[NET] Initializing aether modem..."
+log_aether_connecting:
+    .string "[NET] Modem ready, connecting to network..."
+log_aether_connected:
+    .string "[NET] Connected! Joining chat room..."
+log_aether_failed:
+    .string "[NET] Connection failed, debug mode enabled"
+log_sending_message:
+    .string "[NET] Sending message via AT+QUICKMSG..."
+log_send_success:
+    .string "[NET] Message sent successfully"
+log_send_failed:
+    .string "[NET] Message send failed"
+log_incoming_message:
+    .string "[NET] Incoming chat message:"
+log_at_response:
+    .string "[NET] AT response:"
+log_uart_interrupts:
+    .string "[NET] UART interrupts enabled"
+str_at_test:
+    .string "AT"
+str_netalias_cmd:
+    .string "AT+NETALIAS=PCD68test"
+str_init_cmd:
+    .string "AT+INIT"
+str_netjoin_cmd:
+    .string "AT+NETJOIN"
+log_uart_control_set:
+    .string "[NET] UART control register configured"
+log_uart_interrupt:
+    .string "[NET] UART interrupt triggered!"
+log_at_prefix:
+    .string "[NET] AT: "
+
+/* UART buffers */
+uart_rx_buffer:
+    .ds.b   256  /* Buffer for UART RX data */
+uart_line_buffer:
+    .ds.b   128  /* Buffer for building complete lines */
+uart_line_pos:
+    .ds.w   1    /* Current position in line buffer */
 
 /* Chat footer strings */
 aether_layer_status_msg:
@@ -3976,12 +4483,27 @@ send_current_chat_input:
     cmpl    #1, chat_network_disabled
     beq     send_input_local_only
     
+    /* Log message being sent */
+    lea     log_sending_message, %a0
+    jsr     add_chat_line
+    
     /* Send via aether with timeout protection */
     /* Set a timeout counter to prevent hanging */
     movel   #5000, chat_timeout_counter  /* Allow 5000 cycles maximum */
     /* Set A0 to point to start of message buffer for aether_chat_send_safe */
     lea     chat_input_buffer, %a0
     jsr     aether_chat_send_safe
+    
+    /* Log based on result */
+    cmpl    #0, %d0  /* Check if send was successful */
+    beq     send_success_log
+    lea     log_send_failed, %a0
+    jsr     add_chat_line
+    bra     send_input_local_only
+    
+send_success_log:
+    lea     log_send_success, %a0
+    jsr     add_chat_line
     
 send_input_local_only:
     /* Add to chat history as local echo (always do this) */
@@ -4111,8 +4633,8 @@ clear_footer_loop:
     subql   #1, %d0
     bne     clear_footer_loop
     
-    /* Show enhanced prompt */
-    moveal  #TDABase + 1 + (21 * ScreenWidth), %a1
+    /* Show enhanced prompt - start 3 chars right to avoid border overwrite */
+    moveal  #TDABase + 1 + (21 * ScreenWidth) + 3, %a1
     
     /* Add prompt: "Type: " */
     moveb   #'T', (%a1)+
@@ -4311,8 +4833,8 @@ enhanced_send_message:
     tst.b   %d0
     bne     local_message_only
     
-    /* TODO: Add network sending here */
-    /* jsr   aether_send_chat_message */
+    /* Send message via AT+QUICKMSG command */
+    jsr     send_message_via_at_command
     
 local_message_only:
     /* Build formatted message with timestamp and room info */
@@ -4371,6 +4893,45 @@ enhanced_copied:
 enhanced_send_done:
     movem.l (%sp)+, %d0-%d2/%a0-%a2
     rts
+
+/* Send message via AT+QUICKMSG command */
+.align 2
+send_message_via_at_command:
+    movem.l %d0-%d2/%a0-%a2, -(%sp)
+    
+    /* Build AT+QUICKMSG command with message content */
+    lea     at_quickmsg_buffer, %a1
+    
+    /* Start with AT+QUICKMSG= */
+    lea     str_quickmsg_prefix, %a0
+    jsr     copy_string_simple
+    
+    /* Add the message content */
+    lea     chat_input_buffer, %a0
+    movel   chat_input_length, %d0
+copy_message_to_at:
+    tst.l   %d0
+    beq     at_message_copied
+    moveb   (%a0)+, (%a1)+
+    subql   #1, %d0
+    bra     copy_message_to_at
+    
+at_message_copied:
+    /* Null terminate */
+    moveb   #0, (%a1)
+    
+    /* Send the AT command */
+    lea     at_quickmsg_buffer, %a0
+    jsr     send_string_async
+    
+    /* Log the sending attempt */
+    lea     log_sending_message, %a0
+    jsr     add_at_response_to_chat
+    
+    movem.l (%sp)+, %d0-%d2/%a0-%a2
+    rts
+
+
 
 /* Input history management - NETWORK READY */
 .align 2
@@ -4623,18 +5184,18 @@ room_copy_done:
 show_send_confirmation:
     movem.l %d0-%d1/%a0-%a1, -(%sp)
     
-    /* Show confirmation on status line */
-    moveal  #TDABase + 1 + (19 * ScreenWidth), %a1
+    /* Show confirmation on status line - start 2 chars right to avoid border */
+    moveal  #TDABase + 1 + (19 * ScreenWidth) + 2, %a1
     
-    /* Clear status line first */
-    movel   #79, %d0
+    /* Clear status line first (from position 2 onwards) */
+    movel   #77, %d0  /* Clear 77 chars instead of 79 to avoid border */
 clear_status:
     moveb   #' ', (%a1)+
     subql   #1, %d0
     bne     clear_status
     
     /* Show enhanced message */
-    moveal  #TDABase + 1 + (19 * ScreenWidth), %a1
+    moveal  #TDABase + 1 + (19 * ScreenWidth) + 2, %a1
     lea     enhanced_sent_msg, %a0
     jsr     copy_string_to_screen
     
@@ -4662,6 +5223,19 @@ simple_time_counter:
 
 enhanced_sent_msg:
     .string ">>> Message sent! (network ready)                                       "
+
+str_netjoin_connected:
+    .string "+NETJOIN: CONNECTED"
+
+str_netjoin_disconnected:
+    .string "+NETJOIN: DISCONNECTED"
+
+str_quickmsg_prefix:
+    .string "AT+QUICKMSG="
+
+/* AT command buffer for message sending */
+at_quickmsg_buffer:
+    .ds.b   128  /* Buffer for AT+QUICKMSG=message command */
 
 /* End of network-ready chat functions */
 
