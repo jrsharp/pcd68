@@ -53,16 +53,23 @@ print_done:
     rts
 
 /* Print a null-terminated string pointed to by A5 at the current position in A2,
-   without advancing to next line */
+   without advancing to next line - WITH BOUNDS CHECKING */
 .global print_string_no_advance
 print_string_no_advance:
-    /* Save registers */
-    movel   %a5, -(%sp)
+    /* CRITICAL: Save ALL registers for reentrancy */
+    movem.l %d0-%d7/%a0-%a6, -(%sp)
+    
+    /* Calculate screen end boundary */
+    movel   #TDABase + 1 + (ScreenWidth * ScreenHeight), %d1
     
     /* Print characters until null */
 print_no_advance_loop:
     moveb   (%a5)+, %d0
     beq     print_no_advance_done
+    
+    /* Check bounds before writing */
+    cmpl    %d1, %a2
+    bge     print_no_advance_done  /* Past screen end, stop */
     
     /* Write character to TDA */
     moveb   %d0, (%a2)+
@@ -70,13 +77,16 @@ print_no_advance_loop:
     bra     print_no_advance_loop
     
 print_no_advance_done:
-    /* Restore registers */
-    movel   (%sp)+, %a5
+    /* CRITICAL: Restore ALL registers */
+    movem.l (%sp)+, %d0-%d7/%a0-%a6
     rts
 
 /* Clear the header area of the screen based on updated layout */
 .global clear_header_area
 clear_header_area:
+    /* CRITICAL: Save ALL registers for reentrancy */
+    movem.l %d0-%d7/%a0-%a6, -(%sp)
+    
     /* Position at the start of header area (line 1) */
     movel   #1, %d7             /* Start at line 1 */
 clear_header_area_line_loop:
@@ -111,6 +121,9 @@ clear_header_area_next_line:
 clear_header_area_done:
     /* Reset cursor position to start of header area */
     moveal  #TDABase + 1 + (80 * 1), %a2
+    
+    /* CRITICAL: Restore ALL registers */
+    movem.l (%sp)+, %d0-%d7/%a0-%a6
     rts
 
 /* Clear the content area of the screen based on updated layout */
@@ -185,6 +198,9 @@ clear_screen_done:
 /* Draw borders */
 .global draw_borders
 draw_borders:
+    /* CRITICAL: Save ALL registers for reentrancy */
+    movem.l %d0-%d7/%a0-%a6, -(%sp)
+    
     /* Position at the start of screen (line 0) */
     moveal  #TDABase + 1, %a2
     
@@ -275,6 +291,9 @@ bottom_border_loop:
     bra     bottom_border_loop
 bottom_border_end:
     moveb   #'+', (%a2)+
+    
+    /* CRITICAL: Restore ALL registers */
+    movem.l (%sp)+, %d0-%d7/%a0-%a6
     rts
 
 /* Center text */
@@ -326,6 +345,9 @@ center_padding_done:
 /* Draw header */
 .global draw_header
 draw_header:
+    /* CRITICAL: Save ALL registers for reentrancy */
+    movem.l %d0-%d7/%a0-%a6, -(%sp)
+    
     /* Call border drawing routine first */
     jsr     draw_borders
     
@@ -351,11 +373,16 @@ draw_header:
     moveal  #TDABase + 1 + ScreenWidth + ScreenWidth - 1, %a2
     moveb   #'|', (%a2)
     
+    /* CRITICAL: Restore ALL registers */
+    movem.l (%sp)+, %d0-%d7/%a0-%a6
     rts
 
 /* Draw footer */
 .global draw_footer
 draw_footer:
+    /* CRITICAL: Save ALL registers for reentrancy */
+    movem.l %d0-%d7/%a0-%a6, -(%sp)
+    
     /* Calculate position for status line (line 19) */
     movel   #19, %d0
     muls    #ScreenWidth, %d0
@@ -451,14 +478,15 @@ debug_info_start:
     moveal  #TDABase + 1 + (21 * ScreenWidth) + ScreenWidth - 1, %a2
     moveb   #'|', (%a2)
     
+    /* CRITICAL: Restore ALL registers */
+    movem.l (%sp)+, %d0-%d7/%a0-%a6
     rts
 
 /* Menu utility functions */
 .global get_menu_item_count
 get_menu_item_count:
-    /* Debug: Check menu_table validity first */
-    movel   %d0, -(%sp)          /* Save menu ID */
-    movel   %d1, -(%sp)          /* Save d1 */
+    /* CRITICAL: Save ALL registers for reentrancy */
+    movem.l %d0-%d7/%a0-%a6, -(%sp)
     
     /* Show menu_table address */
     moveal  #TDABase + 1 + (19 * ScreenWidth) + 30, %a1
@@ -490,9 +518,8 @@ menu_table_ok:
     moveb   #'G', (%a1)+         /* G = Good, continue processing */
 
 menu_table_restore:
-    movel   (%sp)+, %d1          /* Restore d1 */
-    movel   (%sp)+, %d0          /* Restore menu ID */
-
+    /* Continue with original menu ID in %d0 */
+    
     /* Get menu definition from table */
     lsll    #2, %d0              /* Multiply menu ID by 4 for long offset */
     lea     menu_table, %a0
@@ -519,16 +546,23 @@ menu_table_restore:
     movel   (%sp)+, %d1          /* Restore d1 */
     movel   (%sp)+, %d0          /* Restore count */
     
+    /* CRITICAL: Restore ALL registers */
+    movem.l (%sp)+, %d0-%d7/%a0-%a6
     rts
 
 return_zero_count:
     /* Return 0 if menu definition is null */
     movel   #0, %d0
+    /* CRITICAL: Restore ALL registers */
+    movem.l (%sp)+, %d0-%d7/%a0-%a6
     rts
 
 .global get_menu_title
 .align 2
 get_menu_title:
+    /* CRITICAL: Save ALL registers for reentrancy */
+    movem.l %d0-%d7/%a0-%a6, -(%sp)
+    
     /* Get menu definition from table */
     lsll    #2, %d0              /* Multiply menu ID by 4 for long offset */
     lea     menu_table, %a0
@@ -551,24 +585,32 @@ get_menu_title:
     cmpl    #0, %a0
     beq     get_menu_title_error_title
     
+    /* CRITICAL: Restore ALL registers */
+    movem.l (%sp)+, %d0-%d7/%a0-%a6
     rts
 
 .align 2
 get_menu_title_error_table:
     /* Return error message */
     lea     menu_title_error_table, %a0
+    /* CRITICAL: Restore ALL registers */
+    movem.l (%sp)+, %d0-%d7/%a0-%a6
     rts
     
 .align 2
 get_menu_title_error_def:
     /* Return error message */
     lea     menu_title_error_def, %a0
+    /* CRITICAL: Restore ALL registers */
+    movem.l (%sp)+, %d0-%d7/%a0-%a6
     rts
     
 .align 2
 get_menu_title_error_title:
     /* Return error message */
     lea     menu_title_error_title, %a0
+    /* CRITICAL: Restore ALL registers */
+    movem.l (%sp)+, %d0-%d7/%a0-%a6
     rts
     
 .align 2
@@ -586,8 +628,10 @@ menu_title_error_title:
 .global get_menu_entry_type
 .align 2
 get_menu_entry_type:
+    /* CRITICAL: Save ALL registers for reentrancy */
+    movem.l %d0-%d7/%a0-%a6, -(%sp)
+    
     /* Get menu definition */
-    movel   %d1, -(%sp)           /* Save item index */
     lsll    #2, %d0               /* Multiply menu ID by 4 for long offset */
     lea     menu_table, %a0
     addl    %d0, %a0
@@ -615,13 +659,17 @@ get_menu_entry_type:
     clrl    %d0                  /* Clear upper bits */
     moveb   4(%a0), %d0          /* Get type byte and zero-extend */
     
+    /* CRITICAL: Restore ALL registers */
+    movem.l (%sp)+, %d0-%d7/%a0-%a6
     rts
 
 .global get_menu_target_id
 .align 2
 get_menu_target_id:
+    /* CRITICAL: Save ALL registers for reentrancy */
+    movem.l %d0-%d7/%a0-%a6, -(%sp)
+    
     /* Get menu definition */
-    movel   %d1, -(%sp)           /* Save item index */
     lsll    #2, %d0               /* Multiply menu ID by 4 for long offset */
     lea     menu_table, %a0
     addl    %d0, %a0
@@ -651,11 +699,16 @@ get_menu_target_id:
     
     /* Target menu ID is at offset 6 (word) */
     movew   6(%a0), %d0
+    /* CRITICAL: Restore ALL registers */
+    movem.l (%sp)+, %d0-%d7/%a0-%a6
     rts
 
 .global get_content_pointer
 .align 2
 get_content_pointer:
+    /* CRITICAL: Save ALL registers for reentrancy */
+    movem.l %d0-%d7/%a0-%a6, -(%sp)
+    
     /* Direct lookup in content_table using content ID */
     /* Input: %d0 = content ID */
     /* Output: %a0 = content pointer */
@@ -666,17 +719,19 @@ get_content_pointer:
     addl    %d0, %a0
     movel   (%a0), %a0           /* Get content pointer */
     
+    /* CRITICAL: Restore ALL registers */
+    movem.l (%sp)+, %d0-%d7/%a0-%a6
     rts
 
 .global get_menu_item_content_id
 .align 2
 get_menu_item_content_id:
+    /* CRITICAL: Save ALL registers for reentrancy */
+    movem.l %d0-%d7/%a0-%a6, -(%sp)
+    
     /* Get content ID from menu item */
     /* Input: %d0 = menu ID, %d1 = item index */
     /* Output: %d0 = content ID */
-    
-    /* Save registers */
-    movel   %a0, -(%sp)
     
     /* Get menu definition */
     lsll    #2, %d0               /* Multiply menu ID by 4 for long offset */
@@ -696,17 +751,15 @@ get_menu_item_content_id:
     clrl    %d0                  /* Clear upper bits */
     movew   6(%a0), %d0          /* Get content ID (word) and zero-extend */
     
-    /* Restore registers */
-    movel   (%sp)+, %a0
+    /* CRITICAL: Restore ALL registers */
+    movem.l (%sp)+, %d0-%d7/%a0-%a6
     rts
 
 .global get_menu_item_text
 .align 2
 get_menu_item_text:
-    /* Save additional registers for debugging */
-    movel   %d2, -(%sp)
-    movel   %d3, -(%sp)
-    movel   %a1, -(%sp)
+    /* CRITICAL: Save ALL registers for reentrancy */
+    movem.l %d0-%d7/%a0-%a6, -(%sp)
     
     /* Debug: Add trace character for function entry */
     movel   %d0, -(%sp)
@@ -797,50 +850,40 @@ text_ok:
     jsr     add_debug_trace
     movel   (%sp)+, %d0
     
-    /* Restore debug registers */
-    movel   (%sp)+, %a1
-    movel   (%sp)+, %d3
-    movel   (%sp)+, %d2
+    /* CRITICAL: Restore ALL registers */
+    movem.l (%sp)+, %d0-%d7/%a0-%a6
     rts
 
 .align 2
 get_menu_item_error_menu_def:
     /* Return error message */
     lea     menu_item_error_menu_def, %a0
-    /* Restore debug registers */
-    movel   (%sp)+, %a1
-    movel   (%sp)+, %d3
-    movel   (%sp)+, %d2
+    /* CRITICAL: Restore ALL registers */
+    movem.l (%sp)+, %d0-%d7/%a0-%a6
     rts
 
 .align 2
 get_menu_item_error_array:
     /* Return error message */
     lea     menu_item_error_array, %a0
-    /* Restore debug registers */
-    movel   (%sp)+, %a1
-    movel   (%sp)+, %d3
-    movel   (%sp)+, %d2
+    /* CRITICAL: Restore ALL registers */
+    movem.l (%sp)+, %d0-%d7/%a0-%a6
     rts
 
 .align 2
 get_menu_item_error_item:
     /* Return error message */
     lea     menu_item_error_item, %a0
-    /* Restore debug registers */
-    movel   (%sp)+, %a1
-    movel   (%sp)+, %d3
-    movel   (%sp)+, %d2
+    /* CRITICAL: Restore ALL registers */
+    movem.l (%sp)+, %d0-%d7/%a0-%a6
     rts
     
 .align 2
 get_menu_item_error_text:
     /* Return error message */
     lea     menu_item_error_text, %a0
-    /* Restore debug registers */
-    movel   (%sp)+, %a1
-    movel   (%sp)+, %d3
-    movel   (%sp)+, %d2
+    /* CRITICAL: Restore ALL registers */
+    movem.l (%sp)+, %d0-%d7/%a0-%a6
     rts
 
 .align 2
@@ -863,12 +906,8 @@ menu_item_error_menu_def:
 .align 2
 .global print_multiline_string
 print_multiline_string:
-    /* Save registers */
-    movel   %a5, -(%sp)
-    movel   %d0, -(%sp)
-    movel   %d1, -(%sp)
-    movel   %d2, -(%sp)
-    movel   %d3, -(%sp)
+    /* CRITICAL: Save ALL registers for reentrancy */
+    movem.l %d0-%d7/%a0-%a6, -(%sp)
     
     /* Store starting line position (should be line 4) */
     moveal  %a2, %a0
@@ -933,17 +972,16 @@ handle_newline:
     
 .align 2
 print_multi_done:
-    /* Restore registers */
-    movel   (%sp)+, %d3
-    movel   (%sp)+, %d2
-    movel   (%sp)+, %d1
-    movel   (%sp)+, %d0
-    movel   (%sp)+, %a5
+    /* CRITICAL: Restore ALL registers */
+    movem.l (%sp)+, %d0-%d7/%a0-%a6
     rts
 
 .global get_menu_content
 .align 2
 get_menu_content:
+    /* CRITICAL: Save ALL registers for reentrancy */
+    movem.l %d0-%d7/%a0-%a6, -(%sp)
+    
     /* Get menu definition from table */
     lsll    #2, %d0              /* Multiply menu ID by 4 for long offset */
     lea     menu_table, %a0
@@ -956,20 +994,23 @@ get_menu_content:
     
     /* Content pointer is at offset 12 */
     movel   12(%a0), %a0
+    /* CRITICAL: Restore ALL registers */
+    movem.l (%sp)+, %d0-%d7/%a0-%a6
     rts
 
 return_null_content:
     /* Return null pointer */
     movel   #0, %a0
+    /* CRITICAL: Restore ALL registers */
+    movem.l (%sp)+, %d0-%d7/%a0-%a6
     rts 
 
 /* Add debug trace to status line - call this to mark function entry */
 /* Input: D0 = character to display in trace section */
 .global add_debug_trace
 add_debug_trace:
-    /* Save registers */
-    movel   %d1, -(%sp)
-    movel   %a2, -(%sp)
+    /* CRITICAL: Save ALL registers for reentrancy */
+    movem.l %d0-%d7/%a0-%a6, -(%sp)
     
     /* Position in trace section (around position 55) */
     moveal  #TDABase + 1 + (19 * ScreenWidth) + 55, %a2
@@ -989,7 +1030,6 @@ trace_slot_found:
     /* Write the trace character */
     moveb   %d0, (%a2)
     
-    /* Restore registers */
-    movel   (%sp)+, %a2
-    movel   (%sp)+, %d1
+    /* CRITICAL: Restore ALL registers */
+    movem.l (%sp)+, %d0-%d7/%a0-%a6
     rts 
