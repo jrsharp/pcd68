@@ -4,4 +4,17 @@ zig-out/
 .DS_Store
 build
 
+# Build artifacts
+*.bin
+*.hex
+*.data
+jonsharp.net/pcd68home
+jonsharp.net/tools/output/
+
+# Test scripts (development utilities)
+test_*uart2*.sh
+test_aether_validation.sh
+test_tcp_connection.sh
+test_uart_connection.js
+
 **/.claude/settings.local.json
