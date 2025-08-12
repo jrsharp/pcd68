@@ -1,4 +1,4 @@
-/* PCD-68 Terminal Display Layout (80x23) */
+/* PCD-68 Terminal Display Layout (80x23)*/
 
 +------------------------------------------------------------------------------+  Line 0
 |                            HEADER AREA                                       |  Line 1
