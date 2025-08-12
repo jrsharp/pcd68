@@ -15,6 +15,13 @@
 .equ UART1_STATUS, UART1_BASE + 0x02
 .equ UART1_CONTROL, UART1_BASE + 0x03
 
+/* UART2 register definitions */
+.equ UART2_BASE, 0x450000
+.equ UART2_TX, UART2_BASE + 0x04
+.equ UART2_RX, UART2_BASE + 0x05
+.equ UART2_STATUS, UART2_BASE + 0x06
+.equ UART2_CONTROL, UART2_BASE + 0x07
+
 /* Memory sizes */
 .equ TDASize, 80 * 23
 
@@ -58,6 +65,7 @@
 .equ KEY_A, 97                 /* 'a' for Art mode */
 .equ KEY_C, 99                 /* 'c' for Chat mode */
 .equ KEY_D, 100                /* 'd' for Debug mode */
+.equ KEY_U, 117                /* 'u' for UART2 mode */
 .equ KEY_T, 116                /* 't' for Text mode (return from art mode) */
 .equ KEY_UP_ARROW, 16          /* Up arrow key (SDL maps to ASCII 16) */
 .equ KEY_DOWN_ARROW, 17        /* Down arrow key (SDL maps to ASCII 17) */
@@ -74,6 +82,25 @@
 .equ KEY_7, 55                 /* '7' - Menu item 7 */
 .equ KEY_8, 56                 /* '8' - Menu item 8 */
 .equ KEY_9, 57                 /* '9' - Menu item 9 */
+
+/* New keys for mode toggle and enhanced input */
+.equ KEY_ENTER, 13             /* Enter/Return key */
+.equ KEY_ESC, 27               /* Escape key */
+.equ KEY_BACKSPACE, 8          /* Backspace key */
+.equ KEY_TAB, 9                /* Tab key */
+.equ KEY_SPACE, 32             /* Space bar */
+.equ KEY_TILDE, 126            /* Tilde ~ */
+.equ KEY_BACKTICK, 96          /* Backtick ` */
+
+/* Enhanced keyboard modifier support */
+.equ MOD_SHIFT, 0x01           /* Shift modifier bit */
+.equ MOD_CTRL, 0x02            /* Control modifier bit */
+.equ MOD_ALT, 0x04             /* Alt modifier bit */
+.equ MOD_META, 0x08            /* Meta/Command modifier bit */
+
+/* Mode flags */
+.equ MODE_CHAT, 0              /* Chat mode (default) */
+.equ MODE_TERMINAL, 1          /* Terminal/AT command mode */
 
 /* End of Memory */
 .equ EndOfStack, 0xBFFFFF
@@ -121,7 +148,7 @@ vectors:
     dc.l    0x000000
     dc.l    keyboard_handler     /* IRQ Level 3 (keyboard) */
     dc.l    uart1_interrupt_handler  /* IRQ Level 4 (UART1) */
-    dc.l    0x000000             /* IRQ Level 5 (UART2) */
+    dc.l    uart2_interrupt_handler  /* IRQ Level 5 (UART2) */
     dc.l    0x000000
     dc.l    0x000000
     /* Fill remaining vectors */
@@ -222,6 +249,10 @@ main_loop:
     cmpl    #1, chat_mode_active
     beq     chat_mode_loop
     
+    /* Check if we're in UART2 mode */
+    cmpl    #1, uart2_mode_active
+    beq     uart2_mode_loop
+    
     /* Check if we're in debug mode */
     cmpl    #1, debug_mode_active
     beq     debug_mode_loop
@@ -270,6 +301,27 @@ chat_skip_poll:
 chat_delay_loop:
     subil   #1, %d0
     bne     chat_delay_loop
+    bra     main_loop
+
+uart2_mode_loop:
+    /* UART2 Terminal Mode - Direct serial communication */
+    moveb   KCTLCount, %d0
+    cmpl    #0, %d0
+    beq     uart2_mode_no_input   /* No input, continue */
+    
+    /* Process keyboard input for UART2 mode */
+    jsr     process_uart2_keyboard_input
+    bra     main_loop
+
+uart2_mode_no_input:
+    /* Poll UART2 for incoming data */
+    jsr     uart2_poll_incoming
+    
+    /* Add delay to prevent tight loop */
+    movel   #1000, %d0
+uart2_delay_loop:
+    subil   #1, %d0
+    bne     uart2_delay_loop
     bra     main_loop
 
 debug_mode_loop:
@@ -904,6 +956,8 @@ process_keyboard_input:
     beq     process_key_chat
     cmpb    #KEY_D, %d0        /* 'd' for Debug mode */
     beq     process_key_debug
+    cmpb    #KEY_U, %d0        /* 'u' for UART2 mode */
+    beq     process_key_uart2
     cmpb    #KEY_J, %d0        /* 'j' for scroll down */
     beq     process_key_scroll_down
     cmpb    #KEY_K, %d0        /* 'k' for scroll up */
@@ -937,7 +991,7 @@ process_keyboard_input:
     
     bra     finish_key_input
 
-/* Process keyboard input in chat mode - PHASE 1: SIMPLE BUFFER */
+/* Process keyboard input in chat mode - ENHANCED WITH MODIFIERS */
 process_chat_keyboard_input:
     /* Use same register save pattern as debug mode - KEEP THIS WORKING PATTERN */
     movel   %d0, -(%sp)
@@ -949,6 +1003,10 @@ process_chat_keyboard_input:
     moveal  #KCTLKeys, %a0
     moveb   (%a0), %d0
     
+    /* Check for mode toggle key (Tab) */
+    cmpb    #KEY_TAB, %d0
+    beq     handle_tab_toggle
+    
     /* Check for ESC key to exit chat mode */
     cmpb    #KEY_ESC, %d0
     beq     exit_chat_mode_irc
@@ -959,7 +1017,7 @@ process_chat_keyboard_input:
     
     /* Check for Enter key */
     cmpb    #KEY_ENTER, %d0
-    beq     handle_simple_enter
+    beq     handle_mode_enter
     
     /* Check for arrow keys - NETWORK READY NAVIGATION */
     cmpb    #KEY_UP_ARROW, %d0
@@ -967,14 +1025,190 @@ process_chat_keyboard_input:
     cmpb    #KEY_DOWN_ARROW, %d0
     beq     chat_down_arrow
     
-    /* Handle printable characters only */
+    /* Handle printable characters with modifier support */
     cmpl    #32, %d0           /* Space */
     blt     finish_chat_key_input   /* Ignore non-printable */
     cmpl    #126, %d0          /* Tilde */
     bgt     finish_chat_key_input   /* Ignore non-printable */
     
-    /* Add character to simple buffer with bounds check */
-    jsr     simple_add_char
+    /* Process character with modifier support - inline to avoid relocation */
+    /* Get modifier byte */
+    moveb   KCTLModifiers, %d1
+    
+    /* DEBUG: Store modifier byte in debug area for visibility */
+    movel   %d1, modifier_debug_byte
+    
+    /* Apply shift if pressed - test for EITHER left or right shift */
+    /* SDL: KMOD_LSHIFT=0x0001, KMOD_RSHIFT=0x0002, so test bits 0 OR 1 */
+    btst    #0, %d1              /* Test left SHIFT bit */
+    bne     apply_shift_transform
+    btst    #1, %d1              /* Test right SHIFT bit */
+    beq     no_shift_mod
+    
+apply_shift_transform:
+    
+    /* Apply comprehensive shift transformations */
+    /* Numbers to symbols */
+    cmpb    #'1', %d0
+    beq     inline_shift_1
+    cmpb    #'2', %d0
+    beq     inline_shift_2
+    cmpb    #'3', %d0
+    beq     inline_shift_3
+    cmpb    #'4', %d0
+    beq     inline_shift_4
+    cmpb    #'5', %d0
+    beq     inline_shift_5
+    cmpb    #'6', %d0
+    beq     inline_shift_6
+    cmpb    #'7', %d0
+    beq     inline_shift_7
+    cmpb    #'8', %d0
+    beq     inline_shift_8
+    cmpb    #'9', %d0
+    beq     inline_shift_9
+    cmpb    #'0', %d0
+    beq     inline_shift_0
+    
+    /* Letters to uppercase */
+    cmpb    #'a', %d0
+    blt     check_shift_symbols
+    cmpb    #'z', %d0
+    bgt     check_shift_symbols
+    subb    #32, %d0             /* Convert to uppercase */
+    bra     no_shift_mod
+    
+check_shift_symbols:
+    /* Common symbols */
+    cmpb    #'-', %d0
+    beq     inline_shift_minus
+    cmpb    #'=', %d0
+    beq     inline_shift_equals
+    cmpb    #';', %d0
+    beq     inline_shift_semicolon
+    cmpb    #'\'', %d0
+    beq     inline_shift_apostrophe
+    cmpb    #',', %d0
+    beq     inline_shift_comma
+    cmpb    #'.', %d0
+    beq     inline_shift_period
+    cmpb    #'/', %d0
+    beq     inline_shift_slash
+    bra     no_shift_mod
+    
+inline_shift_1:
+    moveb   #'!', %d0
+    bra     no_shift_mod
+inline_shift_2:
+    moveb   #'@', %d0
+    bra     no_shift_mod
+inline_shift_3:
+    moveb   #'#', %d0
+    bra     no_shift_mod
+inline_shift_4:
+    moveb   #'$', %d0
+    bra     no_shift_mod
+inline_shift_5:
+    moveb   #'%', %d0
+    bra     no_shift_mod
+inline_shift_6:
+    moveb   #'^', %d0
+    bra     no_shift_mod
+inline_shift_7:
+    moveb   #'&', %d0
+    bra     no_shift_mod
+inline_shift_8:
+    moveb   #'*', %d0
+    bra     no_shift_mod
+inline_shift_9:
+    moveb   #'(', %d0
+    bra     no_shift_mod
+inline_shift_0:
+    moveb   #')', %d0
+    bra     no_shift_mod
+inline_shift_minus:
+    moveb   #'_', %d0
+    bra     no_shift_mod
+inline_shift_equals:
+    moveb   #'+', %d0
+    bra     no_shift_mod
+inline_shift_semicolon:
+    moveb   #':', %d0
+    bra     no_shift_mod
+inline_shift_apostrophe:
+    moveb   #'"', %d0
+    bra     no_shift_mod
+inline_shift_comma:
+    moveb   #'<', %d0
+    bra     no_shift_mod
+inline_shift_period:
+    moveb   #'>', %d0
+    bra     no_shift_mod
+inline_shift_slash:
+    moveb   #'?', %d0
+    
+no_shift_mod:
+    /* Add character to buffer */
+    movel   chat_input_length, %d2
+    cmpl    #70, %d2
+    bge     finish_chat_key_input
+    
+    lea     chat_input_buffer, %a1
+    moveb   %d0, (%a1,%d2)
+    addql   #1, chat_input_length
+    bra     finish_chat_key_input
+
+/* Simple tab toggle handler - inline to avoid relocation issues */
+handle_tab_toggle:
+    /* Toggle mode directly */
+    movel   input_mode, %d1
+    cmpl    #MODE_CHAT, %d1
+    beq     tab_switch_to_terminal
+    
+    /* Switch to chat mode */
+    movel   #MODE_CHAT, input_mode
+    bra     finish_chat_key_input
+    
+tab_switch_to_terminal:
+    /* Switch to terminal mode */
+    movel   #MODE_TERMINAL, input_mode
+    bra     finish_chat_key_input
+
+/* Inline enter handler based on current mode */
+handle_mode_enter:
+    /* Check current input mode */
+    movel   input_mode, %d1
+    cmpl    #MODE_TERMINAL, %d1
+    beq     handle_terminal_mode_enter
+    
+    /* Default to chat mode (existing behavior) */
+    bra     handle_simple_enter
+    
+handle_terminal_mode_enter:
+    /* Check if we have any input */
+    movel   chat_input_length, %d1
+    cmpl    #0, %d1
+    beq     finish_chat_key_input
+    
+    /* Send raw command to UART1 */
+    lea     chat_input_buffer, %a0
+    movel   chat_input_length, %d1
+    
+terminal_send_loop:
+    cmpl    #0, %d1
+    beq     terminal_send_cr
+    moveb   (%a0)+, %d0
+    moveb   %d0, UART1_TX
+    subql   #1, %d1
+    bra     terminal_send_loop
+    
+terminal_send_cr:
+    /* Send CR+LF */
+    moveb   #13, UART1_TX
+    moveb   #10, UART1_TX
+    
+    /* Clear input buffer */
+    clrl    chat_input_length
     bra     finish_chat_key_input
 
 handle_simple_backspace:
@@ -1096,6 +1330,10 @@ process_key_chat:
 
 process_key_debug:
     jsr     process_debug_mode
+    bra     finish_key_input
+
+process_key_uart2:
+    jsr     process_uart2_mode
     bra     finish_key_input
 
 process_key_scroll_down:
@@ -1952,8 +2190,14 @@ help_text:
     .ascii "  - Press B to go back to the previous menu\n"
     .ascii "  - Press H to display this help screen\n"
     .ascii "  - Press Q to quit (when available)\n\n"
-    .ascii "The cyberterminal provides a simplified gopher-like\n"
-    .ascii "interface to jonsharp.net content.\n\n"
+    .ascii "Chat Mode Features:\n"
+    .ascii "  - Enhanced keyboard: Shift+1 = !, Shift+2 = @, etc.\n"
+    .ascii "  - TAB key toggles between Chat and Terminal modes\n"
+    .ascii "  - Chat mode: messages sent via AT+QUICKMSG\n"
+    .ascii "  - Terminal mode: raw AT commands sent directly\n"
+    .ascii "  - Arrow keys navigate input history\n\n"
+    .ascii "The cyberterminal provides access to jonsharp.net\n"
+    .ascii "content and Aether mesh networking.\n\n"
     .asciz "Press B to return to your previous location."
 
 /* Each menu item is:
@@ -2028,6 +2272,24 @@ picture_mode_active:
 /* Chat mode variables */
 chat_mode_active:
     .dc.l    0               /* Flag for chat mode (0=off, 1=active) */
+
+/* UART2 terminal mode variables */
+uart2_mode_active:
+    .dc.l    0               /* Flag for UART2 mode (0=off, 1=active) */
+uart2_input_buffer:
+    .ds.b    80              /* Buffer for UART2 input */
+uart2_input_length:
+    .dc.l    0               /* Current length of UART2 input buffer */
+uart2_interrupt_counter:
+    .dc.l    0               /* Count of UART2 interrupts (for debugging) */
+
+/* Input mode variables - NEW ENHANCED FEATURE */
+input_mode:
+    .dc.l    MODE_CHAT       /* Current input mode: 0=chat, 1=terminal */
+
+/* Debug variable for modifier troubleshooting */
+modifier_debug_byte:
+    .dc.l    0               /* Last modifier byte read from KCTL */
 
 /* Network disable flag - set to 1 to disable all UART/aether functions */
 chat_network_disabled:
@@ -4636,13 +4898,28 @@ clear_footer_loop:
     /* Show enhanced prompt - start 3 chars right to avoid border overwrite */
     moveal  #TDABase + 1 + (21 * ScreenWidth) + 3, %a1
     
-    /* Add prompt: "Type: " */
+    /* Show current mode and prompt */
+    movel   input_mode, %d0
+    cmpl    #MODE_TERMINAL, %d0
+    beq     show_terminal_prompt
+    
+    /* Chat mode prompt */
+    moveb   #'C', (%a1)+
+    moveb   #'H', (%a1)+
+    moveb   #'A', (%a1)+
     moveb   #'T', (%a1)+
-    moveb   #'y', (%a1)+
-    moveb   #'p', (%a1)+
-    moveb   #'e', (%a1)+
     moveb   #':', (%a1)+
     moveb   #' ', (%a1)+
+    bra     prompt_done
+    
+show_terminal_prompt:
+    /* Terminal mode prompt */
+    moveb   #'A', (%a1)+
+    moveb   #'T', (%a1)+
+    moveb   #'>', (%a1)+
+    moveb   #' ', (%a1)+
+    
+prompt_done:
     
     /* Show current buffer contents */
     movel   chat_input_length, %d0
@@ -4682,6 +4959,36 @@ footer_done:
     moveb   #']', (%a1)+
     
 no_char_count:
+    /* Add mode toggle hint and modifier debug at right edge */
+    moveal  #TDABase + 1 + (21 * ScreenWidth) + 68, %a1
+    moveb   #'T', (%a1)+
+    moveb   #'A', (%a1)+
+    moveb   #'B', (%a1)+
+    moveb   #'=', (%a1)+
+    moveb   #'?', (%a1)+            /* Toggle symbol */
+    moveb   #' ', (%a1)+
+    
+    /* Show modifier debug value */
+    movel   modifier_debug_byte, %d0
+    andl    #0xFF, %d0              /* Keep only low byte */
+    lsrl    #4, %d0                 /* Get high nibble */
+    addil   #'0', %d0
+    cmpl    #'9', %d0
+    ble     mod_high_ok
+    addil   #7, %d0                 /* Convert A-F */
+mod_high_ok:
+    moveb   %d0, (%a1)+
+    
+    /* Low nibble */
+    movel   modifier_debug_byte, %d0
+    andl    #0xF, %d0
+    addil   #'0', %d0
+    cmpl    #'9', %d0
+    ble     mod_low_ok
+    addil   #7, %d0
+mod_low_ok:
+    moveb   %d0, (%a1)+
+    
     movel   (%sp)+, %a1
     movel   (%sp)+, %a0
     movel   (%sp)+, %d1
@@ -4709,6 +5016,10 @@ single_digit:
     addib   #'0', %d0
     moveb   %d0, (%a1)+
     rts
+
+/* Removed large function definitions to fix relocation issues
+ * Core functionality is now inlined in the keyboard input handler
+ */
 
 /* String constants */
 local_echo_prefix:
@@ -5238,5 +5549,295 @@ at_quickmsg_buffer:
     .ds.b   128  /* Buffer for AT+QUICKMSG=message command */
 
 /* End of network-ready chat functions */
+
+/* ======================================================================
+ * UART2 TERMINAL MODE FUNCTIONS  
+ * ====================================================================== */
+
+/* Process UART2 mode activation */
+.align 2
+process_uart2_mode:
+    movel   %d0, -(%sp)
+    movel   %d1, -(%sp)
+    movel   %d2, -(%sp)
+    movel   %a0, -(%sp)
+    
+    /* Check if already in UART2 mode */
+    cmpl    #1, uart2_mode_active
+    beq     toggle_uart2_off
+    
+    /* Enter UART2 mode */
+    movel   #1, uart2_mode_active
+    
+    /* Initialize UART2 */
+    jsr     uart2_init
+    
+    /* Clear screen and display UART2 interface */
+    jsr     clear_text_screen
+    jsr     display_uart2_interface
+    
+    /* Clear input buffer */
+    movel   #0, uart2_input_length
+    
+    bra     uart2_mode_done
+    
+toggle_uart2_off:
+    /* Exit UART2 mode */
+    movel   #0, uart2_mode_active
+    jsr     set_display_update_flag  /* Return to normal content display */
+    
+uart2_mode_done:
+    movel   (%sp)+, %a0
+    movel   (%sp)+, %d2
+    movel   (%sp)+, %d1
+    movel   (%sp)+, %d0
+    rts
+
+/* Initialize UART2 hardware */
+.align 2
+uart2_init:
+    /* Enable UART2 TX and RX with interrupts */
+    moveb   #0x07, UART2_CONTROL  /* CTRL_RX_ENABLE | CTRL_TX_ENABLE | CTRL_RX_INT_EN */
+    rts
+
+/* Display UART2 interface */
+.align 2
+display_uart2_interface:
+    movel   %d0, -(%sp)
+    movel   %a0, -(%sp)
+    movel   %a1, -(%sp)
+    
+    /* Display header */
+    moveal  #TDABase + 1, %a1
+    lea     uart2_header_msg, %a0
+    jsr     copy_string_to_screen
+    
+    /* Display instructions */
+    moveal  #TDABase + 1 + (2 * ScreenWidth), %a1
+    lea     uart2_instructions_msg, %a0
+    jsr     copy_string_to_screen
+    
+    /* Draw input line */
+    moveal  #TDABase + 1 + (21 * ScreenWidth), %a1
+    lea     uart2_prompt_msg, %a0
+    jsr     copy_string_to_screen
+    
+    movel   (%sp)+, %a1
+    movel   (%sp)+, %a0
+    movel   (%sp)+, %d0
+    rts
+
+/* Process keyboard input in UART2 mode */
+.align 2
+process_uart2_keyboard_input:
+    movel   %d0, -(%sp)
+    movel   %d1, -(%sp)
+    movel   %a0, -(%sp)
+    
+    /* Read the key */
+    moveal  #KCTLKeys, %a0
+    moveb   (%a0), %d0
+    
+    /* Check for ESC key to exit UART2 mode */
+    cmpb    #KEY_ESC, %d0
+    beq     exit_uart2_mode
+    
+    /* Check for backspace key */
+    cmpb    #KEY_BACKSPACE, %d0
+    beq     uart2_backspace
+    
+    /* Check for Enter key */
+    cmpb    #KEY_ENTER, %d0
+    beq     uart2_send_line
+    
+    /* Handle printable characters */
+    cmpl    #32, %d0           /* Space */
+    blt     finish_uart2_key_input   /* Ignore non-printable */
+    cmpl    #126, %d0          /* Tilde */
+    bgt     finish_uart2_key_input   /* Ignore non-printable */
+    
+    /* Add character to buffer */
+    movel   uart2_input_length, %d1
+    cmpl    #70, %d1
+    bge     finish_uart2_key_input
+    
+    lea     uart2_input_buffer, %a1
+    moveb   %d0, (%a1,%d1)
+    addql   #1, uart2_input_length
+    
+    /* Send character directly to UART2 */
+    moveb   %d0, UART2_TX
+    
+    /* Update display */
+    jsr     uart2_update_input_display
+    bra     finish_uart2_key_input
+
+exit_uart2_mode:
+    movel   #0, uart2_mode_active
+    jsr     set_display_update_flag
+    bra     finish_uart2_key_input
+
+uart2_backspace:
+    /* Remove last character */
+    cmpl    #0, uart2_input_length
+    beq     finish_uart2_key_input
+    subql   #1, uart2_input_length
+    jsr     uart2_update_input_display
+    bra     finish_uart2_key_input
+
+uart2_send_line:
+    /* Send CR+LF */
+    moveb   #13, UART2_TX      /* CR */
+    moveb   #10, UART2_TX      /* LF */
+    
+    /* Clear input buffer */
+    movel   #0, uart2_input_length
+    jsr     uart2_update_input_display
+    bra     finish_uart2_key_input
+
+finish_uart2_key_input:
+    /* Consume the key report */
+    moveb   #1, KCTLNextReport
+    
+    movel   (%sp)+, %a0
+    movel   (%sp)+, %d1
+    movel   (%sp)+, %d0
+    rts
+
+/* Update UART2 input line display */
+.align 2
+uart2_update_input_display:
+    movel   %d0, -(%sp)
+    movel   %d1, -(%sp)
+    movel   %a0, -(%sp)
+    movel   %a1, -(%sp)
+    
+    /* Clear input line */
+    moveal  #TDABase + 1 + (21 * ScreenWidth), %a1
+    lea     uart2_prompt_msg, %a0
+    jsr     copy_string_to_screen
+    
+    /* Display current input */
+    moveal  #TDABase + 1 + (21 * ScreenWidth) + 3, %a1  /* After "> " */
+    lea     uart2_input_buffer, %a0
+    movel   uart2_input_length, %d1
+    
+uart2_copy_input_loop:
+    tst.l   %d1
+    beq     uart2_input_done
+    moveb   (%a0)+, (%a1)+
+    subql   #1, %d1
+    bra     uart2_copy_input_loop
+    
+uart2_input_done:
+    movel   (%sp)+, %a1
+    movel   (%sp)+, %a0
+    movel   (%sp)+, %d1
+    movel   (%sp)+, %d0
+    rts
+
+/* Poll UART2 for incoming data */
+.align 2
+uart2_poll_incoming:
+    movel   %d0, -(%sp)
+    movel   %d1, -(%sp)
+    movel   %a0, -(%sp)
+    
+    /* Check if data available */
+    moveb   UART2_STATUS, %d0
+    btst    #0, %d0            /* STAT_RX_READY bit */
+    beq     uart2_poll_done
+    
+    /* Read the data */
+    moveb   UART2_RX, %d1
+    
+    /* Display it on screen at fixed location (line 10) */
+    moveal  #TDABase + 1 + (10 * ScreenWidth), %a1
+    lea     uart2_rx_prefix, %a0
+    jsr     copy_string_to_screen
+    
+    /* Add the character */
+    moveal  #TDABase + 1 + (10 * ScreenWidth) + 5, %a1  /* After "RX: " */
+    moveb   %d1, (%a1)
+    
+uart2_poll_done:
+    movel   (%sp)+, %a0
+    movel   (%sp)+, %d1
+    movel   (%sp)+, %d0
+    rts
+
+/* UART2 interrupt handler (Level 5) */
+.align 2
+uart2_interrupt_handler:
+    /* Save registers */
+    movel   %d0, -(%sp)
+    movel   %d1, -(%sp)
+    movel   %a0, -(%sp)
+    
+    /* DEBUG: Increment interrupt counter to show we're being called */
+    addql   #1, uart2_interrupt_counter
+    
+    /* DEBUG: Show 'I' at top-right to indicate interrupt fired */
+    moveal  #TDABase + 1 + 78, %a0    /* Position (78, 0) */
+    moveb   #'I', (%a0)
+    
+    /* Check if RX data available */
+    moveb   UART2_STATUS, %d0
+    btst    #0, %d0                  /* Test RX_READY bit */
+    beq     uart2_int_check_tx
+    
+    /* Read received data */
+    moveb   UART2_RX, %d1
+    
+    /* DEBUG: Show the received character at position (70, 0) */
+    moveal  #TDABase + 1 + 70, %a0
+    moveb   %d1, (%a0)
+    
+    /* Only display if we're in UART2 mode */
+    cmpl    #1, uart2_mode_active
+    bne     uart2_int_check_tx
+    
+    /* Show 'R' at position (75, 0) to indicate RX data processed */
+    moveal  #TDABase + 1 + 75, %a0
+    moveb   #'R', (%a0)
+    
+    /* Display received character in UART2 terminal area (line 8) */
+    moveal  #TDABase + 1 + (8 * ScreenWidth), %a1
+    lea     uart2_rx_prefix, %a0
+    jsr     copy_string_to_screen
+    
+    /* Add the received character after "RX: " */
+    moveal  #TDABase + 1 + (8 * ScreenWidth) + 4, %a1
+    moveb   %d1, (%a1)
+    
+    /* Add a newline by moving to next line for next RX */
+    moveal  #TDABase + 1 + (9 * ScreenWidth), %a1
+    moveb   #' ', (%a1)  /* Clear next line for future use */
+    
+uart2_int_check_tx:
+    /* Check if transmitter empty */
+    btst    #1, %d0                  /* Test TX_EMPTY bit */
+    beq     uart2_int_done
+    
+    /* Show 'T' at position (76, 0) to indicate TX interrupt */
+    moveal  #TDABase + 1 + 76, %a0
+    moveb   #'T', (%a0)
+    
+uart2_int_done:
+    /* Restore registers */
+    movel   (%sp)+, %a0
+    movel   (%sp)+, %d1
+    movel   (%sp)+, %d0
+    rte
+
+/* UART2 Mode String Constants */
+uart2_header_msg:
+    .string "=== PCD68 UART2 Terminal Mode === Direct Serial Communication"
+uart2_instructions_msg:
+    .string "Type to send via UART2 | Enter=newline | ESC=exit | Null-modem ready!"
+uart2_prompt_msg:
+    .string "> "
+uart2_rx_prefix:
+    .string "RX: "
 
 

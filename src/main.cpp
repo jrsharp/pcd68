@@ -374,8 +374,10 @@ int main(int argc, char** argv) {
             usingPipes = true;
         } else if (arg == "-pipe-in2" && i+1 < argc) {
             uartPipeIn2 = argv[++i];
+            usingPipes = true;
         } else if (arg == "-pipe-out2" && i+1 < argc) {
             uartPipeOut2 = argv[++i];
+            usingPipes = true;
 #endif
         } else if (!romProvided) {
             romFile = arg;
@@ -519,15 +521,18 @@ int main(int argc, char** argv) {
         }
     }
     else if (usingPipes) {
-        // Check required arguments
-        if (uartPipeIn1.empty() || uartPipeOut1.empty()) {
-            std::cerr << "Both input and output pipes for UART1 must be specified with -pipe-in1 and -pipe-out1" << std::endl;
+        // Check required arguments - at least one UART must have both pipes
+        bool uart1HasBoth = !uartPipeIn1.empty() && !uartPipeOut1.empty();
+        bool uart2HasBoth = !uartPipeIn2.empty() && !uartPipeOut2.empty();
+        
+        if (!uart1HasBoth && !uart2HasBoth) {
+            std::cerr << "At least one UART must have both input and output pipes specified" << std::endl;
             return -1;
         }
         
         result = uartController->connectPipes(
-            uartPipeIn1.c_str(),
-            uartPipeOut1.c_str(),
+            uartPipeIn1.empty() ? nullptr : uartPipeIn1.c_str(),
+            uartPipeOut1.empty() ? nullptr : uartPipeOut1.c_str(),
             uartPipeIn2.empty() ? nullptr : uartPipeIn2.c_str(),
             uartPipeOut2.empty() ? nullptr : uartPipeOut2.c_str()
         );
