@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FRST.net Aether Test Network BBS</title>
+    <meta name="description" content="Experience the FRST.net Aether Test Network - a decentralized mesh-networked bulletin board system running on the PCD-68 virtual retrocomputer.">
+    <meta name="keywords" content="mesh networking, LoRa, bulletin board, BBS, retro computing, 68000, PCD-68, FRST Computer, Aether Network">
+    <meta name="author" content="FRST Computer">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>">
+    
+    <!-- Open Graph / Social Media -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="FRST.net Aether Test Network BBS">
+    <meta property="og:description" content="A decentralized mesh-networked bulletin board system demonstrating resilient community communication.">
+    <meta property="og:url" content="https://aether.frstcomputer.net">
+    <meta property="og:site_name" content="FRST.net Aether Test Network">
+    
+    <style>
+      /* Reset and base styles */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      
+      body {
+        font-family: 'Courier New', monospace;
+        background: #0a0a0a;
+        color: #00ff41;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+
+      /* Terminal container */
+      .terminal-container {
+        width: 100%;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+      }
+
+      /* Header */
+      .terminal-header {
+        text-align: center;
+        padding: 20px;
+        position: absolute;
+        top: 0;
+        width: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        border-bottom: 2px solid #00ff41;
+      }
+
+      .terminal-header h1 {
+        font-size: 1.5em;
+        color: #00ff41;
+        text-shadow: 0 0 10px #00ff41;
+        margin-bottom: 5px;
+      }
+
+      .terminal-header p {
+        font-size: 0.9em;
+        color: #00cc33;
+        opacity: 0.8;
+      }
+
+      /* Canvas container */
+      #canvas-container {
+        position: relative;
+        border: 2px solid #00ff41;
+        box-shadow: 0 0 30px rgba(0, 255, 65, 0.5);
+        background: #000000;
+      }
+
+      /* The main canvas */
+      canvas {
+        display: block;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+      }
+
+      /* Status bar */
+      .status-bar {
+        position: absolute;
+        bottom: 0;
+        width: 100%;
+        padding: 10px 20px;
+        background: rgba(0, 0, 0, 0.9);
+        border-top: 1px solid #00ff41;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.85em;
+      }
+
+      .status-indicator {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .led {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #00ff41;
+        animation: pulse 2s infinite;
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.3; }
+      }
+
+      /* Loading screen */
+      #loading {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        z-index: 1000;
+      }
+
+      #loading h2 {
+        color: #00ff41;
+        margin-bottom: 20px;
+        font-size: 1.2em;
+        text-shadow: 0 0 10px #00ff41;
+      }
+
+      .loading-bar {
+        width: 300px;
+        height: 20px;
+        border: 1px solid #00ff41;
+        background: #000;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .loading-progress {
+        height: 100%;
+        background: linear-gradient(90deg, transparent, #00ff41, transparent);
+        animation: loading 1.5s infinite;
+      }
+
+      @keyframes loading {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+      }
+
+      /* Info panel */
+      .info-panel {
+        position: absolute;
+        top: 80px;
+        right: 20px;
+        background: rgba(0, 0, 0, 0.9);
+        border: 1px solid #00ff41;
+        padding: 15px;
+        max-width: 200px;
+        font-size: 0.8em;
+        display: none;
+      }
+
+      .info-panel h3 {
+        color: #00ff41;
+        margin-bottom: 10px;
+        border-bottom: 1px solid #00ff41;
+        padding-bottom: 5px;
+      }
+
+      .info-panel p {
+        margin: 5px 0;
+        color: #00cc33;
+      }
+
+      /* Mobile styles */
+      @media (max-width: 768px) {
+        .terminal-header h1 {
+          font-size: 1.2em;
+        }
+        
+        .info-panel {
+          display: none !important;
+        }
+
+        .status-bar {
+          font-size: 0.7em;
+        }
+      }
+
+      /* Hide Emscripten default elements */
+      #output {
+        display: none;
+      }
+
+      /* Controls hint */
+      .controls-hint {
+        position: absolute;
+        bottom: 40px;
+        left: 50%;
+        transform: translateX(-50%);
+        text-align: center;
+        color: #00ff41;
+        opacity: 0.7;
+        font-size: 0.9em;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="terminal-container">
+      <div class="terminal-header">
+        <h1>FRST.net Aether Test Network</h1>
+        <p>Decentralized Mesh-Networked BBS</p>
+      </div>
+
+      <div id="loading">
+        <h2>Initializing Aether Network...</h2>
+        <div class="loading-bar">
+          <div class="loading-progress"></div>
+        </div>
+      </div>
+
+      <div id="canvas-container">
+        <canvas class="emscripten" id="canvas" tabindex="-1"></canvas>
+        <div class="controls-hint">
+          Press ESC for menu • Click to focus
+        </div>
+      </div>
+
+      <div class="info-panel" id="infoPanel">
+        <h3>Network Status</h3>
+        <p>Network ID: AEAE0001</p>
+        <p>Frequency: 915.0 MHz</p>
+        <p>Nodes: <span id="nodeCount">Scanning...</span></p>
+        <p>Chat: #retro</p>
+      </div>
+
+      <div class="status-bar">
+        <div class="status-indicator">
+          <div class="led"></div>
+          <span>AETHER MESH ACTIVE</span>
+        </div>
+        <div>
+          <span id="statusText">Joining network...</span>
+        </div>
+        <div>
+          PCD-68 v1.0
+        </div>
+      </div>
+    </div>
+
+    <div id="output"></div>
+
+    <script type='text/javascript'>
+      var Module = {
+        preRun: [],
+        postRun: [],
+        print: (function() {
+          var element = document.getElementById('output');
+          if (element) element.value = ''; // clear browser cache
+          return function(text) {
+            if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+            console.log(text);
+          };
+        })(),
+        printErr: function(text) {
+          if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+          console.error(text);
+        },
+        canvas: (function() {
+          var canvas = document.getElementById('canvas');
+          canvas.addEventListener("webglcontextlost", function(e) {
+            alert('WebGL context lost. You will need to reload the page.');
+            e.preventDefault();
+          }, false);
+          return canvas;
+        })(),
+        setStatus: function(text) {
+          if (!text) {
+            // Hide loading when done
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('statusText').textContent = 'Connected to Aether Network';
+            // Show info panel after loading
+            setTimeout(() => {
+              document.getElementById('infoPanel').style.display = 'block';
+            }, 1000);
+            // Simulate node discovery
+            setTimeout(() => {
+              document.getElementById('nodeCount').textContent = Math.floor(Math.random() * 5 + 2);
+            }, 2000);
+          } else {
+            console.log('Status:', text);
+          }
+        },
+        totalDependencies: 0,
+        monitorRunDependencies: function(left) {
+          this.totalDependencies = Math.max(this.totalDependencies, left);
+          Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : '');
+        }
+      };
+      
+      Module.setStatus('Downloading...');
+      
+      window.onerror = function() {
+        Module.setStatus('Exception thrown, see JavaScript console');
+        Module.setStatus = function(text) {
+          if (text) console.error('[post-exception status] ' + text);
+        };
+      };
+
+      // Focus canvas on click
+      document.getElementById('canvas').addEventListener('click', function() {
+        this.focus();
+      });
+
+      // Add keyboard hint
+      document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(() => {
+          const hint = document.querySelector('.controls-hint');
+          if (hint) {
+            setTimeout(() => {
+              hint.style.opacity = '0';
+              setTimeout(() => {
+                hint.style.display = 'none';
+              }, 1000);
+            }, 5000);
+          }
+        }, 3000);
+      });
+    </script>
+    
+    <!-- The emscripten-generated JavaScript will be included here -->
+    {{{ SCRIPT }}}
+  </body>
+</html>
