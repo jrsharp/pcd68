@@ -66,6 +66,7 @@
 .equ KEY_C, 99                 /* 'c' for Chat mode */
 .equ KEY_D, 100                /* 'd' for Debug mode */
 .equ KEY_U, 117                /* 'u' for UART2 mode */
+.equ KEY_N, 110                /* 'n' for Network/AT modem mode (UART1) */
 .equ KEY_T, 116                /* 't' for Text mode (return from art mode) */
 .equ KEY_UP_ARROW, 16          /* Up arrow key (SDL maps to ASCII 16) */
 .equ KEY_DOWN_ARROW, 17        /* Down arrow key (SDL maps to ASCII 17) */
@@ -253,6 +254,10 @@ main_loop:
     cmpl    #1, uart2_mode_active
     beq     uart2_mode_loop
     
+    /* Check if we're in UART1 AT mode */
+    cmpl    #1, uart1_at_mode_active
+    beq     uart1_at_mode_loop
+    
     /* Check if we're in debug mode */
     cmpl    #1, debug_mode_active
     beq     debug_mode_loop
@@ -322,6 +327,27 @@ uart2_mode_no_input:
 uart2_delay_loop:
     subil   #1, %d0
     bne     uart2_delay_loop
+    bra     main_loop
+
+uart1_at_mode_loop:
+    /* UART1 AT Modem Mode - Network/Aether protocol communication */
+    moveb   KCTLCount, %d0
+    cmpl    #0, %d0
+    beq     uart1_at_mode_no_input   /* No input, continue */
+    
+    /* Process keyboard input for UART1 AT mode */
+    jsr     process_uart1_at_keyboard_input
+    bra     main_loop
+
+uart1_at_mode_no_input:
+    /* Poll UART1 for incoming AT responses */
+    jsr     uart1_at_poll_incoming
+    
+    /* Add delay to prevent tight loop */
+    movel   #1000, %d0
+uart1_at_delay_loop:
+    subil   #1, %d0
+    bne     uart1_at_delay_loop
     bra     main_loop
 
 debug_mode_loop:
@@ -536,7 +562,7 @@ perform_refresh:
     /* Draw the commands line */
     jsr     draw_footer
     
-    /* redraw borders */
+    /* redraw borders AFTER footer to ensure bottom border persists */
     jsr     draw_borders
     
     /* Reset update flag */
@@ -597,7 +623,11 @@ draw_status:
     
     /* Calculate position for status line (line 19) */
     movel   #19, %d0
-    muls    #ScreenWidth, %d0
+    /* Multiply by 80 using shift and add: 19 * 80 = 19 * (64 + 16) */
+    movel   %d0, %d1
+    lsll    #6, %d0          /* d0 = 19 * 64 */
+    lsll    #4, %d1          /* d1 = 19 * 16 */
+    addl    %d1, %d0         /* d0 = 19 * 80 */
     lea     TDABase + 1, %a0
     addl    %d0, %a0
     moveal  %a0, %a2
@@ -749,7 +779,11 @@ key_end_char_display:
 draw_chat_status_line:
     /* Calculate position for status line (line 19) */
     movel   #19, %d0
-    muls    #ScreenWidth, %d0
+    /* Multiply by 80 using shift and add: 19 * 80 = 19 * (64 + 16) */
+    movel   %d0, %d1
+    lsll    #6, %d0          /* d0 = 19 * 64 */
+    lsll    #4, %d1          /* d1 = 19 * 16 */
+    addl    %d1, %d0         /* d0 = 19 * 80 */
     lea     TDABase + 1, %a0
     addl    %d0, %a0
     moveal  %a0, %a2
@@ -838,7 +872,11 @@ draw_footer:
     
     /* Position for commands line (line 21) */
     movel   #21, %d0
-    muls    #ScreenWidth, %d0
+    /* Multiply by 80 using shift and add: 21 * 80 = 21 * (64 + 16) */
+    movel   %d0, %d1
+    lsll    #6, %d0          /* d0 = 21 * 64 */
+    lsll    #4, %d1          /* d1 = 21 * 16 */
+    addl    %d1, %d0         /* d0 = 21 * 80 */
     lea     TDABase + 1, %a0
     addl    %d0, %a0
     moveal  %a0, %a2
@@ -851,12 +889,20 @@ draw_footer:
     cmpl    #1, chat_mode_active
     beq     draw_chat_footer
     
-    /* CRITICAL FIX: Save A2 before calling print_string_no_advance */
-    /* because print_string_no_advance restores ALL registers */
-    movel   %a2, -(%sp)         /* Save current screen position */
+    /* Copy footer_commands string manually without print_string_no_advance */
     lea     footer_commands, %a5
-    jsr     print_string_no_advance
-    movel   (%sp)+, %a2         /* Restore screen position */
+    movel   %a2, %a0                    /* Save start position */
+footer_copy_loop:
+    moveb   (%a5)+, %d0
+    beq     footer_copy_done            /* Null terminator reached */
+    moveb   %d0, (%a2)+
+    /* Check if we're near the end of the line to avoid overflow */
+    movel   %a2, %d0
+    subl    %a0, %d0                    /* Calculate how many chars we've written */
+    cmpl    #76, %d0                    /* Stop at 76 chars to leave room for right border */
+    bge     footer_copy_done
+    bra     footer_copy_loop
+footer_copy_done:
     bra     finish_footer_draw
 
 draw_chat_footer:
@@ -887,26 +933,20 @@ show_live_input:
     bra     finish_footer_draw
 
 finish_footer_draw:
-    /* Fill remaining space */
-    movel   %a2, %a1
-    subal   %a0, %a1
-    subl    #ScreenWidth, %a1
-    subl    #2, %a1            /* Account for | and space */
-    movel   #ScreenWidth - 2, %d0
-    subl    %a1, %d0
+    /* Fill remaining space safely by calculating absolute position */
+    lea     TDABase + 1 + (21 * ScreenWidth) + 79, %a1  /* End position (column 79) */
     
-    movel   #0, %d1
-cmd_space_loop:
-    cmpl    %d0, %d1
-    bge     cmd_space_end
+    /* Fill spaces until we reach the end position */
+simple_space_loop:
+    cmpl    %a1, %a2
+    bge     simple_space_end
     moveb   #' ', (%a2)+
-    addl    #1, %d1
-    bra     cmd_space_loop
-cmd_space_end:
+    bra     simple_space_loop
+simple_space_end:
     
-    /* Close command line with right border */
-    moveal  #TDABase + 1 + (21 * ScreenWidth) + ScreenWidth - 1, %a2
-    moveb   #'|', (%a2)+
+    /* Close command line with right border at exact position */
+    moveal  #TDABase + 1 + (21 * ScreenWidth) + 79, %a2
+    moveb   #'|', (%a2)       /* Write right border at column 79 */
     
     /* Restore registers */
     movel   (%sp)+, %a2
@@ -958,6 +998,8 @@ process_keyboard_input:
     beq     process_key_debug
     cmpb    #KEY_U, %d0        /* 'u' for UART2 mode */
     beq     process_key_uart2
+    cmpb    #KEY_N, %d0        /* 'n' for Network/AT modem mode */
+    beq     process_key_uart1_at
     cmpb    #KEY_J, %d0        /* 'j' for scroll down */
     beq     process_key_scroll_down
     cmpb    #KEY_K, %d0        /* 'k' for scroll up */
@@ -1334,6 +1376,10 @@ process_key_debug:
 
 process_key_uart2:
     jsr     process_uart2_mode
+    bra     finish_key_input
+
+process_key_uart1_at:
+    jsr     process_uart1_at_mode
     bra     finish_key_input
 
 process_key_scroll_down:
@@ -2152,7 +2198,7 @@ version_text:
 .equ version_text_length, 23
 
 footer_commands:
-    .string "Keys: j=down, k=up, 0=top, 1-9=sections, a=art mode, c=chat mode, t=text mode"
+    .string "Keys: j=down, k=up, 0=top, 1-9=sections, a=art, c=chat, n=network, u=uart2"
 status_text:
     .string "Loc: "
 selection_text:
@@ -2276,12 +2322,28 @@ chat_mode_active:
 /* UART2 terminal mode variables */
 uart2_mode_active:
     .dc.l    0               /* Flag for UART2 mode (0=off, 1=active) */
+
+/* UART1 AT modem mode variables */
+uart1_at_mode_active:
+    .dc.l    0               /* Flag for UART1 AT mode (0=off, 1=active) */
 uart2_input_buffer:
     .ds.b    80              /* Buffer for UART2 input */
 uart2_input_length:
     .dc.l    0               /* Current length of UART2 input buffer */
 uart2_interrupt_counter:
     .dc.l    0               /* Count of UART2 interrupts (for debugging) */
+
+/* UART1 AT modem input variables */
+uart1_at_input_buffer:
+    .ds.b    80              /* Buffer for AT command input */
+uart1_at_input_length:
+    .dc.l    0               /* Current length of AT input buffer */
+uart1_at_response_buffer:
+    .ds.b    512             /* Buffer for AT response data */
+uart1_at_response_length:
+    .dc.l    0               /* Current length of response buffer */
+uart1_at_response_line:
+    .dc.l    9               /* Current line number for response display (starts at line 9, content area) */
 
 /* Input mode variables - NEW ENHANCED FEATURE */
 input_mode:
@@ -2789,6 +2851,44 @@ send_netjoin_command_async:
     movel   (%sp)+, %d0
     rts
 
+/* Send AT command wrapper for UART1 AT mode - delegates to aether_modem.S */
+.global send_at_command_wrapper
+send_at_command_wrapper:
+    movem.l %d0-%d2/%a0-%a1, -(%sp)
+    
+    /* Clear any existing response buffer */
+    movel   #0, uart1_at_response_length
+    
+    /* Reset response display to line 9 */
+    movel   #9, uart1_at_response_line
+    
+    /* Display the sent command in the response area */
+    moveal  #TDABase + 1 + (7 * ScreenWidth), %a1
+    
+    /* Clear the line first */
+    moveq   #80, %d0
+send_at_clear_line:
+    moveb   #' ', (%a1)+
+    subql   #1, %d0
+    bne     send_at_clear_line
+    
+    /* Reset pointer to start of line */
+    subal   #80, %a1
+    
+    lea     uart1_at_sent_prefix, %a0
+    jsr     copy_string_to_screen
+    
+    /* Display the command that was sent */
+    lea     uart1_at_input_buffer, %a0
+    jsr     copy_string_to_screen
+    
+    /* Call the actual send_at_command from aether_modem.S */
+    lea     uart1_at_input_buffer, %a0
+    jsr     send_at_command
+    
+    movem.l (%sp)+, %d0-%d2/%a0-%a1
+    rts
+
 /* Send string to UART1 asynchronously (non-blocking) */
 send_string_async:
     movel   %d0, -(%sp)
@@ -3105,10 +3205,10 @@ clear_content_lines:
     muls    #ScreenWidth, %d0
     lea     TDABase + 1, %a0
     addl    %d0, %a0
-    addl    #2, %a0               /* Skip left border and space */
+    addl    #1, %a0               /* Skip left border only */
     
-    /* Clear content (leave 3 chars for borders) */
-    movel   #ScreenWidth - 3, %d0
+    /* Clear content (leave 2 chars for borders) */
+    movel   #ScreenWidth - 2, %d0
 clear_line_loop:
     moveb   #' ', (%a0)+
     subql   #1, %d0
@@ -5656,6 +5756,142 @@ process_uart2_keyboard_input:
     cmpl    #126, %d0          /* Tilde */
     bgt     finish_uart2_key_input   /* Ignore non-printable */
     
+    /* Process character with modifier support - same as UART1 AT mode */
+    /* Get modifier byte */
+    moveb   KCTLModifiers, %d1
+    
+    /* Apply shift if pressed - test for EITHER left or right shift */
+    btst    #0, %d1              /* Test left SHIFT bit */
+    bne     uart2_apply_shift_transform
+    btst    #1, %d1              /* Test right SHIFT bit */
+    beq     uart2_no_shift_mod
+    
+uart2_apply_shift_transform:
+    /* Apply shift transformations for special characters */
+    /* Numbers to symbols */
+    cmpb    #'1', %d0
+    beq     uart2_shift_1
+    cmpb    #'2', %d0
+    beq     uart2_shift_2
+    cmpb    #'3', %d0
+    beq     uart2_shift_3
+    cmpb    #'4', %d0
+    beq     uart2_shift_4
+    cmpb    #'5', %d0
+    beq     uart2_shift_5
+    cmpb    #'6', %d0
+    beq     uart2_shift_6
+    cmpb    #'7', %d0
+    beq     uart2_shift_7
+    cmpb    #'8', %d0
+    beq     uart2_shift_8
+    cmpb    #'9', %d0
+    beq     uart2_shift_9
+    cmpb    #'0', %d0
+    beq     uart2_shift_0
+    
+    /* Letters to uppercase */
+    cmpb    #'a', %d0
+    blt     uart2_check_punctuation
+    cmpb    #'z', %d0
+    bgt     uart2_check_punctuation
+    sub     #32, %d0             /* Convert to uppercase */
+    bra     uart2_no_shift_mod
+    
+uart2_check_punctuation:
+    /* Punctuation transformations */
+    cmpb    #'-', %d0
+    beq     uart2_shift_dash
+    cmpb    #'=', %d0
+    beq     uart2_shift_equals
+    cmpb    #'[', %d0
+    beq     uart2_shift_leftbracket
+    cmpb    #']', %d0
+    beq     uart2_shift_rightbracket
+    cmpb    #'\\', %d0
+    beq     uart2_shift_backslash
+    cmpb    #';', %d0
+    beq     uart2_shift_semicolon
+    cmpb    #'\'', %d0
+    beq     uart2_shift_quote
+    cmpb    #'`', %d0
+    beq     uart2_shift_backtick
+    cmpb    #',', %d0
+    beq     uart2_shift_comma
+    cmpb    #'.', %d0
+    beq     uart2_shift_period
+    cmpb    #'/', %d0
+    beq     uart2_shift_slash
+    bra     uart2_no_shift_mod
+    
+/* Shift transformations for numbers */
+uart2_shift_1:
+    moveb   #'!', %d0
+    bra     uart2_no_shift_mod
+uart2_shift_2:
+    moveb   #'@', %d0
+    bra     uart2_no_shift_mod
+uart2_shift_3:
+    moveb   #'#', %d0
+    bra     uart2_no_shift_mod
+uart2_shift_4:
+    moveb   #'$', %d0
+    bra     uart2_no_shift_mod
+uart2_shift_5:
+    moveb   #'%', %d0
+    bra     uart2_no_shift_mod
+uart2_shift_6:
+    moveb   #'^', %d0
+    bra     uart2_no_shift_mod
+uart2_shift_7:
+    moveb   #'&', %d0
+    bra     uart2_no_shift_mod
+uart2_shift_8:
+    moveb   #'*', %d0
+    bra     uart2_no_shift_mod
+uart2_shift_9:
+    moveb   #'(', %d0
+    bra     uart2_no_shift_mod
+uart2_shift_0:
+    moveb   #')', %d0
+    bra     uart2_no_shift_mod
+    
+/* Shift transformations for punctuation */
+uart2_shift_dash:
+    moveb   #'_', %d0
+    bra     uart2_no_shift_mod
+uart2_shift_equals:
+    moveb   #'+', %d0
+    bra     uart2_no_shift_mod
+uart2_shift_leftbracket:
+    moveb   #'{', %d0
+    bra     uart2_no_shift_mod
+uart2_shift_rightbracket:
+    moveb   #'}', %d0
+    bra     uart2_no_shift_mod
+uart2_shift_backslash:
+    moveb   #'|', %d0
+    bra     uart2_no_shift_mod
+uart2_shift_semicolon:
+    moveb   #':', %d0
+    bra     uart2_no_shift_mod
+uart2_shift_quote:
+    moveb   #'"', %d0
+    bra     uart2_no_shift_mod
+uart2_shift_backtick:
+    moveb   #'~', %d0
+    bra     uart2_no_shift_mod
+uart2_shift_comma:
+    moveb   #'<', %d0
+    bra     uart2_no_shift_mod
+uart2_shift_period:
+    moveb   #'>', %d0
+    bra     uart2_no_shift_mod
+uart2_shift_slash:
+    moveb   #'?', %d0
+    bra     uart2_no_shift_mod
+    
+uart2_no_shift_mod:
     /* Add character to buffer */
     movel   uart2_input_length, %d1
     cmpl    #70, %d1
@@ -5838,6 +6074,446 @@ uart2_instructions_msg:
 uart2_prompt_msg:
     .string "> "
 uart2_rx_prefix:
+    .string "RX: "
+
+/*
+ * UART1 AT MODEM MODE FUNCTIONS  
+ */
+
+/* Process UART1 AT mode activation */
+.global process_uart1_at_mode
+process_uart1_at_mode:
+    movem.l %d0-%d7/%a0-%a6, -(%sp)
+    
+    /* Check if already in UART1 AT mode */
+    cmpl    #1, uart1_at_mode_active
+    beq     toggle_uart1_at_off
+    
+    /* Enter UART1 AT mode */
+    movel   #1, uart1_at_mode_active
+    
+    /* Initialize UART1 and Aether modem */
+    jsr     uart1_at_init
+    
+    /* Clear screen and display AT interface */
+    jsr     clear_screen
+    jsr     display_uart1_at_interface
+    
+    /* Clear input buffer */
+    movel   #0, uart1_at_input_length
+    
+    bra     uart1_at_mode_done
+
+toggle_uart1_at_off:
+    /* Exit UART1 AT mode */
+    movel   #0, uart1_at_mode_active
+    
+    /* Clear screen and redraw main interface */
+    jsr     clear_screen
+    jsr     draw_header
+    jsr     draw_footer
+    jsr     set_display_update_flag
+
+uart1_at_mode_done:
+    movem.l (%sp)+, %d0-%d7/%a0-%a6
+    rts
+
+/* Initialize UART1 AT modem */
+.global uart1_at_init
+uart1_at_init:
+    movem.l %d0-%d7/%a0-%a6, -(%sp)
+    
+    /* Enable UART1 TX and RX without interrupts for now */
+    moveb   #0x03, UART1_CONTROL  /* CTRL_RX_ENABLE | CTRL_TX_ENABLE */
+    
+    /* Don't call aether_init here - it might block */
+    /* User can manually send AT commands to initialize */
+    
+    movem.l (%sp)+, %d0-%d7/%a0-%a6
+    rts
+
+/* Display UART1 AT interface */
+.global display_uart1_at_interface
+display_uart1_at_interface:
+    movem.l %d0-%d7/%a0-%a6, -(%sp)
+    
+    /* Use proper layout: header in Line 1, content area starts at Line 4 */
+    /* Display header in header area (Line 1) */
+    moveal  #TDABase + 1 + (1 * ScreenWidth), %a1
+    moveb   #'|', (%a1)+         /* Left border */
+    moveb   #' ', (%a1)+         /* Space */
+    lea     uart1_at_header_msg, %a0
+    jsr     copy_string_to_screen
+    
+    /* Display instructions in content area (Line 3) */
+    moveal  #TDABase + 1 + (3 * ScreenWidth), %a1
+    moveb   #'|', (%a1)+         /* Left border */
+    moveb   #' ', (%a1)+         /* Space */
+    lea     uart1_at_instructions_msg, %a0
+    jsr     copy_string_to_screen
+    
+    /* Display AT prompt in content area (Line 5) */
+    moveal  #TDABase + 1 + (5 * ScreenWidth), %a1
+    moveb   #'|', (%a1)+         /* Left border */
+    moveb   #' ', (%a1)+         /* Space */
+    lea     uart1_at_prompt_msg, %a0
+    jsr     copy_string_to_screen
+    
+    /* Draw borders to maintain layout */
+    jsr     draw_borders
+    /* Ensure footer is displayed */
+    jsr     draw_footer
+    
+    movem.l (%sp)+, %d0-%d7/%a0-%a6
+    rts
+
+/* Process keyboard input in UART1 AT mode */
+.global process_uart1_at_keyboard_input
+process_uart1_at_keyboard_input:
+    movel   %d0, -(%sp)
+    movel   %d1, -(%sp)
+    movel   %a0, -(%sp)
+    
+    /* Read the key */
+    moveal  #KCTLKeys, %a0
+    moveb   (%a0), %d0
+    
+    /* Check for ESC key to exit AT mode */
+    cmpb    #27, %d0
+    beq     exit_uart1_at_mode
+    
+    /* Check for backspace */
+    cmpb    #8, %d0
+    beq     uart1_at_backspace
+    
+    /* Check for enter key */
+    cmpb    #13, %d0
+    beq     uart1_at_send_command
+    
+    /* Check if it's a printable character */
+    cmpb    #32, %d0
+    blt     finish_uart1_at_key_input   /* Ignore non-printable */
+    cmpb    #126, %d0
+    bgt     finish_uart1_at_key_input   /* Ignore non-printable */
+    
+    /* Process character with modifier support - same as chat mode */
+    /* Get modifier byte */
+    moveb   KCTLModifiers, %d1
+    
+    /* Apply shift if pressed - test for EITHER left or right shift */
+    btst    #0, %d1              /* Test left SHIFT bit */
+    bne     uart1_apply_shift_transform
+    btst    #1, %d1              /* Test right SHIFT bit */
+    beq     uart1_no_shift_mod
+    
+uart1_apply_shift_transform:
+    /* Apply shift transformations for AT commands */
+    /* Numbers to symbols */
+    cmpb    #'1', %d0
+    beq     uart1_shift_1
+    cmpb    #'2', %d0
+    beq     uart1_shift_2
+    cmpb    #'3', %d0
+    beq     uart1_shift_3
+    cmpb    #'4', %d0
+    beq     uart1_shift_4
+    cmpb    #'5', %d0
+    beq     uart1_shift_5
+    cmpb    #'6', %d0
+    beq     uart1_shift_6
+    cmpb    #'7', %d0
+    beq     uart1_shift_7
+    cmpb    #'8', %d0
+    beq     uart1_shift_8
+    cmpb    #'9', %d0
+    beq     uart1_shift_9
+    cmpb    #'0', %d0
+    beq     uart1_shift_0
+    
+    /* Letters to uppercase */
+    cmpb    #'a', %d0
+    blt     uart1_check_shift_symbols
+    cmpb    #'z', %d0
+    bgt     uart1_check_shift_symbols
+    subb    #32, %d0             /* Convert to uppercase */
+    bra     uart1_no_shift_mod
+    
+uart1_check_shift_symbols:
+    /* Common symbols - especially = to + for AT+ commands */
+    cmpb    #'-', %d0
+    beq     uart1_shift_minus
+    cmpb    #'=', %d0
+    beq     uart1_shift_equals
+    cmpb    #';', %d0
+    beq     uart1_shift_semicolon
+    cmpb    #'\'', %d0
+    beq     uart1_shift_apostrophe
+    cmpb    #',', %d0
+    beq     uart1_shift_comma
+    cmpb    #'.', %d0
+    beq     uart1_shift_period
+    cmpb    #'/', %d0
+    beq     uart1_shift_slash
+    bra     uart1_no_shift_mod
+    
+uart1_shift_1:
+    moveb   #'!', %d0
+    bra     uart1_no_shift_mod
+uart1_shift_2:
+    moveb   #'@', %d0
+    bra     uart1_no_shift_mod
+uart1_shift_3:
+    moveb   #'#', %d0
+    bra     uart1_no_shift_mod
+uart1_shift_4:
+    moveb   #'$', %d0
+    bra     uart1_no_shift_mod
+uart1_shift_5:
+    moveb   #'%', %d0
+    bra     uart1_no_shift_mod
+uart1_shift_6:
+    moveb   #'^', %d0
+    bra     uart1_no_shift_mod
+uart1_shift_7:
+    moveb   #'&', %d0
+    bra     uart1_no_shift_mod
+uart1_shift_8:
+    moveb   #'*', %d0
+    bra     uart1_no_shift_mod
+uart1_shift_9:
+    moveb   #'(', %d0
+    bra     uart1_no_shift_mod
+uart1_shift_0:
+    moveb   #')', %d0
+    bra     uart1_no_shift_mod
+uart1_shift_minus:
+    moveb   #'_', %d0
+    bra     uart1_no_shift_mod
+uart1_shift_equals:
+    moveb   #'+', %d0             /* This is the key one for AT+ commands! */
+    bra     uart1_no_shift_mod
+uart1_shift_semicolon:
+    moveb   #':', %d0
+    bra     uart1_no_shift_mod
+uart1_shift_apostrophe:
+    moveb   #'"', %d0
+    bra     uart1_no_shift_mod
+uart1_shift_comma:
+    moveb   #'<', %d0
+    bra     uart1_no_shift_mod
+uart1_shift_period:
+    moveb   #'>', %d0
+    bra     uart1_no_shift_mod
+uart1_shift_slash:
+    moveb   #'?', %d0
+    
+uart1_no_shift_mod:
+    /* Add character to input buffer if there's space */
+    movel   uart1_at_input_length, %d1
+    cmpl    #70, %d1
+    bge     finish_uart1_at_key_input
+    
+    lea     uart1_at_input_buffer, %a1
+    moveb   %d0, (%a1,%d1)
+    addql   #1, uart1_at_input_length
+    
+    /* Update display */
+    jsr     uart1_at_update_input_display
+    bra     finish_uart1_at_key_input
+
+exit_uart1_at_mode:
+    movel   #0, uart1_at_mode_active
+    jsr     set_display_update_flag
+    bra     finish_uart1_at_key_input
+
+uart1_at_backspace:
+    /* Remove last character if buffer not empty */
+    cmpl    #0, uart1_at_input_length
+    beq     finish_uart1_at_key_input
+    subql   #1, uart1_at_input_length
+    jsr     uart1_at_update_input_display
+    bra     finish_uart1_at_key_input
+
+uart1_at_send_command:
+    /* Send AT command via aether modem */
+    /* Null-terminate the input buffer */
+    movel   uart1_at_input_length, %d1
+    lea     uart1_at_input_buffer, %a0
+    moveb   #0, (%a0,%d1)
+    
+    /* Send the AT command using our wrapper */
+    jsr     send_at_command_wrapper
+    
+    /* Clear input buffer and update display */
+    movel   #0, uart1_at_input_length
+    jsr     uart1_at_update_input_display
+    bra     finish_uart1_at_key_input
+
+finish_uart1_at_key_input:
+    /* Consume the key report */
+    moveb   #1, KCTLNextReport
+    
+    movel   (%sp)+, %a0
+    movel   (%sp)+, %d1
+    movel   (%sp)+, %d0
+    rts
+
+/* Update UART1 AT input line display */
+.global uart1_at_update_input_display
+uart1_at_update_input_display:
+    movem.l %d0-%d7/%a0-%a6, -(%sp)
+    
+    /* Clear input line (Line 5 - content area) */
+    moveal  #TDABase + 1 + (5 * ScreenWidth), %a1
+    moveq   #80, %d0
+clear_at_input_line:
+    moveb   #' ', (%a1)+
+    subql   #1, %d0
+    bne     clear_at_input_line
+    
+    /* Reset pointer and add left border */
+    moveal  #TDABase + 1 + (5 * ScreenWidth), %a1
+    moveb   #'|', (%a1)+
+    moveb   #' ', (%a1)+
+    
+    /* Display prompt */
+    lea     uart1_at_prompt_msg, %a0
+    jsr     copy_string_to_screen
+    
+    /* Advance cursor past prompt (copy_string_to_screen restores registers) */
+    addq    #4, %a1                     /* Skip "AT> " (4 chars) */
+    
+    /* Display current input */
+    lea     uart1_at_input_buffer, %a0
+    movel   uart1_at_input_length, %d1
+    
+uart1_at_copy_input_loop:
+    cmpl    #0, %d1
+    beq     uart1_at_input_done
+    moveb   (%a0)+, (%a1)+
+    subql   #1, %d1
+    bra     uart1_at_copy_input_loop
+
+uart1_at_input_done:
+    movem.l (%sp)+, %d0-%d7/%a0-%a6
+    rts
+
+/* Poll UART1 for incoming AT responses */
+.global uart1_at_poll_incoming
+uart1_at_poll_incoming:
+    movem.l %d0-%d7/%a0-%a6, -(%sp)
+    
+    /* Check if data available on UART1 */
+    moveb   UART1_STATUS, %d0
+    andi.b  #0x01, %d0
+    beq     uart1_at_poll_done
+    
+    /* Read received data */
+    moveb   UART1_RX, %d1
+    
+    /* Add to response buffer */
+    movel   uart1_at_response_length, %d2
+    cmpl    #500, %d2                   /* Check buffer overflow */
+    bge     uart1_at_poll_done
+    
+    lea     uart1_at_response_buffer, %a0
+    moveb   %d1, (%a0,%d2)
+    addql   #1, uart1_at_response_length
+    
+    /* Check for line ending (CR or LF) */
+    cmpb    #13, %d1                    /* CR */
+    beq     uart1_at_display_line
+    cmpb    #10, %d1                    /* LF */
+    beq     uart1_at_check_skip         /* Skip LF if follows CR */
+    bra     uart1_at_poll_done
+    
+uart1_at_check_skip:
+    /* If previous char was CR, skip this LF */
+    cmpl    #1, %d2
+    ble     uart1_at_display_line
+    lea     uart1_at_response_buffer, %a0
+    moveb   -2(%a0,%d2), %d3
+    cmpb    #13, %d3
+    beq     uart1_at_skip_lf
+    bra     uart1_at_display_line
+    
+uart1_at_skip_lf:
+    /* Remove the LF from buffer */
+    subql   #1, uart1_at_response_length
+    bra     uart1_at_poll_done
+    
+uart1_at_display_line:
+    /* Null-terminate the response buffer (remove CR/LF) */
+    movel   uart1_at_response_length, %d2
+    lea     uart1_at_response_buffer, %a0
+    subql   #1, %d2                     /* Remove the CR/LF */
+    moveb   #0, (%a0,%d2)
+    
+    /* Display on current response line */
+    movel   uart1_at_response_line, %d3
+    cmpl    #17, %d3                    /* Max line 17 (end of content area) */
+    bge     uart1_at_reset_display
+    
+    /* Calculate TDA position for this line */
+    movel   %d3, %d4
+    /* Multiply line number by 80 (ScreenWidth) */
+    movel   %d4, %d5
+    lsll    #6, %d4                     /* d4 = line * 64 */
+    lsll    #4, %d5                     /* d5 = line * 16 */
+    addl    %d5, %d4                    /* d4 = line * 80 */
+    addl    #1, %d4                     /* Skip first column */
+    moveal  #TDABase, %a1
+    addal   %d4, %a1
+    
+    /* Clear the line first */
+    moveq   #80, %d0
+uart1_at_clear_line:
+    moveb   #' ', (%a1)+
+    subql   #1, %d0
+    bne     uart1_at_clear_line
+    
+    /* Reset pointer to start of line */
+    subal   #80, %a1
+    
+    /* Add left border */
+    moveb   #'|', (%a1)+
+    moveb   #' ', (%a1)+
+    
+    /* Display "RX: " prefix */
+    lea     uart1_at_rx_short, %a0
+    jsr     copy_string_to_screen
+    
+    /* Display the response text */
+    lea     uart1_at_response_buffer, %a0
+    jsr     copy_string_to_screen
+    
+    /* Clear response buffer for next line */
+    movel   #0, uart1_at_response_length
+    
+    /* Move to next line */
+    addql   #1, uart1_at_response_line
+    bra     uart1_at_poll_done
+    
+uart1_at_reset_display:
+    /* Reset to line 9 if we've filled the content area */
+    movel   #9, uart1_at_response_line
+
+uart1_at_poll_done:
+    movem.l (%sp)+, %d0-%d7/%a0-%a6
+    rts
+
+/* UART1 AT Mode String Constants */
+uart1_at_header_msg:
+    .string "=== PCD68 Network/Aether AT Command Interface ==="
+uart1_at_instructions_msg:
+    .string "Enter AT commands | Enter=send | ESC=exit | Connecting to aether.frstcomputer.net"
+uart1_at_prompt_msg:
+    .string "AT> "
+uart1_at_rx_prefix:
+    .string "Response: "
+uart1_at_sent_prefix:
+    .string "Sent: "
+uart1_at_rx_short:
     .string "RX: "
 
 

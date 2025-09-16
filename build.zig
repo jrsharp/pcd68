@@ -89,11 +89,11 @@ pub fn build(b: *std.Build) void {
         cp_pcd68home.step.dependOn(&cp_rom1.step);
 
         // Fix the variable name in the header file
-        const fix_var_name = b.addSystemCommand(&.{ "sed", "-i", "''", "-e", "s/jonsharp_net_program_bin/text_demo_bin/g", "src/text_demo.h" });
+        const fix_var_name = b.addSystemCommand(&.{ "sed", "-i", "s/jonsharp_net_program_bin/text_demo_bin/g", "src/text_demo.h" });
         fix_var_name.step.dependOn(&cp_pcd68home.step);
 
         // Fix the length variable name in the header file
-        const fix_len_name = b.addSystemCommand(&.{ "sed", "-i", "''", "-e", "s/jonsharp_net_program_bin_len/text_demo_bin_len/g", "src/text_demo.h" });
+        const fix_len_name = b.addSystemCommand(&.{ "sed", "-i", "s/jonsharp_net_program_bin_len/text_demo_bin_len/g", "src/text_demo.h" });
         fix_len_name.step.dependOn(&fix_var_name.step);
 
         // Copy other test ROMs
@@ -145,7 +145,7 @@ pub fn build(b: *std.Build) void {
             "-sASSERTIONS=0",
             "-sMALLOC=dlmalloc",
             "-sINITIAL_MEMORY=134217728",
-            "-sSTACK_SIZE=8388608",
+            "-sASYNCIFY_STACK_SIZE=8388608",
             "-sWASM_BIGINT=1",
             "-lwebsocket",
             "-sWEBSOCKET_URL=\"ws://\"",
