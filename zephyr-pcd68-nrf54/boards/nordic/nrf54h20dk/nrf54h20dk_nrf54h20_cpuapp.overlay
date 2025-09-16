@@ -1,0 +1,116 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Device Tree overlay for PCD68 Model 4 CyberTerminal
+ * nRF54H20-DK with ST7796S 4" 480x320 LCD Display
+ */
+
+/ {
+    chosen {
+        zephyr,display = &st7796s;
+    };
+    
+    aliases {
+        display0 = &st7796s;
+    };
+    
+    fstab {
+        compatible = "zephyr,fstab";
+        lfs1: lfs1 {
+            compatible = "zephyr,fstab,littlefs";
+            mount-point = "/lfs1";
+            partition = <&storage_partition>;
+            automount;
+            read-size = <16>;
+            prog-size = <16>;
+            cache-size = <64>;
+            lookahead-size = <32>;
+            block-cycles = <512>;
+        };
+    };
+};
+
+&spi4 {
+    status = "okay";
+    compatible = "nordic,nrf-spim";
+    pinctrl-0 = <&spi4_default>;
+    pinctrl-1 = <&spi4_sleep>;
+    pinctrl-names = "default", "sleep";
+    cs-gpios = <&gpio0 11 GPIO_ACTIVE_LOW>;
+    
+    st7796s: st7796s@0 {
+        compatible = "sitronix,st7796s";
+        status = "okay";
+        reg = <0>;
+        spi-max-frequency = <40000000>;
+        reset-gpios = <&gpio1 6 GPIO_ACTIVE_LOW>;
+        cmd-data-gpios = <&gpio1 8 GPIO_ACTIVE_LOW>;
+        width = <480>;
+        height = <320>;
+        pixel-format = <1>; /* RGB565 = 1, RGB888 = 2, Mono = 0 */
+        rotation = <90>; /* Landscape mode */
+        /* ST7796S specific initialization */
+        madctl = <0x48>; /* MY=0, MX=1, MV=0, ML=0, BGR=1, MH=0 */
+        colmod = <0x55>; /* 16-bit RGB565 */
+        porctrl = [0c 0c 00 33 33];
+        gctrl = [35];
+        vcoms = [1f];
+        lcmctrl = [2c];
+        vdvvrhen = [01];
+        vrhs = [12];
+        vdvs = [20];
+        pwctrl1 = [a4 a1];
+        frctrl2 = [0f];
+        gmctrp1 = [d0 04 0d 11 13 2b 3f 54 4c 18 0d 0b 1f 23];
+        gmctrn1 = [d0 04 0c 11 13 2c 3f 44 51 2f 1f 1f 20 23];
+    };
+};
+
+/* SPI4 configuration already defined above */
+
+&pinctrl {
+    spi4_default: spi4_default {
+        group1 {
+            psels = <NRF_PSEL(SPIM_SCK, 0, 8)>,
+                    <NRF_PSEL(SPIM_MOSI, 0, 9)>,
+                    <NRF_PSEL(SPIM_MISO, 0, 10)>;
+        };
+    };
+
+    spi4_sleep: spi4_sleep {
+        group1 {
+            psels = <NRF_PSEL(SPIM_SCK, 0, 8)>,
+                    <NRF_PSEL(SPIM_MOSI, 0, 9)>,
+                    <NRF_PSEL(SPIM_MISO, 0, 10)>;
+            low-power-enable;
+        };
+    };
+};
+
+/* GPIO configuration for display control pins */
+&gpio0 {
+    status = "okay";
+};
+
+/* Increase SPI buffer sizes for display */
+&spi4 {
+    /delete-property/ tx-buffer-size;
+    /delete-property/ rx-buffer-size;
+    tx-buffer-size = <4096>;
+    rx-buffer-size = <4096>;
+};
+
+/* Flash partitions for storage */
+&flash0 {
+    partitions {
+        compatible = "fixed-partitions";
+        #address-cells = <1>;
+        #size-cells = <1>;
+
+        /* Reserve space for LittleFS storage */
+        storage_partition: partition@f0000 {
+            label = "storage";
+            reg = <0x000f0000 0x00010000>;
+        };
+    };
+};

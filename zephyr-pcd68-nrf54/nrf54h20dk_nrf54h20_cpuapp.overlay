@@ -1,0 +1,146 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Device Tree overlay for PCD68 Model 4 CyberTerminal
+ * nRF54H20-DK without display (temporarily disabled)
+ */
+
+/ {
+    chosen {
+        /* Display temporarily disabled */
+    };
+
+    aliases {
+        /* Display temporarily disabled */
+    };
+    
+    fstab {
+        compatible = "zephyr,fstab";
+        lfs1: lfs1 {
+            compatible = "zephyr,fstab,littlefs";
+            mount-point = "/lfs1";
+            partition = <&storage_partition>;
+            automount;
+            read-size = <16>;
+            prog-size = <16>;
+            cache-size = <64>;
+            lookahead-size = <32>;
+            block-cycles = <512>;
+        };
+    };
+};
+
+/*
+ * MODEL 4 CYBERTERMINAL - OPTIMIZED PARTITION LAYOUT
+ * Relocates VPR cores to maximize PCD68 application space
+ * Research confirmed VPR partitions are device tree configurable!
+ */
+&mram1x {
+    partitions {
+        compatible = "fixed-partitions";
+        #address-cells = <1>;
+        #size-cells = <1>;
+
+        /* Delete ALL default partitions to redefine layout */
+        /delete-node/ partition@30000;
+        /delete-node/ partition@40000;
+        /delete-node/ partition@92000;
+        /delete-node/ partition@e4000;
+        /delete-node/ partition@f4000;
+        /delete-node/ partition@100000;
+        /delete-node/ partition@152000;
+        /delete-node/ partition@1a4000;
+        /delete-node/ partition@1ae000;
+
+        /* BOOTLOADER - Required by system */
+        boot_partition: partition@30000 {
+            reg = <0x30000 DT_SIZE_K(64)>; /* 64KB @ 0x30000-0x40000 */
+        };
+
+        /* PCD68 MAIN APP - 700KB for emulation core */
+        slot0_partition: partition@40000 {
+            label = "image-0";
+            reg = <0x40000 DT_SIZE_K(700)>; /* 700KB @ 0x40000-0xef000 */
+        };
+
+        /* PPR CORE - Relocated, minimal size */
+        cpuppr_code_partition: partition@ef000 {
+            reg = <0xef000 DT_SIZE_K(20)>; /* 20KB @ 0xef000-0xf4000 */
+        };
+
+        /* FLPR CORE - Keep at original location */
+        cpuflpr_code_partition: partition@f4000 {
+            reg = <0xf4000 DT_SIZE_K(48)>; /* 48KB @ 0xf4000-0x100000 */
+        };
+
+        /* RADIO CORE - For BLE keyboard functionality */
+        cpurad_slot0_partition: partition@100000 {
+            reg = <0x100000 DT_SIZE_K(256)>; /* 256KB @ 0x100000-0x140000 */
+        };
+
+        /* STORAGE - LittleFS for application data */
+        storage_partition: partition@140000 {
+            label = "storage";
+            reg = <0x140000 DT_SIZE_K(400)>; /* 400KB @ 0x140000-0x1a4000 */
+        };
+
+        /* PERIPHERAL CONFIG - Keep original */
+        periphconf_partition: partition@1a4000 {
+            reg = <0x1a4000 DT_SIZE_K(40)>; /* 40KB @ 0x1a4000-0x1ae000 */
+        };
+    };
+};
+
+/* Use the standard slot0_partition reference */
+/ {
+    chosen {
+        zephyr,code-partition = &slot0_partition;
+    };
+};
+
+/* Display and SPI temporarily disabled for basic emulation testing */
+/*
+&pinctrl {
+    spi120_default: spi120_default {
+        group1 {
+            psels = <NRF_PSEL(SPIM_SCK, 0, 8)>,
+                    <NRF_PSEL(SPIM_MOSI, 0, 9)>,
+                    <NRF_PSEL(SPIM_MISO, 0, 10)>;
+        };
+    };
+
+    spi120_sleep: spi120_sleep {
+        group1 {
+            psels = <NRF_PSEL(SPIM_SCK, 0, 8)>,
+                    <NRF_PSEL(SPIM_MOSI, 0, 9)>,
+                    <NRF_PSEL(SPIM_MISO, 0, 10)>;
+            low-power-enable;
+        };
+    };
+};
+
+&spi120 {
+    status = "okay";
+    pinctrl-0 = <&spi120_default>;
+    pinctrl-1 = <&spi120_sleep>;
+    pinctrl-names = "default", "sleep";
+    cs-gpios = <&gpio0 11 GPIO_ACTIVE_LOW>;
+
+    st7796s: st7796s@0 {
+        compatible = "sitronix,st7796s";
+        reg = <0>;
+        mipi-max-frequency = <40000000>;
+        cmd-data-gpios = <&gpio1 8 GPIO_ACTIVE_LOW>;
+        reset-gpios = <&gpio1 6 GPIO_ACTIVE_LOW>;
+        width = <480>;
+        height = <320>;
+        x-offset = <0>;
+        y-offset = <0>;
+
+        pgc = <0xd0 0x00 0x05 0x0e 0x15 0x0d 0x37 0x43 0x47 0x09 0x15 0x12 0x16 0x19>;
+        ngc = <0xd0 0x00 0x05 0x0d 0x0c 0x06 0x2d 0x44 0x40 0e 0x1c 0x18 0x16 0x19>;
+    };
+};
+*/
+
+

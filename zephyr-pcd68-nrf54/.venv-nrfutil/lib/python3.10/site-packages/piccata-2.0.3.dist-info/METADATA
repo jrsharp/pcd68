@@ -1,0 +1,8 @@
+Metadata-Version: 2.1
+Name: piccata
+Version: 2.0.3
+Summary: Python CoAP Toolkit
+Home-page: https://github.com/NordicSemiconductor/piccata
+Author: Nordic Semiconductor
+License-File: LICENSE
+

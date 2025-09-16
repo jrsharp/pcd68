@@ -1,0 +1,12 @@
+manifest:
+  version: "0.13"
+
+  projects:
+    # Use local nRF Connect SDK 3.1-branch
+    - name: nrf
+      url: file:///mnt2/src/sdk-nrf
+      revision: v3.1-branch
+      import: true
+
+  self:
+    path: zephyr-pcd68-nrf54

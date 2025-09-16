@@ -1,0 +1,7 @@
+#!/home/jrsharp/src/pcd68-cpp/zephyr-pcd68-nrf54/.venv-ncs/bin/python3
+import sys
+from serial.tools.miniterm import main
+if __name__ == '__main__':
+    if sys.argv[0].endswith('.exe'):
+        sys.argv[0] = sys.argv[0][:-4]
+    sys.exit(main())

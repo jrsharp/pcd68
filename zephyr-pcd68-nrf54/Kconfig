@@ -1,0 +1,190 @@
+# PCD68 Zephyr Configuration
+
+mainmenu "PCD68 Emulator Configuration"
+
+config PCD68_RAM_SIZE_MB
+    int "RAM size in megabytes"
+    default 4
+    range 1 8
+    help
+      Amount of RAM to allocate for the emulated system in megabytes.
+      Default is 4MB which matches the original PCD68 specification.
+
+config PCD68_ROM_SIZE_KB
+    int "ROM size in kilobytes"
+    default 64
+    range 32 256
+    help
+      Size of ROM space in kilobytes. Default is 64KB.
+
+config PCD68_ENABLE_EINK_EMULATION
+    bool "Enable E-Ink display emulation"
+    default y
+    help
+      Enable E-Ink display characteristics emulation (ghosting, refresh delays).
+      Disable for faster display updates.
+
+config PCD68_EINK_PARTIAL_REFRESH
+    bool "Enable E-Ink partial refresh"
+    default y
+    depends on PCD68_ENABLE_EINK_EMULATION
+    help
+      Enable partial refresh for E-paper displays to reduce ghosting
+      and improve battery life. Only refreshes changed regions.
+
+config PCD68_EINK_REFRESH_RATE_MS
+    int "E-Ink refresh rate in milliseconds"
+    default 2000
+    range 100 10000
+    depends on PCD68_ENABLE_EINK_EMULATION
+    help
+      Minimum time between full E-paper refreshes in milliseconds.
+      Typical values: 1000-5000ms for E-paper, 33ms for LCD.
+
+config PCD68_EINK_PARTIAL_THRESHOLD
+    int "Partial refresh threshold percentage"
+    default 25
+    range 1 100
+    depends on PCD68_EINK_PARTIAL_REFRESH
+    help
+      Maximum percentage of screen that can change before forcing
+      a full refresh instead of partial refresh. Lower values
+      favor partial refreshes.
+
+config PCD68_EINK_GHOSTING_EMULATION
+    bool "Enable E-Ink ghosting emulation"
+    default n
+    depends on PCD68_ENABLE_EINK_EMULATION
+    help
+      Emulate E-paper ghosting effects for authentic retro feel.
+      May impact performance.
+
+config PCD68_DISPLAY_DRIVER
+    string "Display driver selection"
+    default "ST7796S" if BOARD_NRF54H20DK_NRF54H20_CPUAPP
+    default "ILI9341" if BOARD_ESP32S3_DEVKITM
+    help
+      Select the display driver to use. Options include:
+      - ST7796S (480x320 SPI LCD, 4-inch)
+      - ILI9341 (320x240 SPI LCD)
+      - EPD (E-paper display)
+      - SSD1306 (OLED)
+
+config PCD68_DISPLAY_SPI_FREQUENCY
+    int "Display SPI frequency in Hz"
+    default 32000000 if BOARD_NRF54H20DK_NRF54H20_CPUAPP
+    default 40000000
+    range 1000000 80000000
+    help
+      SPI frequency for display communication in Hz.
+
+config PCD68_KEYBOARD_TYPE
+    string "Keyboard input type"
+    default "BLE_GATT" if BOARD_NRF54H20DK_NRF54H20_CPUAPP
+    default "USB_HID"
+    help
+      Select keyboard input method:
+      - BLE_GATT (Bluetooth GATT HID keyboard)
+      - USB_HID (USB keyboard via ESP32-S3 USB host)
+      - I2C_KEYBOARD (I2C-based keyboard controller)
+      - UART_TERMINAL (Serial terminal input)
+      - MATRIX (GPIO matrix keyboard)
+
+config PCD68_KEYBOARD_TYPE_BLE_GATT
+    bool
+    default y if PCD68_KEYBOARD_TYPE = "BLE_GATT"
+    help
+      Internal configuration option for BLE GATT keyboard type.
+
+config PCD68_ENABLE_UART1
+    bool "Enable UART1"
+    default y
+    help
+      Enable the first UART peripheral.
+
+config PCD68_ENABLE_UART2
+    bool "Enable UART2"
+    default n
+    help
+      Enable the second UART peripheral.
+
+config PCD68_UART1_DEVICE
+    string "UART1 device"
+    default "UART_2"
+    depends on PCD68_ENABLE_UART1
+    help
+      Device name for UART1 (e.g., UART_2 for ESP32-S3).
+
+config PCD68_UART2_DEVICE
+    string "UART2 device"
+    default "UART_1"
+    depends on PCD68_ENABLE_UART2
+    help
+      Device name for UART2.
+
+config PCD68_STORAGE_TYPE
+    string "Storage type for ROMs"
+    default "FLASH"
+    help
+      Storage location for ROM files:
+      - FLASH (Internal flash partition)
+      - SDCARD (SD card via SPI)
+      - LITTLEFS (LittleFS filesystem)
+
+config PCD68_DEFAULT_ROM
+    string "Default ROM to load"
+    default "jonsharp.bin"
+    help
+      Name of the default ROM file to load at startup.
+
+config PCD68_ENABLE_WIFI
+    bool "Enable WiFi support"
+    default n
+    select WIFI
+    select WIFI_ESP32
+    help
+      Enable WiFi for network features (future: telnet, file transfer).
+
+config PCD68_ENABLE_BLUETOOTH
+    bool "Enable Bluetooth support"
+    default n
+    select BT
+    select BT_PERIPHERAL
+    help
+      Enable Bluetooth for wireless keyboard/serial support.
+
+config PCD68_CPU_THROTTLE
+    bool "Enable CPU throttling"
+    default y
+    help
+      Throttle the 68000 CPU to approximate original speed.
+      Disable for maximum emulation speed.
+
+config PCD68_TARGET_CPU_MHZ
+    int "Target CPU speed in MHz"
+    default 8
+    range 1 16
+    depends on PCD68_CPU_THROTTLE
+    help
+      Target 68000 CPU speed in MHz for throttling.
+
+config PCD68_DEBUG_LEVEL
+    int "Debug output level"
+    default 1
+    range 0 3
+    help
+      Debug output verbosity:
+      0 - No debug output
+      1 - Basic status messages
+      2 - Detailed peripheral access
+      3 - Full CPU trace
+
+config PCD68_USE_LIGHTWEIGHT_VM
+    bool "Use lightweight VM instead of full 68000 emulation"
+    default y if SOC_SERIES_NRF54HX
+    help
+      Use a lightweight bytecode VM instead of full Moira 68000 emulation.
+      This drastically reduces flash usage but requires programs to be
+      compiled to VM bytecode instead of native 68000 machine code.
+
+source "Kconfig.zephyr"
