@@ -5,7 +5,9 @@
  */
 
 #include "Screen.h"
+#ifndef USE_ZEPHYR
 #include <iostream>
+#endif
 
 // C'tor
 Screen::Screen(uint32_t start, uint32_t size) :

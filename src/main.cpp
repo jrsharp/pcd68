@@ -474,11 +474,13 @@ int main(int argc, char** argv) {
 
 #ifdef __EMSCRIPTEN__
     // Connect UART to websocket for Emscripten target
-    const char* webSocketUrl1 = "ws://localhost:8080";
+    // UART1 connects to Aether simulator gateway for AT commands
+    const char* webSocketUrl1 = "ws://aether.frstcomputer.net:8080";
+    // UART2 remains available for local connections or future expansion
     const char* webSocketUrl2 = "ws://localhost:8081";
     std::cout << "Attempting to connect UART to WebSockets (non-fatal if this fails):" << std::endl;
-    std::cout << "  UART1: " << webSocketUrl1 << std::endl;
-    std::cout << "  UART2: " << webSocketUrl2 << std::endl;
+    std::cout << "  UART1 (Aether): " << webSocketUrl1 << std::endl;
+    std::cout << "  UART2 (Local): " << webSocketUrl2 << std::endl;
     uartController->connectWebsocket(webSocketUrl1, webSocketUrl2);
     std::cout << "PCD-68 emulator running with or without WebSocket connections." << std::endl;
     std::cout << "WebSocket connection failures are normal when running in browser." << std::endl;

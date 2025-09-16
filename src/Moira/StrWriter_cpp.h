@@ -7,7 +7,24 @@
 // See https://www.gnu.org for license information
 // -----------------------------------------------------------------------------
 
+#ifndef USE_ZEPHYR
 #include <cmath>
+#else
+// Provide simple replacements for math functions used in disassembly
+static double log10(double x) {
+    if (x <= 0) return 0;
+    double result = 0;
+    while (x >= 10) { x /= 10; result++; }
+    return result;
+}
+
+static double log2(double x) {
+    if (x <= 0) return 0;
+    double result = 0;
+    while (x >= 2) { x /= 2; result++; }
+    return result;
+}
+#endif
 
 static const char *instrLower[]
 {

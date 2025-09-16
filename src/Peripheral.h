@@ -2,9 +2,19 @@
 
 #pragma once
 
-#include "Moira/Moira.h"
-
+#ifdef CONFIG_PCD68_USE_LIGHTWEIGHT_VM
+// When using lightweight VM, types are defined in PCD68_VM.h
+#include <stdint.h>
+namespace moira {
+    typedef uint8_t u8;
+    typedef uint16_t u16;
+    typedef uint32_t u32;
+}
 using namespace moira;
+#else
+#include "Moira/Moira.h"
+using namespace moira;
+#endif
 
 class Peripheral {
 public:
@@ -23,6 +33,10 @@ public:
     bool isValidFor(uint32_t addr) {
         return baseAddress <= addr && addr < endAddress;
     }
+
+protected:
+    uint32_t getBaseAddress() const { return baseAddress; }
+    uint32_t getEndAddress() const { return endAddress; }
 
 private:
     uint32_t baseAddress;

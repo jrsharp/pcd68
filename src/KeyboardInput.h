@@ -6,7 +6,9 @@
 
 #pragma once
 
+#ifndef USE_ZEPHYR
 #include <functional>
+#endif
 #include <stdint.h>
 
 using u8 = uint8_t;
@@ -22,7 +24,11 @@ public:
      * @param keycode The keycode of the pressed key
      * @param mod The modifier keys that were held during the keypress
      */
+#ifndef USE_ZEPHYR
     using KeyEventCallback = std::function<void(u16 keycode, u16 mod)>;
+#else
+    using KeyEventCallback = void(*)(u16 keycode, u16 mod);
+#endif
 
     /**
      * Callback type for multi-key keyboard events
@@ -30,7 +36,11 @@ public:
      * @param keyCount Number of keys in the report
      * @param mod The modifier keys that were held during the keypress
      */
+#ifndef USE_ZEPHYR
     using KeyMultiEventCallback = std::function<void(const u8* keycodes, u8 keyCount, u8 mod)>;
+#else
+    using KeyMultiEventCallback = void(*)(const u8* keycodes, u8 keyCount, u8 mod);
+#endif
 
     /**
      * Constructor

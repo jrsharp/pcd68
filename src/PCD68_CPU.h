@@ -2,9 +2,37 @@
 
 #include "Moira/Moira.h"
 #include "Peripheral.h"
+#ifndef USE_ZEPHYR
 #include <iostream>
 #include <list>
 #include <vector>
+#else
+#include <cstddef>
+// Simple replacement for std::vector for Zephyr
+template<typename T>
+class simple_vector {
+private:
+    T* data;
+    size_t sz;
+    size_t capacity;
+public:
+    simple_vector() : data(nullptr), sz(0), capacity(0) {}
+    ~simple_vector() { if (data) delete[] data; }
+    void push_back(const T& item) {
+        if (sz >= capacity) {
+            size_t new_cap = capacity ? capacity * 2 : 4;
+            T* new_data = new T[new_cap];
+            for (size_t j = 0; j < sz; ++j) new_data[j] = data[j];
+            delete[] data;
+            data = new_data;
+            capacity = new_cap;
+        }
+        data[sz++] = item;
+    }
+    T& operator[](size_t i) { return data[i]; }
+    size_t size() const { return sz; }
+};
+#endif
 
 using namespace moira;
 
@@ -147,5 +175,9 @@ public:
     int attachPeripheral(Peripheral* peripheral);
 
 private:
+#ifdef USE_ZEPHYR
+    simple_vector<Peripheral*> peripherals;
+#else
     std::vector<Peripheral*> peripherals;
+#endif
 };

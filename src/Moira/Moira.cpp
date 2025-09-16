@@ -10,7 +10,25 @@
 #include "Moira.h"
 
 #include <stdio.h>
+#ifndef USE_ZEPHYR
 #include <algorithm>
+#else
+// Provide std::swap and abs implementations for Zephyr
+namespace std {
+    template<typename T>
+    void swap(T& a, T& b) {
+        T temp = a;
+        a = b;
+        b = temp;
+    }
+}
+
+// Provide abs function
+template<typename T>
+T abs(T x) {
+    return x < 0 ? -x : x;
+}
+#endif
 
 namespace moira {
 

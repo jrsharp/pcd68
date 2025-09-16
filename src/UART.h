@@ -2,11 +2,15 @@
 
 #include "PCD68_CPU.h"
 #include "Peripheral.h"
+#ifndef USE_ZEPHYR
 #include <cstring>
 #include <queue>
 #include <array>
 #include <mutex>
 #include <vector>
+#else
+#include <string.h>
+#endif
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -17,7 +21,7 @@ static EM_BOOL websocket2_callback(int eventType, const EmscriptenWebSocketMessa
 static EM_BOOL websocket_open_callback(int eventType, const EmscriptenWebSocketOpenEvent *event, void *userData);
 #endif
 
-#ifndef __EMSCRIPTEN__
+#if !defined(__EMSCRIPTEN__) && !defined(USE_ZEPHYR)
 #include <fcntl.h>
 #include <termios.h>
 #include <unistd.h>
@@ -269,11 +273,19 @@ protected:
     CPU* cpu;                    // CPU instance
     Registers registers;         // UART registers
     
+#ifdef USE_ZEPHYR
+    // Simple queues for Zephyr (without std::queue)
+    u8 rxFifo[2][256];           // Simple RX circular buffers
+    u8 txFifo[2][256];           // Simple TX circular buffers
+    uint16_t rxHead[2], rxTail[2];  // Circular buffer indices
+    uint16_t txHead[2], txTail[2];  // Circular buffer indices
+#else
     std::array<std::queue<u8>, 2> rxFifo;  // RX FIFO for both channels
     std::array<std::queue<u8>, 2> txFifo;  // TX FIFO for both channels
     
     std::mutex rxMutex;          // Mutex for RX FIFO access
     std::mutex txMutex;          // Mutex for TX FIFO access
+#endif
     
     bool debugMode;              // Debug mode flag
     
@@ -296,6 +308,9 @@ private:
 #ifdef __EMSCRIPTEN__
     std::array<int, 2> websocketId;    // Emscripten websocket ID for each channel
     std::array<bool, 2> connected;     // Websocket connected flag for each channel
+#elif defined(USE_ZEPHYR)
+    // Zephyr-specific implementation (no file descriptors)
+    bool connected[2];                 // Connection status for both channels
 #else
     std::array<int, 2> serialFd;       // File descriptors for serial ports
     std::array<bool, 2> serialConnected; // Connected status for serial ports
@@ -310,4 +325,15 @@ private:
     // TCP helper method
     bool connectToHost(const char* host, int port, int& socket_fd);
 #endif
+
+    // Private helper methods for FIFO management (used in Zephyr implementation)
+    bool rxFifoEmpty(Channel channel);
+    bool rxFifoFull(Channel channel);
+    void pushRxByte(Channel channel, u8 byte);
+    u8 popRxByte(Channel channel);
+    bool txFifoEmpty(Channel channel);
+    bool txFifoFull(Channel channel);
+    void pushTxByte(Channel channel, u8 byte);
+    u8 popTxByte(Channel channel);
+    u8 getStatusRegister(Channel channel);
 }; 

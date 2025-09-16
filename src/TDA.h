@@ -3,7 +3,11 @@
 #include "PCD68_CPU.h"
 #include "Peripheral.h"
 #include "Screen.h"
+#ifndef USE_ZEPHYR
 #include <cstring>
+#else
+#include <string.h>
+#endif
 #include <stdint.h>
 
 extern u8* systemRam;

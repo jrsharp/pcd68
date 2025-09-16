@@ -1,7 +1,9 @@
 #include "UART.h"
+#ifndef USE_ZEPHYR
 #include <iostream>
 #include <iomanip>
 #include <sstream>
+#endif
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>

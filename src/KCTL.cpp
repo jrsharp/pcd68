@@ -1,5 +1,10 @@
 #include "KCTL.h"
 
+#ifdef USE_ZEPHYR
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(kctl, LOG_LEVEL_WRN);  // Reduce logging to save flash space
+#endif
+
 KCTL::KCTL(CPU* cpu, uint32_t start, uint32_t size) :
     Peripheral(start, size) {
     this->cpu = cpu;
@@ -30,8 +35,12 @@ void KCTL::updateMultiKey(const u8* keycodes, u8 keyCount, u8 mod) {
     // Ignore empty updates or if keyboard is disabled
     if (keyCount == 0 || !(registers.status & StatusBits::KEYBOARD_ENABLED)) {
         if (debugMode && keyCount > 0) {
+#ifndef USE_ZEPHYR
             std::cout << "KCTL::updateMultiKey - Keyboard disabled, ignoring "
                       << (int)keyCount << " keycodes" << std::endl;
+#else
+            LOG_DBG("KCTL::updateMultiKey - Keyboard disabled, ignoring %d keycodes", (int)keyCount);
+#endif
         }
         return;
     }
@@ -39,8 +48,12 @@ void KCTL::updateMultiKey(const u8* keycodes, u8 keyCount, u8 mod) {
     // Limit key count to what fits in a report
     if (keyCount > KEYS_IN_REPORT) {
         if (debugMode) {
+#ifndef USE_ZEPHYR
             std::cout << "KCTL::updateMultiKey - Too many keys (" << (int)keyCount
                       << "), limiting to " << KEYS_IN_REPORT << std::endl;
+#else
+            LOG_DBG("KCTL::updateMultiKey - Too many keys (%d), limiting to %d", (int)keyCount, KEYS_IN_REPORT);
+#endif
         }
         keyCount = KEYS_IN_REPORT;
     }
@@ -48,13 +61,18 @@ void KCTL::updateMultiKey(const u8* keycodes, u8 keyCount, u8 mod) {
     // Fast path for report overflow - avoid costly debug print if not needed
     if (registers.pendingReportCount >= REPORT_STACK_SIZE) {
         if (debugMode) {
+#ifndef USE_ZEPHYR
             std::cout << "KCTL::updateMultiKey - WARNING: Report stack is full! Keys ignored." << std::endl;
+#else
+            LOG_WRN("KCTL::updateMultiKey - Report stack is full! Keys ignored.");
+#endif
         }
         return;
     }
 
     // Log the update call if debug is enabled
     if (debugMode) {
+#ifndef USE_ZEPHYR
         std::cout << "KCTL::updateMultiKey - " << (int)keyCount << " keys, mod: 0x"
                   << std::hex << (int)mod << std::dec
                   << ", pending reports: " << (int)registers.pendingReportCount
@@ -65,6 +83,15 @@ void KCTL::updateMultiKey(const u8* keycodes, u8 keyCount, u8 mod) {
             std::cout << "  Key[" << i << "]: 0x" << std::hex << (int)keycodes[i]
                       << std::dec << " ('" << (char)keycodes[i] << "')" << std::endl;
         }
+#else
+        LOG_DBG("KCTL::updateMultiKey - %d keys, mod: 0x%02x, pending reports: %d/%d", 
+                (int)keyCount, (int)mod, (int)registers.pendingReportCount, REPORT_STACK_SIZE);
+
+        // Print each keycode
+        for (int i = 0; i < keyCount; i++) {
+            LOG_DBG("  Key[%d]: 0x%02x ('%c')", i, (int)keycodes[i], (char)keycodes[i]);
+        }
+#endif
     }
 
     // Update warning flag based on queue fullness
@@ -99,17 +126,27 @@ void KCTL::updateMultiKey(const u8* keycodes, u8 keyCount, u8 mod) {
     this->cpu->setIPL(KBD_INT_LEVEL);
 
     if (debugMode) {
+#ifndef USE_ZEPHYR
         std::cout << "KCTL::updateMultiKey - Added report with " << (int)keyCount
                   << " keys, new count: " << (int)registers.pendingReportCount
                   << ", setting IPL to " << (int)KBD_INT_LEVEL << std::endl;
+#else
+        LOG_DBG("KCTL::updateMultiKey - Added report with %d keys, new count: %d, setting IPL to %d", 
+                (int)keyCount, (int)registers.pendingReportCount, (int)KBD_INT_LEVEL);
+#endif
     }
 }
 
 void KCTL::clear() {
     // Only log when there are still reports pending
     if (debugMode && registers.pendingReportCount > 0) {
+#ifndef USE_ZEPHYR
         std::cout << "KCTL::clear - Clearing interrupt, setting IPL to 0, pending count: " 
                   << (int)registers.pendingReportCount << std::endl;
+#else
+        LOG_DBG("KCTL::clear - Clearing interrupt, setting IPL to 0, pending count: %d", 
+                (int)registers.pendingReportCount);
+#endif
     }
     this->cpu->setIPL(0x00);
 }
@@ -140,13 +177,22 @@ void KCTL::advanceToNextReport() {
             headIndex = 0;
 
             if (debugMode) {
+#ifndef USE_ZEPHYR
                 std::cout << "KCTL::advanceToNextReport - Queue empty, clearing interrupt" << std::endl;
+#else
+                LOG_DBG("KCTL::advanceToNextReport - Queue empty, clearing interrupt");
+#endif
             }
         }
 
         if (debugMode) {
+#ifndef USE_ZEPHYR
             std::cout << "KCTL::advanceToNextReport - Advanced queue, new count: "
                       << (int)registers.pendingReportCount << "/" << REPORT_STACK_SIZE << std::endl;
+#else
+            LOG_DBG("KCTL::advanceToNextReport - Advanced queue, new count: %d/%d",
+                    (int)registers.pendingReportCount, REPORT_STACK_SIZE);
+#endif
         }
     }
 }
@@ -206,11 +252,19 @@ u8 KCTL::read8(u32 addr) {
                     u8 keyValue = registers.reportStack[0].keys[keyIndex];
                     
                     if (debugMode) {
+#ifndef USE_ZEPHYR
                         std::cout << "KCTL::read8 - Key[" << keyIndex << "]: 0x" 
                                   << std::hex << (int)keyValue 
                                   << (keyValue >= 32 && keyValue < 127 ? 
                                       std::string(" ('") + (char)keyValue + "')" : "") 
                                   << std::dec << std::endl;
+#else
+                        if (keyValue >= 32 && keyValue < 127) {
+                            LOG_DBG("KCTL::read8 - Key[%d]: 0x%02x ('%c')", keyIndex, (int)keyValue, (char)keyValue);
+                        } else {
+                            LOG_DBG("KCTL::read8 - Key[%d]: 0x%02x", keyIndex, (int)keyValue);
+                        }
+#endif
                     }
                     
                     return keyValue;
@@ -219,7 +273,11 @@ u8 KCTL::read8(u32 addr) {
                 
             case REG_NEXT_REPORT: // Advance to next report
                 if (debugMode) {
+#ifndef USE_ZEPHYR
                     std::cout << "KCTL::read8 - Next report register read" << std::endl;
+#else
+                    LOG_DBG("KCTL::read8 - Next report register read");
+#endif
                 }
                 advanceToNextReport();
                 return 0;
@@ -244,14 +302,22 @@ void KCTL::write8(u32 addr, u8 val) {
         
         if (offset == REG_STATUS) { // Status register
             if (debugMode) {
+#ifndef USE_ZEPHYR
                 std::cout << "KCTL::write8 - Status register write: 0x" 
                           << std::hex << (int)val << std::dec << std::endl;
+#else
+                LOG_DBG("KCTL::write8 - Status register write: 0x%02x", (int)val);
+#endif
             }
             
             // Check if interrupt clear bit is being set
             if (val & StatusBits::CLEAR_INTERRUPT) {
                 if (debugMode) {
+#ifndef USE_ZEPHYR
                     std::cout << "KCTL::write8 - Clearing interrupt via status register" << std::endl;
+#else
+                    LOG_DBG("KCTL::write8 - Clearing interrupt via status register");
+#endif
                 }
                 this->cpu->setIPL(0x00);
                 // Don't store the clear bit in status register
@@ -262,9 +328,14 @@ void KCTL::write8(u32 addr, u8 val) {
             if ((val & StatusBits::KEYBOARD_ENABLED) != 
                 (registers.status & StatusBits::KEYBOARD_ENABLED)) {
                 if (debugMode) {
+#ifndef USE_ZEPHYR
                     std::cout << "KCTL::write8 - Keyboard " 
                               << ((val & StatusBits::KEYBOARD_ENABLED) ? "enabled" : "disabled") 
                               << std::endl;
+#else
+                    LOG_DBG("KCTL::write8 - Keyboard %s", 
+                            ((val & StatusBits::KEYBOARD_ENABLED) ? "enabled" : "disabled"));
+#endif
                 }
             }
             
@@ -275,7 +346,11 @@ void KCTL::write8(u32 addr, u8 val) {
         else if (offset == REG_COUNT) { // Reset report count (allow clearing the queue)
             if (val == 0) {
                 if (debugMode) {
+#ifndef USE_ZEPHYR
                     std::cout << "KCTL::write8 - Clearing report queue" << std::endl;
+#else
+                    LOG_DBG("KCTL::write8 - Clearing report queue");
+#endif
                 }
                 registers.pendingReportCount = 0;
                 registers.status &= ~(StatusBits::REPORT_AVAILABLE | StatusBits::QUEUE_FULL_WARNING);
@@ -284,7 +359,11 @@ void KCTL::write8(u32 addr, u8 val) {
         }
         else if (offset == REG_NEXT_REPORT) { // Advance to next report
             if (debugMode) {
+#ifndef USE_ZEPHYR
                 std::cout << "KCTL::write8 - Next report register write" << std::endl;
+#else
+                LOG_DBG("KCTL::write8 - Next report register write");
+#endif
             }
             advanceToNextReport();
         }

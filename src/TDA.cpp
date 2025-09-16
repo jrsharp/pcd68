@@ -1,6 +1,11 @@
 #include "TDA.h"
+#ifndef USE_ZEPHYR
 #include <iostream>
 #include <iomanip>
+#else
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(tda, LOG_LEVEL_WRN);  // Reduce logging to save flash space
+#endif
 
 TDA::TDA(CPU* cpu, Screen* screen, uint32_t start, uint32_t size) :
     Peripheral(start, size) {
@@ -115,6 +120,7 @@ void TDA::write8(u32 addr, u8 val) {
         if (debugMode) {
             // Check if character is printable
             char displayChar = (val >= 32 && val <= 126) ? static_cast<char>(val) : '.';
+#ifndef USE_ZEPHYR
             std::cout << "DEBUG TDA: Write character 0x" << std::hex << std::setw(2) 
                       << std::setfill('0') << static_cast<int>(val) << " '" << displayChar 
                       << "' to textmap at offset 0x" << std::hex << offset;
@@ -137,6 +143,26 @@ void TDA::write8(u32 addr, u8 val) {
                 std::cout << "DEBUG TDA: Cursor position changed from 0x" << std::hex 
                           << lastTextMapWriteAddr << " to 0x" << offset << std::dec << std::endl;
             }
+#else
+            // If in 80-column mode
+            if (registers.mode == COL80) {
+                int col = offset % 80;
+                int row = offset / 80;
+                LOG_DBG("Write char 0x%02x ('%c') to textmap at offset 0x%x (row %d, col %d)", 
+                       static_cast<int>(val), displayChar, offset, row, col);
+            } else {
+                // 50-column mode
+                int col = offset % 50;
+                int row = offset / 50;
+                LOG_DBG("Write char 0x%02x ('%c') to textmap at offset 0x%x (row %d, col %d)", 
+                       static_cast<int>(val), displayChar, offset, row, col);
+            }
+            
+            // Track writes that might indicate cursor position changes
+            if (offset != lastTextMapWriteAddr + 1 && lastTextMapWriteAddr != 0) {
+                LOG_DBG("Cursor position changed from 0x%x to 0x%x", lastTextMapWriteAddr, offset);
+            }
+#endif
             lastTextMapWriteAddr = offset;
         }
         
@@ -153,8 +179,12 @@ void TDA::write16(u32 addr, u16 val) {
         u32 offset = addr - (BASE_ADDR + sizeof(registers));
         
         if (debugMode) {
+#ifndef USE_ZEPHYR
             std::cout << "DEBUG TDA: Write16 value 0x" << std::hex << val 
                       << " to textmap at offset 0x" << offset << std::dec << std::endl;
+#else
+            LOG_DBG("Write16 value 0x%04x to textmap at offset 0x%x", val, offset);
+#endif
         }
         
         set16((u8*)textMapMem, offset, val);
@@ -164,7 +194,11 @@ void TDA::write16(u32 addr, u16 val) {
 
 void TDA::setDebugMode(bool enabled) {
     debugMode = enabled;
+#ifndef USE_ZEPHYR
     std::cout << "TDA debug mode " << (enabled ? "enabled" : "disabled") << std::endl;
+#else
+    LOG_INF("TDA debug mode %s", enabled ? "enabled" : "disabled");
+#endif
 }
 
 bool TDA::isDebugMode() const {

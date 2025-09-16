@@ -1,5 +1,10 @@
 #include "PCD68_CPU.h"
 
+#ifdef USE_ZEPHYR
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(cpu, LOG_LEVEL_WRN);  // Reduce logging to save flash space
+#endif
+
 // C'tor
 CPU::CPU() {
 }
@@ -15,7 +20,8 @@ void CPU::sync(int cycles) {
 
 // Read Byte
 u8 CPU::read8(u32 addr) {
-    for (Peripheral* p : peripherals) {
+    for (size_t i = 0; i < peripherals.size(); i++) {
+        Peripheral* p = peripherals[i];
         if (p->isValidFor(addr)) {
             return p->read8(addr);
         }
@@ -32,7 +38,8 @@ u8 CPU::read8(u32 addr) {
 
 // Read Word
 u16 CPU::read16(u32 addr) {
-    for (Peripheral* p : peripherals) {
+    for (size_t i = 0; i < peripherals.size(); i++) {
+        Peripheral* p = peripherals[i];
         if (p->isValidFor(addr)) {
             return p->read16(addr);
         }
@@ -70,7 +77,8 @@ u16 CPU::read16OnReset(u32 addr) {
 
 // Write Byte
 void CPU::write8(u32 addr, u8 val) {
-    for (Peripheral* p : peripherals) {
+    for (size_t i = 0; i < peripherals.size(); i++) {
+        Peripheral* p = peripherals[i];
         if (p->isValidFor(addr)) {
             p->write8(addr, val);
             return;
@@ -89,7 +97,8 @@ void CPU::write8(u32 addr, u8 val) {
 
 // Write Word
 void CPU::write16(u32 addr, u16 val) {
-    for (Peripheral* p : peripherals) {
+    for (size_t i = 0; i < peripherals.size(); i++) {
+        Peripheral* p = peripherals[i];
         if (p->isValidFor(addr)) {
             p->write16(addr, val);
             return;
@@ -113,13 +122,21 @@ u16 CPU::readIrqUserVector(u8 level) const {
 
 // Breakpoint handler
 void CPU::breakpointReached(u32 addr) {
+#ifndef USE_ZEPHYR
     std::cout << "bp: " << std::hex << addr << std::endl;
+#else
+    LOG_INF("bp: 0x%08x", addr);
+#endif
     this->printState();
 }
 
 // Watchpoint handler
 void CPU::watchpointReached(u32 addr) {
+#ifndef USE_ZEPHYR
     std::cout << "wp: " << std::hex << addr << std::endl;
+#else
+    LOG_INF("wp: 0x%08x", addr);
+#endif
     this->printState();
 }
 
@@ -135,6 +152,8 @@ void CPU::printState() {
     u32 usp = getUSP();
     u32 ssp = getSSP();
     u32 fc = readFC();
+    
+#ifndef USE_ZEPHYR
     std::cout << "PC: " << std::hex << pc << std::endl;
     std::cout << "SR: " << std::hex << sr << std::endl;
     std::cout << "USP: " << std::hex << usp << std::endl;
@@ -151,8 +170,14 @@ void CPU::printState() {
     }
     std::cout << std::endl;
 
+#ifndef USE_ZEPHYR
     disassemble(pc, disasm);
     std::cout << "disasm: " << disasm << std::endl;
+#else
+    // Disassembler disabled in Zephyr builds to save flash space
+    strcpy(disasm, "[disasm disabled]");
+    LOG_INF("disasm: %s", disasm);
+#endif
 
     u16 op = get16(systemRom, pc);
     Instr instr = getInfo(op).I;
@@ -161,4 +186,27 @@ void CPU::printState() {
 
     i64 cycles = getClock();
     std::cout << "Cycles: " << cycles << std::endl;
+#else
+    LOG_INF("PC: 0x%08x SR: 0x%04x USP: 0x%08x SSP: 0x%08x FC: 0x%08x", pc, sr, usp, ssp, fc);
+    
+    LOG_INF("D: %08x %08x %08x %08x %08x %08x %08x %08x", 
+           getD(0), getD(1), getD(2), getD(3), getD(4), getD(5), getD(6), getD(7));
+    LOG_INF("A: %08x %08x %08x %08x %08x %08x %08x %08x", 
+           getA(0), getA(1), getA(2), getA(3), getA(4), getA(5), getA(6), getA(7));
+
+#ifndef USE_ZEPHYR
+    disassemble(pc, disasm);
+#else
+    // Disassembler disabled in Zephyr builds to save flash space  
+    strcpy(disasm, "[disasm disabled]");
+#endif
+    LOG_INF("disasm: %s", disasm);
+
+    u16 op = get16(systemRom, pc);
+    Instr instr = getInfo(op).I;
+    LOG_INF("Op: 0x%04x Instr: %d", op, instr);
+
+    i64 cycles = getClock();
+    LOG_INF("Cycles: %lld", cycles);
+#endif
 }

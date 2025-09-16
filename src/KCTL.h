@@ -2,7 +2,12 @@
 
 #include "PCD68_CPU.h"
 #include "Peripheral.h"
+#ifndef USE_ZEPHYR
 #include <cstring>
+#include <iostream>
+#else
+#include <string.h>
+#endif
 #include <stdint.h>
 
 extern u8* systemRam;
@@ -22,9 +27,11 @@ public:
      */
     void setDebugMode(bool enabled) {
         debugMode = enabled;
+        #ifndef USE_ZEPHYR
         if (debugMode) {
             std::cout << "KCTL debug mode enabled" << std::endl;
         }
+        #endif
     }
 
     /**
