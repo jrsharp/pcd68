@@ -218,7 +218,11 @@ top_border_end:
     
     /* Draw border after header area (line 2) */
     movel   #2, %d0
-    muls    #ScreenWidth, %d0
+    /* Multiply by 80 using shift and add: 2 * 80 = 2 * (64 + 16) */
+    movel   %d0, %d1
+    lsll    #6, %d0          /* d0 = 2 * 64 */
+    lsll    #4, %d1          /* d1 = 2 * 16 */
+    addl    %d1, %d0         /* d0 = 2 * 80 */
     lea     TDABase + 1, %a0
     addl    %d0, %a0
     moveal  %a0, %a2
@@ -237,7 +241,11 @@ header_border_end:
     
     /* Draw border after content area (line 18) */
     movel   #18, %d0
-    muls    #ScreenWidth, %d0
+    /* Multiply by 80 using shift and add: 18 * 80 = 18 * (64 + 16) */
+    movel   %d0, %d1
+    lsll    #6, %d0          /* d0 = 18 * 64 */
+    lsll    #4, %d1          /* d1 = 18 * 16 */
+    addl    %d1, %d0         /* d0 = 18 * 80 */
     lea     TDABase + 1, %a0
     addl    %d0, %a0
     moveal  %a0, %a2
@@ -256,7 +264,11 @@ content_border_end:
     
     /* Draw border after status area (line 20) */
     movel   #20, %d0
-    muls    #ScreenWidth, %d0
+    /* Multiply by 80 using shift and add: 20 * 80 = 20 * (64 + 16) */
+    movel   %d0, %d1
+    lsll    #6, %d0          /* d0 = 20 * 64 */
+    lsll    #4, %d1          /* d1 = 20 * 16 */
+    addl    %d1, %d0         /* d0 = 20 * 80 */
     lea     TDABase + 1, %a0
     addl    %d0, %a0
     moveal  %a0, %a2
@@ -273,9 +285,13 @@ status_border_loop:
 status_border_end:
     moveb   #'+', (%a2)+
     
-    /* Draw border after footer area (line 22) */
+    /* Draw border after footer area (line 22) - restored */
     movel   #22, %d0
-    muls    #ScreenWidth, %d0
+    /* Multiply by 80 using shift and add: 22 * 80 = 22 * (64 + 16) */
+    movel   %d0, %d1
+    lsll    #6, %d0          /* d0 = 22 * 64 */
+    lsll    #4, %d1          /* d1 = 22 * 16 */
+    addl    %d1, %d0         /* d0 = 22 * 80 */
     lea     TDABase + 1, %a0
     addl    %d0, %a0
     moveal  %a0, %a2
