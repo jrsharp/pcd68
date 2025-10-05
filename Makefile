@@ -24,7 +24,7 @@ TEST_SRCS = src/TestPeripheral.cpp \
 # Compiler and flags
 CXX = c++
 CXXFLAGS = -std=c++17 -O2 -Wall -Wno-narrowing -DUSE_SDL=1
-CPPFLAGS = -I. -Isrc -Isrc/Moira
+CPPFLAGS = -I. -Isrc -Isrc/Moira -I/usr/local/include
 
 # SDL2 configuration
 .if exists(/usr/local/include/SDL2)
@@ -32,7 +32,7 @@ CPPFLAGS += -I/usr/local/include/SDL2
 .endif
 
 # Libraries
-LDFLAGS = -L/usr/local/lib
+LDFLAGS = -L/usr/local/lib -O3 -flto
 LDADD = -lSDL2 -lstdc++ -lm -lpthread
 
 # Object files

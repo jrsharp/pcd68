@@ -21,8 +21,8 @@
 #    define CYCLE_FACTOR 100   // Reduced refresh rate for better performance
 #    define INPUT_FACTOR 10    // Less frequent input polling for web
 #else
-#    define CYCLE_FACTOR 500   // Dramatically increased for better performance
-#    define INPUT_FACTOR 1     // Poll input every iteration for responsiveness
+#    define CYCLE_FACTOR 400   // Dramatically increased for better performance
+#    define INPUT_FACTOR 2     // Poll input every iteration for responsiveness
 #endif
 
 u8* systemRom;                   // ROM
@@ -242,7 +242,7 @@ bool mainLoop() {
 #ifdef __EMSCRIPTEN__
     static const int INSTRUCTIONS_PER_LOOP = 5000;  // Significantly increased for web performance
 #else
-    static const int INSTRUCTIONS_PER_LOOP = 200;   // Dramatically increased
+    static const int INSTRUCTIONS_PER_LOOP = 2000;  // Maximized for native performance
 #endif
     for (int i = 0; i < INSTRUCTIONS_PER_LOOP; i++) {
         pcdCpu->execute();
@@ -550,7 +550,7 @@ int main(int argc, char** argv) {
     uartController->reset();
 
     // And then proceed to reset/start CPU:
-    pcdCpu->debugger.enableLogging();
+    // pcdCpu->debugger.enableLogging();  // Disabled for maximum performance
     pcdCpu->reset();
     // Clear all interrupts:
     pcdCpu->setIPL(0x00);

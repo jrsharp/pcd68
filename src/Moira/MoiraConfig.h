@@ -26,14 +26,14 @@
  *
  * Enable to improve emulation compatibility, disable to gain speed.
  */
-#define EMULATE_FC true
+#define EMULATE_FC false
 
 /* Set to true to enable the disassembler.
  *
  * The disassembler requires a jump table which consumes about 1MB of memory.
  * By disabling the disassembler, you can save this amount of memory.
  */
-#define ENABLE_DASM true
+#define ENABLE_DASM false
 
 /* Set to true to build the InstrInfo lookup table.
  *
@@ -43,7 +43,7 @@
  * debuggers. It is not needed by Moira itself and therefore disabled by
  * default.
  */
-#define BUILD_INSTR_INFO_TABLE true
+#define BUILD_INSTR_INFO_TABLE false
 
 /* Set to true to run Moira in a special Musashi compatibility mode.
  *
@@ -52,4 +52,4 @@
  *
  * Disable to improve emulation compatibility.
  */
-#define MIMIC_MUSASHI true
+#define MIMIC_MUSASHI false

@@ -22,7 +22,7 @@ pub fn build(b: *std.Build) void {
     moira_lib.linkLibCpp();
     moira_lib.addCSourceFiles(.{
         .files = &.{ "src/Moira/Moira.cpp", "src/Moira/MoiraDebugger.cpp" },
-        .flags = &.{},
+        .flags = &.{ "-O3", "-flto", "-ffast-math", "-DNDEBUG", "-march=native", "-funroll-loops" },
     });
 
     // Create PCD68 executable
@@ -53,7 +53,7 @@ pub fn build(b: *std.Build) void {
     // Add source files
     exe.addCSourceFiles(.{
         .files = &.{ "src/PCD68_CPU.cpp", "src/main.cpp", "src/TDA.cpp", "src/KCTL.cpp", "src/UART.cpp", "src/Screen.cpp", "src/Screen_SDL.cpp", "src/KeyboardInput.cpp", "src/KeyboardInputSDL.cpp", "src/KeyboardInputEmscripten.cpp" },
-        .flags = &.{ "-std=c++17", "-Wno-narrowing", "-DUSE_SDL=1" },
+        .flags = &.{ "-std=c++17", "-Wno-narrowing", "-DUSE_SDL=1", "-O3", "-flto", "-ffast-math", "-DNDEBUG", "-march=native", "-funroll-loops" },
     });
 
     // Install executable

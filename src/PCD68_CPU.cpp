@@ -15,35 +15,41 @@ void CPU::sync(int cycles) {
 
 // Read Byte
 u8 CPU::read8(u32 addr) {
+    // Check ROM/RAM first (most common cases) - massive performance improvement
+    if (addr < ROM_SIZE) {
+        return get8(systemRom, addr);
+    } else if (addr >= RAM_BASE && addr < (RAM_BASE + RAM_SIZE)) {
+        return get8(systemRam, addr - RAM_BASE);
+    }
+    
+    // Check peripherals only if not ROM/RAM
     for (Peripheral* p : peripherals) {
         if (p->isValidFor(addr)) {
             return p->read8(addr);
         }
     }
-    if (addr >= ROM_BASE && addr < (ROM_BASE + ROM_SIZE)) {
-        return get8(systemRom, addr - ROM_BASE);
-    } else if (addr >= RAM_BASE && addr < (RAM_BASE + RAM_SIZE)) {
-        return get8(systemRam, addr - RAM_BASE);
-    } else {
-        // Fill unused/null memmory with 0xFF
-        return 0xFF;
-    }
+    
+    // Fill unused/null memory with 0xFF
+    return 0xFF;
 }
 
 // Read Word
 u16 CPU::read16(u32 addr) {
+    // Check ROM/RAM first (most common cases) - massive performance improvement
+    if (addr < ROM_SIZE) {
+        return get16(systemRom, addr);
+    } else if (addr >= RAM_BASE && addr < (RAM_BASE + RAM_SIZE)) {
+        return get16(systemRam, addr - RAM_BASE);
+    }
+    
+    // Check peripherals only if not ROM/RAM
     for (Peripheral* p : peripherals) {
         if (p->isValidFor(addr)) {
             return p->read16(addr);
         }
     }
-    if (addr >= ROM_BASE && addr < (ROM_BASE + ROM_SIZE)) {
-        return get16(systemRom, addr - ROM_BASE);
-    } else if (addr >= RAM_BASE && addr < (RAM_BASE + RAM_SIZE)) {
-        return get16(systemRam, addr - RAM_BASE);
-    } else {
-        return 0x00;
-    }
+    
+    return 0x00;
 }
 
 // Read Word
@@ -70,39 +76,41 @@ u16 CPU::read16OnReset(u32 addr) {
 
 // Write Byte
 void CPU::write8(u32 addr, u8 val) {
+    // Check ROM/RAM first (most common cases) - massive performance improvement
+    if (addr < ROM_SIZE) {
+        set8(systemRom, addr, val);
+        return;
+    } else if (addr >= RAM_BASE && addr < (RAM_BASE + RAM_SIZE)) {
+        set8(systemRam, addr - RAM_BASE, val);
+        return;
+    }
+    
+    // Check peripherals only if not ROM/RAM
     for (Peripheral* p : peripherals) {
         if (p->isValidFor(addr)) {
             p->write8(addr, val);
             return;
         }
     }
-    if (addr >= ROM_BASE && addr < (ROM_BASE + ROM_SIZE)) {
-        set8(systemRom, addr - ROM_BASE, val);
-        //std::cout << "Writing BYTE to (ROM!) " << std::hex << (addr - ROM_BASE) << std::endl;
-    } else if (addr >= RAM_BASE && addr < (RAM_BASE + RAM_SIZE)) {
-        set8(systemRam, addr - RAM_BASE, val);
-        //std::cout << "Writing BYTE to " << std::hex << (addr - RAM_BASE) << std::endl;
-    } else {
-        //std::cout << "Writing BYTE to NOWHERE. (" << std::hex << addr << ")" << std::endl;
-    }
 }
 
 // Write Word
 void CPU::write16(u32 addr, u16 val) {
+    // Check ROM/RAM first (most common cases) - massive performance improvement
+    if (addr < ROM_SIZE) {
+        set16(systemRom, addr, val);
+        return;
+    } else if (addr >= RAM_BASE && addr < (RAM_BASE + RAM_SIZE)) {
+        set16(systemRam, addr - RAM_BASE, val);
+        return;
+    }
+    
+    // Check peripherals only if not ROM/RAM
     for (Peripheral* p : peripherals) {
         if (p->isValidFor(addr)) {
             p->write16(addr, val);
             return;
         }
-    }
-    if (addr >= ROM_BASE && addr < (ROM_BASE + ROM_SIZE)) {
-        set16(systemRom, addr - ROM_BASE, val);
-        //std::cout << "Writing WORD to (ROM!) " << std::hex << addr - ROM_BASE << std::endl;
-    } else if (addr >= RAM_BASE && addr < (RAM_BASE + RAM_SIZE)) {
-        //std::cout << "Writing WORD to " << std::hex << addr - RAM_BASE << std::endl;
-        set16(systemRam, addr - RAM_BASE, val);
-    } else {
-        //std::cout << "Writing NOWHERE. (" << std::hex << addr << ")" << std::endl;
     }
 }
 
