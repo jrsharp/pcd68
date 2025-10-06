@@ -1,0 +1,35 @@
+# PCD68 nRF54L15 Configuration Options
+# SPDX-License-Identifier: Apache-2.0
+
+config PCD68_ROM_SIZE_KB
+	int "PCD68 ROM size in KB"
+	default 64
+	help
+	  Size of the 68000 ROM in kilobytes
+
+config PCD68_RAM_SIZE_MB
+	int "PCD68 RAM size in MB"
+	default 4
+	help
+	  Size of the 68000 RAM in megabytes
+
+config PCD68_TARGET_CPU_MHZ
+	int "Target CPU frequency in MHz"
+	default 128
+	help
+	  Target CPU frequency for timing calculations
+
+config PCD68_EPAPER_DISPLAY
+	bool "Enable e-paper display support"
+	default y
+	depends on DISPLAY
+	help
+	  Enable support for e-paper display output
+
+config PCD68_DEBUG_TIMING
+	bool "Enable timing debug output"
+	default n
+	help
+	  Enable detailed timing debug information
+
+source "Kconfig.zephyr"

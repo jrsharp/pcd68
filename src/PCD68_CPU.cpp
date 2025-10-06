@@ -2,6 +2,7 @@
 
 #ifdef USE_ZEPHYR
 #include <zephyr/logging/log.h>
+#include <zephyr/kernel.h>  // For printk
 LOG_MODULE_REGISTER(cpu, LOG_LEVEL_WRN);  // Reduce logging to save flash space
 #endif
 
@@ -20,6 +21,13 @@ void CPU::sync(int cycles) {
 
 // Read Byte
 u8 CPU::read8(u32 addr) {
+#ifdef USE_ZEPHYR
+    static int debug_count = 0;
+    if (debug_count < 10) {
+        printk("DEBUG: read8(0x%08X) peripherals.size()=%zu\n", addr, peripherals.size());
+        debug_count++;
+    }
+#endif
     for (size_t i = 0; i < peripherals.size(); i++) {
         Peripheral* p = peripherals[i];
         if (p->isValidFor(addr)) {
@@ -27,7 +35,13 @@ u8 CPU::read8(u32 addr) {
         }
     }
     if (addr >= ROM_BASE && addr < (ROM_BASE + ROM_SIZE)) {
-        return get8(systemRom, addr - ROM_BASE);
+        u8 result = get8(systemRom, addr - ROM_BASE);
+#ifdef USE_ZEPHYR
+        if (debug_count < 10) {
+            printk("DEBUG: ROM read: addr=0x%08X -> 0x%02X\n", addr, result);
+        }
+#endif
+        return result;
     } else if (addr >= RAM_BASE && addr < (RAM_BASE + RAM_SIZE)) {
         return get8(systemRam, addr - RAM_BASE);
     } else {
@@ -66,8 +80,20 @@ u16 CPU::read16Dasm(u32 addr) {
 
 // Read Word
 u16 CPU::read16OnReset(u32 addr) {
+#ifdef USE_ZEPHYR
+    // Debug logging for reset reads
+    if (addr < 8) {
+        printk("DEBUG: read16OnReset(0x%08X) ", addr);
+    }
+#endif
     if (addr >= ROM_BASE && addr < (ROM_BASE + ROM_SIZE)) {
-        return get16(systemRom, addr - ROM_BASE);
+        u16 val = get16(systemRom, addr - ROM_BASE);
+#ifdef USE_ZEPHYR
+        if (addr < 8) {
+            printk("= 0x%04X (from ROM[%X])\n", val, addr - ROM_BASE);
+        }
+#endif
+        return val;
     } else if (addr >= RAM_BASE && addr < (RAM_BASE + RAM_SIZE)) {
         return get16(systemRam, addr - RAM_BASE);
     } else {
@@ -141,7 +167,13 @@ void CPU::watchpointReached(u32 addr) {
 }
 
 int CPU::attachPeripheral(Peripheral* p) {
+#ifdef USE_ZEPHYR
+    printk("DEBUG: CPU::attachPeripheral called with %p\n", p);
+#endif
     peripherals.push_back(p);
+#ifdef USE_ZEPHYR
+    printk("DEBUG: CPU::attachPeripheral completed, peripheral count: %zu\n", peripherals.size());
+#endif
     return 0;
 }
 

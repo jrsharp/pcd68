@@ -77,16 +77,24 @@ public:
 
     /** Memory location of system ROM */
     static constexpr int ROM_BASE = 0x000000;
-    /** Size of ROM (4MB) */
+    /** Size of ROM (4MB or 64KB for embedded) */
     //static constexpr int ROM_SIZE = 0x0A000;
     //static constexpr int ROM_SIZE = 0x10000;
-    static constexpr int ROM_SIZE = 0x400000;
+#ifdef USE_ZEPHYR
+    static constexpr int ROM_SIZE = 0x10000;  // 64KB for embedded
+#else
+    static constexpr int ROM_SIZE = 0x400000;  // 4MB for desktop
+#endif
     /** Memory location of system RAM */
-    static constexpr int RAM_BASE = 0x800000;
-    /** Size of RAM (4MB) */
+    static constexpr int RAM_BASE = 0x010000;  // Fixed: RAM at 0x010000
+    /** Size of RAM (4MB or 32KB for embedded) */
     //static constexpr int RAM_SIZE = 1024 * 64 * 2;
     //static constexpr int RAM_SIZE = (400 * 300) + 128;
-    static constexpr int RAM_SIZE = 0x400000;
+#ifdef USE_ZEPHYR
+    static constexpr int RAM_SIZE = 32 * 1024;  // 32KB for embedded
+#else
+    static constexpr int RAM_SIZE = 0x400000;  // 4MB for desktop
+#endif
     /** Memory location of Framebuffer */
     static constexpr int FRAMEBUFFER_BASE = RAM_BASE + 0x10000;
     /** Size of Framebuffer */

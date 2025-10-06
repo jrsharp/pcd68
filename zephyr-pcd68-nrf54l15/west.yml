@@ -1,0 +1,33 @@
+manifest:
+  self:
+    west-commands: scripts/west_commands.yml
+
+  remotes:
+    - name: nrfconnect
+      url-base: https://github.com/nrfconnect
+
+  projects:
+    - name: zephyr
+      remote: nrfconnect
+      repo-path: sdk-zephyr
+      revision: v3.7.99-ncs1-1
+      import:
+        # By using name-allowlist we can import only the modules that are
+        # strictly needed by this application.
+        name-allowlist:
+          - cmsis
+          - hal_nordic
+          - mcuboot
+          - mbedtls
+          - nrf_hw_models
+          - trusted-firmware-m
+
+    - name: mcuboot
+      repo-path: sdk-mcuboot
+      remote: nrfconnect
+      revision: v2.1.99-ncs1-1
+
+    - name: mbedtls
+      repo-path: mbedtls
+      remote: nrfconnect
+      revision: v3.6.0-ncs2-1

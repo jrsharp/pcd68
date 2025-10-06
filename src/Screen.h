@@ -62,7 +62,12 @@ public:
     virtual void write16(u32 addr, u16 val) override;
     virtual void advance(int cycles);
 
+#ifdef USE_ZEPHYR
+    // In Zephyr builds, don't allocate the huge framebuffer - use system RAM directly
+    u8* framebufferMem = nullptr;
+#else
     u8 framebufferMem[400 * 300]; // 8bpp (RGB332)
+#endif
     bool refreshFlag;
     Registers registers;
 

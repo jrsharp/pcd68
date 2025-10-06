@@ -1,0 +1,25 @@
+manifest:
+  self:
+    path: zephyr-pcd68
+
+  remotes:
+    - name: zephyrproject-rtos
+      url-base: https://github.com/zephyrproject-rtos
+
+  projects:
+    # Reference external Zephyr installation
+    - name: zephyr
+      path: zephyr
+      url: file:///mnt2/src/zephyr
+      revision: HEAD
+      import:
+        # Import essential modules only
+        name-allowlist:
+          - hal_espressif
+
+    # Directly include hal_espressif since it's required for ESP32
+    - name: hal_espressif
+      remote: zephyrproject-rtos
+      revision: aa5443a4eea6a49d58f808f41bceb5de19678fa6
+      path: modules/hal/espressif
+      west-commands: west/west-commands.yml

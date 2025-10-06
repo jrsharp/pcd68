@@ -1,0 +1,75 @@
+/*
+ * Copyright (c) 2025 PCD68 Project
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/ {
+    chosen {
+        zephyr,console = &uart20;
+        zephyr,shell-uart = &uart20;
+        zephyr,uart-mcumgr = &uart20;
+        zephyr,bt-mon-uart = &uart20;
+        zephyr,bt-c2h-uart = &uart20;
+        // zephyr,display = &uc8176;  // Disabled for UART debugging
+    };
+
+    /* Display configuration disabled to restore UART
+    mipi_dbi_uc8176 {
+        compatible = "zephyr,mipi-dbi-spi";
+        spi-dev = <&spi00>;
+        dc-gpios = <&gpio1 11 GPIO_ACTIVE_HIGH>;
+        reset-gpios = <&gpio1 12 GPIO_ACTIVE_LOW>;
+        write-only;
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        uc8176: uc8176@1 {
+            compatible = "gooddisplay,gdew042t2", "ultrachip,uc8176";
+            mipi-max-frequency = <4000000>;
+            reg = <1>;  // Use CS1 (P1.8), not CS0 (P2.5)
+            width = <400>;
+            height = <300>;
+            busy-gpios = <&gpio1 9 GPIO_ACTIVE_LOW>;
+
+            softstart = [17 17 17];
+
+            full {
+                pwr = [03 00 26 26 09];
+                cdi = <0xd7>;
+                tcon = <0x22>;
+            };
+
+            partial {
+                pwr = [03 00 26 26 09];
+                cdi = <0xd7>;
+                tcon = <0x22>;
+            };
+        };
+    };
+    */
+};
+
+/* SPI21 configuration disabled until we fix pinctrl
+&spi21 {
+    status = "okay";
+    cs-gpios = <&gpio1 8 GPIO_ACTIVE_LOW>;
+    pinctrl-0 = <&spi21_default>;
+    pinctrl-1 = <&spi21_sleep>;
+    pinctrl-names = "default", "sleep";
+};
+*/
+
+/* SPI00 modifications disabled for UART debugging
+&spi00 {
+    cs-gpios = <&gpio2 5 GPIO_ACTIVE_LOW>, <&gpio1 8 GPIO_ACTIVE_LOW>;
+};
+*/
+
+/* Flash disabled for UART debugging */
+&mx25r64 {
+    status = "disabled";
+};
+
+/* Leave default partition layout for now to avoid validation errors */
+
+/* TODO: Need to find a way to add SPI21 pins without breaking UART */
