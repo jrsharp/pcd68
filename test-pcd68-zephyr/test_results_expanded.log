@@ -1,0 +1,230 @@
+Timer with period zero, disabling
+*** Booting nRF Connect SDK v3.1.0-92018e341bd0 ***
+*** Using Zephyr OS v4.1.99-ff8f0c579eeb ***
+Running TESTSUITE addressing_modes
+===================================================================
+START - test_absolute_long_addressing
+After reset: PC=0x00000400, queue.ird=0x3A39, queue.irc=0x0000
+executeOptimized: opcode=0x3A39, PC=0x00000400, queue.ird=0x3A39, queue.irc=0x0000
+executeMinimal: opcode=0x3A39, PC=0x00000400
+  D5 after=0x0000ACE0
+✓ Absolute long addressing test passed
+ PASS - test_absolute_long_addressing in 0.000 seconds
+===================================================================
+START - test_absolute_short_addressing
+After reset: PC=0x00000400, queue.ird=0x3838, queue.irc=0x0900
+executeOptimized: opcode=0x3838, PC=0x00000400, queue.ird=0x3838, queue.irc=0x0900
+executeMinimal: opcode=0x3838, PC=0x00000400
+  D4 after=0x00002468
+✓ Absolute short addressing test passed
+ PASS - test_absolute_short_addressing in 0.000 seconds
+===================================================================
+START - test_address_register_displacement
+After reset: PC=0x00000400, queue.ird=0x362B, queue.irc=0x0010
+executeOptimized: opcode=0x362B, PC=0x00000400, queue.ird=0x362B, queue.irc=0x0010
+executeMinimal: opcode=0x362B, PC=0x00000400
+  D3 after=0x00000000
+
+    Assertion failed at WEST_TOPDIR/test-pcd68-zephyr/src/test_addressing_modes.cpp:86: addressing_modes_test_address_register_displacement: (cpu.readD(3) not equal to 0xDEF0)
+D3 should contain value from (A3+16)
+ FAIL - test_address_register_displacement in 0.000 seconds
+===================================================================
+START - test_address_register_indirect
+After reset: PC=0x00000400, queue.ird=0x3010, queue.irc=0x0000
+executeOptimized: opcode=0x3010, PC=0x00000400, queue.ird=0x3010, queue.irc=0x0000
+
+    Assertion failed at WEST_TOPDIR/test-pcd68-zephyr/src/test_addressing_modes.cpp:26: addressing_modes_test_address_register_indirect: (cpu.readD(0) not equal to 0x1234)
+D0 should contain value from (A0)
+ FAIL - test_address_register_indirect in 0.000 seconds
+===================================================================
+START - test_address_register_indirect_postincrement
+After reset: PC=0x00000400, queue.ird=0x3219, queue.irc=0x0000
+executeOptimized: opcode=0x3219, PC=0x00000400, queue.ird=0x3219, queue.irc=0x0000
+executeMinimal: opcode=0x3219, PC=0x00000400
+  D1 after=0x00003000
+
+    Assertion failed at WEST_TOPDIR/test-pcd68-zephyr/src/test_addressing_modes.cpp:45: addressing_modes_test_address_register_indirect_postincrement: (cpu.readD(1) not equal to 0x5678)
+D1 should contain value from (A1)
+ FAIL - test_address_register_indirect_postincrement in 0.000 seconds
+===================================================================
+START - test_address_register_indirect_predecrement
+After reset: PC=0x00000400, queue.ird=0x3422, queue.irc=0x0000
+executeMinimal: opcode=0x3422, PC=0x00000400
+  D2 after=0x0000FFFF
+
+    Assertion failed at WEST_TOPDIR/test-pcd68-zephyr/src/test_addressing_modes.cpp:65: addressing_modes_test_address_register_indirect_predecrement: (cpu.readD(2) not equal to 0x9ABC)
+D2 should contain value
+ FAIL - test_address_register_indirect_predecrement in 0.000 seconds
+===================================================================
+START - test_immediate_mode
+After reset: PC=0x00000400, queue.ird=0x3E3C, queue.irc=0xCAFE
+
+    Assertion failed at WEST_TOPDIR/test-pcd68-zephyr/src/test_addressing_modes.cpp:161: addressing_modes_test_immediate_mode: (cpu.readD(7) not equal to 0xCAFE)
+D7 should contain immediate value
+ FAIL - test_immediate_mode in 0.000 seconds
+===================================================================
+START - test_pc_relative_displacement
+After reset: PC=0x00000400, queue.ird=0x3C3A, queue.irc=0x0010
+  D6 after=0x00000000
+
+    Assertion failed at WEST_TOPDIR/test-pcd68-zephyr/src/test_addressing_modes.cpp:145: addressing_modes_test_pc_relative_displacement: (cpu.readD(6) not equal to 0xBEEF)
+D6 should contain value from PC+displacement
+ FAIL - test_pc_relative_displacement in 0.000 seconds
+===================================================================
+START - test_stack_operations
+After reset: PC=0x00000400, queue.ird=0x3F01, queue.irc=0x0000
+
+    Assertion failed at WEST_TOPDIR/test-pcd68-zephyr/src/test_addressing_modes.cpp:202: addressing_modes_test_stack_operations: (stack_value not equal to 0xABCD)
+Stack should contain D1 value
+ FAIL - test_stack_operations in 0.000 seconds
+===================================================================
+START - test_write_to_memory_indirect
+After reset: PC=0x00000400, queue.ird=0x3880, queue.irc=0x0000
+
+    Assertion failed at WEST_TOPDIR/test-pcd68-zephyr/src/test_addressing_modes.cpp:181: addressing_modes_test_write_to_memory_indirect: (value not equal to 0x1234)
+Memory at (A4) should contain D0 value
+ FAIL - test_write_to_memory_indirect in 0.000 seconds
+===================================================================
+TESTSUITE addressing_modes failed.
+Running TESTSUITE arithmetic_instructions
+===================================================================
+START - test_add_dn_dn_long
+After reset: PC=0x00000400, queue.ird=0xD483, queue.irc=0x0000
+
+    Assertion failed at WEST_TOPDIR/test-pcd68-zephyr/src/test_arithmetic.cpp:81: arithmetic_instructions_test_add_dn_dn_long: (cpu.readD(2) not equal to 0x30000)
+D2 should contain 0x30000
+ FAIL - test_add_dn_dn_long in 0.000 seconds
+===================================================================
+START - test_add_dn_dn_word
+After reset: PC=0x00000400, queue.ird=0xD041, queue.irc=0x0000
+
+    Assertion failed at WEST_TOPDIR/test-pcd68-zephyr/src/test_arithmetic.cpp:62: arithmetic_instructions_test_add_dn_dn_word: (cpu.readD(0) not equal to 150)
+D0 should contain 150
+ FAIL - test_add_dn_dn_word in 0.000 seconds
+===================================================================
+START - test_adda_long
+After reset: PC=0x00000400, queue.ird=0xD7C1, queue.irc=0x0000
+
+    Assertion failed at WEST_TOPDIR/test-pcd68-zephyr/src/test_arithmetic.cpp:157: arithmetic_instructions_test_adda_long: (cpu.readA(3) not equal to 0x15000)
+A3 should contain 0x15000
+ FAIL - test_adda_long in 0.000 seconds
+===================================================================
+START - test_adda_word
+After reset: PC=0x00000400, queue.ird=0xD4C0, queue.irc=0x0000
+
+    Assertion failed at WEST_TOPDIR/test-pcd68-zephyr/src/test_arithmetic.cpp:138: arithmetic_instructions_test_adda_word: (cpu.readA(2) not equal to 0x1100)
+A2 should contain 0x1100
+ FAIL - test_adda_word in 0.000 seconds
+===================================================================
+START - test_addq_dn
+After reset: PC=0x00000400, queue.ird=0x5A40, queue.irc=0x0000
+
+    Assertion failed at WEST_TOPDIR/test-pcd68-zephyr/src/test_arithmetic.cpp:25: arithmetic_instructions_test_addq_dn: (cpu.readD(0) not equal to 15)
+D0 should contain 15
+ FAIL - test_addq_dn in 0.000 seconds
+===================================================================
+START - test_cmp_dn_dn
+After reset: PC=0x00000400, queue.ird=0xB041, queue.irc=0x4E71
+
+    Assertion failed at WEST_TOPDIR/test-pcd68-zephyr/src/test_arithmetic.cpp:218: arithmetic_instructions_test_cmp_dn_dn: (cpu.readD(0) not equal to 50)
+D0 should still be 50
+ FAIL - test_cmp_dn_dn in 0.000 seconds
+===================================================================
+START - test_sub_dn_dn_long
+After reset: PC=0x00000400, queue.ird=0x9483, queue.irc=0x0000
+
+    Assertion failed at WEST_TOPDIR/test-pcd68-zephyr/src/test_arithmetic.cpp:119: arithmetic_instructions_test_sub_dn_dn_long: (cpu.readD(2) not equal to 0x40000)
+D2 should contain 0x40000
+ FAIL - test_sub_dn_dn_long in 0.000 seconds
+===================================================================
+START - test_sub_dn_dn_word
+After reset: PC=0x00000400, queue.ird=0x9041, queue.irc=0x0000
+
+    Assertion failed at WEST_TOPDIR/test-pcd68-zephyr/src/test_arithmetic.cpp:100: arithmetic_instructions_test_sub_dn_dn_word: (cpu.readD(0) not equal to 70)
+D0 should contain 70
+ FAIL - test_sub_dn_dn_word in 0.000 seconds
+===================================================================
+START - test_suba_long
+After reset: PC=0x00000400, queue.ird=0x9BC3, queue.irc=0x0000
+
+    Assertion failed at WEST_TOPDIR/test-pcd68-zephyr/src/test_arithmetic.cpp:195: arithmetic_instructions_test_suba_long: (cpu.readA(5) not equal to 0x18000)
+A5 should contain 0x18000
+ FAIL - test_suba_long in 0.000 seconds
+===================================================================
+START - test_suba_word
+After reset: PC=0x00000400, queue.ird=0x98C2, queue.irc=0x0000
+
+    Assertion failed at WEST_TOPDIR/test-pcd68-zephyr/src/test_arithmetic.cpp:176: arithmetic_instructions_test_suba_word: (cpu.readA(4) not equal to 0x1B00)
+A4 should contain 0x1B00
+ FAIL - test_suba_word in 0.000 seconds
+===================================================================
+START - test_subq_dn
+After reset: PC=0x00000400, queue.ird=0x5541, queue.irc=0x0000
+
+    Assertion failed at WEST_TOPDIR/test-pcd68-zephyr/src/test_arithmetic.cpp:43: arithmetic_instructions_test_subq_dn: (cpu.readD(1) not equal to 17)
+D1 should contain 17
+ FAIL - test_subq_dn in 0.000 seconds
+===================================================================
+TESTSUITE arithmetic_instructions failed.
+Running TESTSUITE basic_sanity
+===================================================================
+START - test_memory_allocation
+Creating TestMemory object...
+Checking RAM allocation... ram=0x3005dc24
+Writing to RAM...
+Reading from RAM...
+✓ Memory allocation test passed
+ PASS - test_memory_allocation in 0.000 seconds
+===================================================================
+START - test_nop_execution
+PC before NOP: 0x000003d4
+After reset: PC=0x00000400, queue.ird=0x4E71, queue.irc=0x0000
+PC after NOP: 0x00000402
+
+    Assertion failed at WEST_TOPDIR/test-pcd68-zephyr/src/test_basic_sanity.cpp:82: basic_sanity_test_nop_execution: (pc_after not equal to pc_before + 2)
+PC should advance by 2 after NOP
+ FAIL - test_nop_execution in 0.000 seconds
+===================================================================
+START - test_register_access
+D0: 0x12345678
+A1: 0xabcdef00
+✓ Register access test passed
+ PASS - test_register_access in 0.000 seconds
+===================================================================
+START - test_reset_vector
+PC after reset: 0x00000100
+
+    Assertion failed at WEST_TOPDIR/test-pcd68-zephyr/src/test_basic_sanity.cpp:40: basic_sanity_test_reset_vector: (pc not equal to 0x00000400)
+PC should be 0x400 after reset
+ FAIL - test_reset_vector in 0.000 seconds
+===================================================================
+TESTSUITE basic_sanity failed.
+Running TESTSUITE bit_operations
+===================================================================
+START - test_bchg_immediate
+After reset: PC=0x00000400, queue.ird=0x0844, queue.irc=0x0000
+
+    Assertion failed at WEST_TOPDIR/test-pcd68-zephyr/src/test_bit_ops.cpp:104: bit_operations_test_bchg_immediate: (cpu.readD(4) not equal to 0x54)
+D4 should have bit 0 toggled (0x54)
+ FAIL - test_bchg_immediate in 0.000 seconds
+===================================================================
+START - test_bchg_register
+After reset: PC=0x00000400, queue.ird=0x0740, queue.irc=0x0000
+
+    Assertion failed at WEST_TOPDIR/test-pcd68-zephyr/src/test_bit_ops.cpp:181: bit_operations_test_bchg_register: (cpu.readD(0) not equal to 0x00)
+D0 should have bit 2 toggled (0x00)
+ FAIL - test_bchg_register in 0.000 seconds
+===================================================================
+START - test_bclr_immediate
+ERROR: Failed to allocate 16384 bytes for test RAM!
+E: ***** MPU FAULT *****
+E:   Data Access Violation
+E:   MMFAR Address: 0x0
+E: r0/a1:  0x30008708  r1/a2:  0x00000000  r2/a3:  0x00000000
+E: r3/a4:  0x00000000 r12/ip:  0x00000000 r14/lr:  0x10008aa3
+E:  xpsr:  0x41000000
+E: Faulting instruction address (r15/pc): 0x1001acfa
+E: >>> ZEPHYR FATAL ERROR 0: CPU exception on CPU 0
+E: Current thread: 0x30000138 (test_bclr_immediate)
+E: Halting system
+qemu-system-arm: terminating on signal 15 from pid 98514 (timeout)

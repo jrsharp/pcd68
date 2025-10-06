@@ -1,0 +1,262 @@
+/*
+ * Logical and Shift Instruction Tests
+ * Tests AND, OR, EOR, NOT, TST, CLR, ASL, ASR, LSL, LSR instructions
+ */
+
+#include <zephyr/ztest.h>
+#include "test_helper.h"
+
+ZTEST_SUITE(logical_instructions, NULL, NULL, NULL, NULL, NULL);
+
+ZTEST(logical_instructions, test_and_dn_dn)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: D0 = 0xFF00, D1 = 0x0F0F
+    cpu.writeD(0, 0xFF00);
+    cpu.writeD(1, 0x0F0F);
+
+    // AND.W D1,D0  (0xC041)
+    cpu.write_word(0x400, 0xC041);  // AND.W D1,D0
+
+    cpu.execute();
+
+    zassert_equal(cpu.readD(0), 0x0F00, "D0 should contain 0x0F00");
+    printk("✓ AND.W D1,D0 test passed\n");
+}
+
+ZTEST(logical_instructions, test_and_immediate)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: D2 = 0xAAAA
+    cpu.writeD(2, 0xAAAA);
+
+    // ANDI.W #0x5555,D2  (0x0242 followed by immediate)
+    cpu.write_word(0x400, 0x0242);  // ANDI.W #imm,D2
+    cpu.write_word(0x402, 0x5555);  // immediate value
+
+    cpu.execute();
+
+    zassert_equal(cpu.readD(2), 0x0000, "D2 should contain 0x0000");
+    printk("✓ ANDI.W #0x5555,D2 test passed\n");
+}
+
+ZTEST(logical_instructions, test_or_dn_dn)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: D0 = 0xF000, D1 = 0x0F00
+    cpu.writeD(0, 0xF000);
+    cpu.writeD(1, 0x0F00);
+
+    // OR.W D1,D0  (0x8041)
+    cpu.write_word(0x400, 0x8041);  // OR.W D1,D0
+
+    cpu.execute();
+
+    zassert_equal(cpu.readD(0), 0xFF00, "D0 should contain 0xFF00");
+    printk("✓ OR.W D1,D0 test passed\n");
+}
+
+ZTEST(logical_instructions, test_or_immediate)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: D3 = 0x1000
+    cpu.writeD(3, 0x1000);
+
+    // ORI.W #0x0200,D3  (0x0043 followed by immediate)
+    cpu.write_word(0x400, 0x0043);  // ORI.W #imm,D3
+    cpu.write_word(0x402, 0x0200);  // immediate value
+
+    cpu.execute();
+
+    zassert_equal(cpu.readD(3), 0x1200, "D3 should contain 0x1200");
+    printk("✓ ORI.W #0x0200,D3 test passed\n");
+}
+
+ZTEST(logical_instructions, test_tst_zero)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: D0 = 0
+    cpu.writeD(0, 0);
+
+    // TST.L D0  (0x4A80)
+    cpu.write_word(0x400, 0x4A80);  // TST.L D0
+
+    cpu.execute();
+
+    zassert_equal(cpu.readD(0), 0, "D0 should still be 0");
+    printk("✓ TST.L D0 (zero) test passed\n");
+}
+
+ZTEST(logical_instructions, test_tst_nonzero)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: D1 = 42
+    cpu.writeD(1, 42);
+
+    // TST.W D1  (0x4A41)
+    cpu.write_word(0x400, 0x4A41);  // TST.W D1
+
+    cpu.execute();
+
+    zassert_equal(cpu.readD(1), 42, "D1 should still be 42");
+    printk("✓ TST.W D1 (nonzero) test passed\n");
+}
+
+ZTEST(logical_instructions, test_clr_dn)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: D2 = 0x12345678
+    cpu.writeD(2, 0x12345678);
+
+    // CLR.L D2  (0x4282)
+    cpu.write_word(0x400, 0x4282);  // CLR.L D2
+
+    cpu.execute();
+
+    zassert_equal(cpu.readD(2), 0, "D2 should be 0");
+    printk("✓ CLR.L D2 test passed\n");
+}
+
+ZTEST(logical_instructions, test_asl_immediate)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: D0 = 1
+    cpu.writeD(0, 1);
+
+    // ASL.W #3,D0  (0xE740) - shift left by 3
+    cpu.write_word(0x400, 0xE740);  // ASL.W #3,D0
+
+    cpu.execute();
+
+    zassert_equal(cpu.readD(0), 8, "D0 should contain 8");
+    printk("✓ ASL.W #3,D0 test passed\n");
+}
+
+ZTEST(logical_instructions, test_asr_immediate)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: D1 = 16
+    cpu.writeD(1, 16);
+
+    // ASR.W #2,D1  (0xE441) - shift right by 2
+    cpu.write_word(0x400, 0xE441);  // ASR.W #2,D1
+
+    cpu.execute();
+
+    zassert_equal(cpu.readD(1), 4, "D1 should contain 4");
+    printk("✓ ASR.W #2,D1 test passed\n");
+}
+
+ZTEST(logical_instructions, test_lsl_immediate)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: D2 = 0x0001
+    cpu.writeD(2, 0x0001);
+
+    // LSL.L #4,D2  (0xE98A) - shift left by 4
+    cpu.write_word(0x400, 0xE98A);  // LSL.L #4,D2
+
+    cpu.execute();
+
+    zassert_equal(cpu.readD(2), 0x10, "D2 should contain 0x10");
+    printk("✓ LSL.L #4,D2 test passed\n");
+}
+
+ZTEST(logical_instructions, test_lsr_immediate)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: D3 = 0x80
+    cpu.writeD(3, 0x80);
+
+    // LSR.W #4,D3  (0xE84B) - shift right by 4
+    cpu.write_word(0x400, 0xE84B);  // LSR.W #4,D3
+
+    cpu.execute();
+
+    zassert_equal(cpu.readD(3), 0x08, "D3 should contain 0x08");
+    printk("✓ LSR.W #4,D3 test passed\n");
+}
+
+ZTEST(logical_instructions, test_asl_register)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: D0 = 2 (shift count), D1 = 1
+    cpu.writeD(0, 2);
+    cpu.writeD(1, 1);
+
+    // ASL.W D0,D1  (0xE161) - shift D1 left by D0
+    cpu.write_word(0x400, 0xE161);  // ASL.W D0,D1
+
+    cpu.execute();
+
+    zassert_equal(cpu.readD(1), 4, "D1 should contain 4");
+    printk("✓ ASL.W D0,D1 test passed\n");
+}
+
+ZTEST(logical_instructions, test_lsr_register)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: D2 = 3 (shift count), D3 = 0x40
+    cpu.writeD(2, 3);
+    cpu.writeD(3, 0x40);
+
+    // LSR.W D2,D3  (0xE4AB) - shift D3 right by D2
+    cpu.write_word(0x400, 0xE4AB);  // LSR.W D2,D3
+
+    cpu.execute();
+
+    zassert_equal(cpu.readD(3), 0x08, "D3 should contain 0x08");
+    printk("✓ LSR.W D2,D3 test passed\n");
+}

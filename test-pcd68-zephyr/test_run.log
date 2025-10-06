@@ -1,0 +1,22 @@
+Timer with period zero, disabling
+*** Booting nRF Connect SDK v3.1.0-92018e341bd0 ***
+*** Using Zephyr OS v4.1.99-ff8f0c579eeb ***
+Running TESTSUITE addressing_modes
+===================================================================
+START - test_absolute_long_addressing
+
+    Assertion failed at WEST_TOPDIR/test-pcd68-zephyr/src/test_addressing_modes.cpp:130: addressing_modes_test_absolute_long_addressing: (cpu.readD(5) not equal to 0xACE0)
+D5 should contain value from absolute long address
+ FAIL - test_absolute_long_addressing in 0.000 seconds
+===================================================================
+START - test_absolute_short_addressing
+E: ***** MPU FAULT *****
+E:   Data Access Violation
+E:   MMFAR Address: 0x0
+E: r0/a1:  0x30008700  r1/a2:  0x00000000  r2/a3:  0x00000000
+E: r3/a4:  0x00000000 r12/ip:  0x1001e7dc r14/lr:  0x100062f7
+E:  xpsr:  0x41000000
+E: Faulting instruction address (r15/pc): 0x1001a5ba
+E: >>> ZEPHYR FATAL ERROR 0: CPU exception on CPU 0
+E: Current thread: 0x30000138 (test_absolute_short_addressing)
+E: Halting system

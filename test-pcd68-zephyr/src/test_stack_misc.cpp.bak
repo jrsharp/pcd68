@@ -1,0 +1,300 @@
+/*
+ * Stack and Miscellaneous Instruction Tests
+ * Tests LINK, UNLK, PEA, MOVEM, EXT, SWAP, NEG, NEGX, NOT, EXG
+ */
+
+#include <zephyr/ztest.h>
+#include "test_helper.h"
+
+ZTEST_SUITE(stack_misc, NULL, NULL, NULL, NULL, NULL);
+
+ZTEST(stack_misc, test_pea_absolute)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: SP = 0x1000
+    cpu.writeA(7, 0x1000);
+
+    // PEA $2000  - Push effective address onto stack
+    cpu.write_word(0x400, 0x4879);  // PEA (xxx).L
+    cpu.write_long(0x402, 0x00002000);  // address = 0x2000
+
+    cpu.execute();
+
+    // SP should decrease by 4
+    zassert_equal(cpu.readA(7), 0x0FFC, "SP should decrement by 4");
+
+    // Stack should contain the address
+    uint32_t stack_val = (cpu.read16(0x0FFC) << 16) | cpu.read16(0x0FFE);
+    zassert_equal(stack_val, 0x00002000, "Stack should contain address 0x2000");
+
+    printk("✓ PEA test passed\n");
+}
+
+ZTEST(stack_misc, test_link_unlk)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: SP = 0x1000, A5 = 0x5555
+    cpu.writeA(7, 0x1000);
+    cpu.writeA(5, 0x5555);
+
+    // LINK A5,#-8  - Create stack frame
+    cpu.write_word(0x400, 0x4E55);  // LINK A5,#disp
+    cpu.write_word(0x402, 0xFFF8);  // displacement = -8
+
+    cpu.execute();
+
+    // Old A5 should be saved, new A5 = SP, SP -= 8
+    uint32_t new_a5 = cpu.readA(5);
+    uint32_t new_sp = cpu.readA(7);
+
+    zassert_equal(new_sp, new_a5 - 8, "SP should be A5 - 8");
+
+    printk("✓ LINK test passed\n");
+
+    // Now UNLK
+    cpu.write_word(0x406, 0x4E5D);  // UNLK A5
+
+    cpu.execute();
+
+    // A5 and SP should be restored
+    zassert_equal(cpu.readA(5), 0x5555, "A5 should be restored");
+    zassert_equal(cpu.readA(7), 0x1000, "SP should be restored");
+
+    printk("✓ UNLK test passed\n");
+}
+
+ZTEST(stack_misc, test_ext_byte_to_word)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: D0 = 0x000000FF (byte with sign bit set)
+    cpu.writeD(0, 0x000000FF);
+
+    // EXT.W D0  - Extend byte to word
+    cpu.write_word(0x400, 0x4880);  // EXT.W D0
+
+    cpu.execute();
+
+    // Should sign-extend: 0xFF -> 0xFFFF
+    zassert_equal(cpu.readD(0) & 0xFFFF, 0xFFFF, "D0 should be sign-extended to 0xFFFF");
+    printk("✓ EXT.W (byte to word) test passed\n");
+}
+
+ZTEST(stack_misc, test_ext_word_to_long)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: D1 = 0x0000FFFF (word with sign bit set)
+    cpu.writeD(1, 0x0000FFFF);
+
+    // EXT.L D1  - Extend word to long
+    cpu.write_word(0x400, 0x48C1);  // EXT.L D1
+
+    cpu.execute();
+
+    // Should sign-extend: 0xFFFF -> 0xFFFFFFFF
+    zassert_equal(cpu.readD(1), 0xFFFFFFFF, "D1 should be sign-extended to 0xFFFFFFFF");
+    printk("✓ EXT.L (word to long) test passed\n");
+}
+
+ZTEST(stack_misc, test_ext_positive)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: D2 = 0x0000007F (positive byte)
+    cpu.writeD(2, 0x0000007F);
+
+    // EXT.W D2  - Extend positive byte
+    cpu.write_word(0x400, 0x4882);  // EXT.W D2
+
+    cpu.execute();
+
+    // Should zero-extend: 0x7F -> 0x007F
+    zassert_equal(cpu.readD(2) & 0xFFFF, 0x007F, "D2 should be 0x007F");
+    printk("✓ EXT positive value test passed\n");
+}
+
+ZTEST(stack_misc, test_swap)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: D0 = 0x12345678
+    cpu.writeD(0, 0x12345678);
+
+    // SWAP D0  - Swap upper and lower words
+    cpu.write_word(0x400, 0x4840);  // SWAP D0
+
+    cpu.execute();
+
+    zassert_equal(cpu.readD(0), 0x56781234, "D0 words should be swapped");
+    printk("✓ SWAP test passed\n");
+}
+
+ZTEST(stack_misc, test_not)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: D1 = 0xAAAAAAAA
+    cpu.writeD(1, 0xAAAAAAAA);
+
+    // NOT.L D1  - Logical complement
+    cpu.write_word(0x400, 0x4681);  // NOT.L D1
+
+    cpu.execute();
+
+    zassert_equal(cpu.readD(1), 0x55555555, "D1 should be complemented");
+    printk("✓ NOT test passed\n");
+}
+
+ZTEST(stack_misc, test_neg)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: D2 = 42
+    cpu.writeD(2, 42);
+
+    // NEG.L D2  - Two's complement negation
+    cpu.write_word(0x400, 0x4482);  // NEG.L D2
+
+    cpu.execute();
+
+    zassert_equal(cpu.readD(2), (uint32_t)-42, "D2 should be negated");
+    printk("✓ NEG test passed\n");
+}
+
+ZTEST(stack_misc, test_negx)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: D3 = 100
+    cpu.writeD(3, 100);
+
+    // NEGX.L D3  - Negate with extend (includes X flag)
+    cpu.write_word(0x400, 0x4083);  // NEGX.L D3
+
+    cpu.execute();
+
+    zassert_equal(cpu.readD(3), (uint32_t)-100, "D3 should be negated");
+    printk("✓ NEGX test passed\n");
+}
+
+ZTEST(stack_misc, test_exg_data_registers)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: D0 = 0x11111111, D1 = 0x22222222
+    cpu.writeD(0, 0x11111111);
+    cpu.writeD(1, 0x22222222);
+
+    // EXG D0,D1  - Exchange data registers
+    cpu.write_word(0x400, 0xC141);  // EXG D0,D1
+
+    cpu.execute();
+
+    zassert_equal(cpu.readD(0), 0x22222222, "D0 should have D1's value");
+    zassert_equal(cpu.readD(1), 0x11111111, "D1 should have D0's value");
+    printk("✓ EXG data registers test passed\n");
+}
+
+ZTEST(stack_misc, test_exg_address_registers)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: A2 = 0xAAAAAAAA, A3 = 0xBBBBBBBB
+    cpu.writeA(2, 0xAAAAAAAA);
+    cpu.writeA(3, 0xBBBBBBBB);
+
+    // EXG A2,A3  - Exchange address registers
+    cpu.write_word(0x400, 0xC54B);  // EXG A2,A3
+
+    cpu.execute();
+
+    zassert_equal(cpu.readA(2), 0xBBBBBBBB, "A2 should have A3's value");
+    zassert_equal(cpu.readA(3), 0xAAAAAAAA, "A3 should have A2's value");
+    printk("✓ EXG address registers test passed\n");
+}
+
+ZTEST(stack_misc, test_movem_registers_to_memory)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: D0 = 0x1111, D1 = 0x2222, A4 = 0x800
+    cpu.writeD(0, 0x1111);
+    cpu.writeD(1, 0x2222);
+    cpu.writeA(4, 0x800);
+
+    // MOVEM.W D0-D1,(A4)  - Move multiple registers to memory
+    cpu.write_word(0x400, 0x4894);  // MOVEM.W reg_list,(A4)
+    cpu.write_word(0x402, 0x0003);  // register mask: D0-D1
+
+    cpu.execute();
+
+    // Check memory was written
+    uint16_t val0 = cpu.read16(0x800);
+    uint16_t val1 = cpu.read16(0x802);
+
+    zassert_equal(val0, 0x1111, "Memory should contain D0");
+    zassert_equal(val1, 0x2222, "Memory should contain D1");
+    printk("✓ MOVEM registers to memory test passed\n");
+}
+
+ZTEST(stack_misc, test_movem_memory_to_registers)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: Write values to memory, A5 = 0x900
+    cpu.write_word(0x900, 0x3333);
+    cpu.write_word(0x902, 0x4444);
+    cpu.writeA(5, 0x900);
+
+    // MOVEM.W (A5),D2-D3  - Move multiple from memory to registers
+    cpu.write_word(0x400, 0x4C95);  // MOVEM.W (A5),reg_list
+    cpu.write_word(0x402, 0x000C);  // register mask: D2-D3
+
+    cpu.execute();
+
+    zassert_equal(cpu.readD(2), 0x3333, "D2 should be loaded from memory");
+    zassert_equal(cpu.readD(3), 0x4444, "D3 should be loaded from memory");
+    printk("✓ MOVEM memory to registers test passed\n");
+}

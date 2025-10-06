@@ -80,3 +80,20 @@
 #else
 #define MIMIC_MUSASHI true
 #endif
+
+/* Set to true to use memory-efficient instruction dispatch for embedded targets.
+ *
+ * Instead of a 524KB lookup table, use a small hash table + switch statement
+ * for instruction decoding. This saves ~500KB of RAM at the cost of slightly
+ * slower instruction dispatch.
+ *
+ * NOTE: For Zephyr/nRF54L15, we disable this and use the full exec table
+ * in flash memory instead (we have 1.5MB flash but only 256KB RAM).
+ */
+#ifdef USE_ZEPHYR
+#define USE_MINIMAL_DISPATCH true  // Use memory-efficient dispatch for now
+#define USE_EXEC_TABLE_IN_FLASH false  // TODO: Implement flash table approach
+#else
+#define USE_MINIMAL_DISPATCH false
+#define USE_EXEC_TABLE_IN_FLASH false
+#endif

@@ -161,7 +161,11 @@ private:
     u64 softStop = UINT64_MAX - 1;
 
     // Buffer storing logged instructions
+#ifdef USE_ZEPHYR
+    static const int logBufferCapacity = 8;  // Minimal logging for embedded
+#else
     static const int logBufferCapacity = 256;
+#endif
     Registers logBuffer[logBufferCapacity];
 
     // Logging counter

@@ -1,0 +1,220 @@
+/*
+ * Branch and Control Flow Tests
+ * Tests Bcc (BEQ, BNE, BRA, etc.), JMP, JSR, RTS, LEA instructions
+ */
+
+#include <zephyr/ztest.h>
+#include "test_helper.h"
+
+ZTEST_SUITE(branch_instructions, NULL, NULL, NULL, NULL, NULL);
+
+ZTEST(branch_instructions, test_bra_short)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // BRA.S +10  (0x6000 | displacement)
+    cpu.write_word(0x400, 0x600A);  // BRA.S +10
+
+    cpu.execute();
+
+    // PC should be at 0x400 + 2 + 10 = 0x40C
+    zassert_equal(cpu.getPC(), 0x40C, "PC should be at 0x40C after BRA");
+    printk("✓ BRA.S +10 test passed\n");
+}
+
+ZTEST(branch_instructions, test_beq_taken)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: Set Z flag by doing MOVEQ #0,D0
+    cpu.write_word(0x400, 0x7000);  // MOVEQ #0,D0 (sets Z flag)
+    cpu.write_word(0x402, 0x6708);  // BEQ.S +8
+
+    cpu.execute();  // Execute MOVEQ
+    cpu.execute();  // Execute BEQ
+
+    // PC should be at 0x402 + 2 + 8 = 0x40C
+    zassert_equal(cpu.getPC(), 0x40C, "PC should be at 0x40C after BEQ taken");
+    printk("✓ BEQ.S (taken) test passed\n");
+}
+
+ZTEST(branch_instructions, test_beq_not_taken)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: Clear Z flag by doing MOVEQ #1,D0
+    cpu.write_word(0x400, 0x7001);  // MOVEQ #1,D0 (clears Z flag)
+    cpu.write_word(0x402, 0x6708);  // BEQ.S +8
+
+    cpu.execute();  // Execute MOVEQ
+    cpu.execute();  // Execute BEQ
+
+    // PC should be at 0x402 + 2 (not taken)
+    zassert_equal(cpu.getPC(), 0x404, "PC should be at 0x404 after BEQ not taken");
+    printk("✓ BEQ.S (not taken) test passed\n");
+}
+
+ZTEST(branch_instructions, test_bne_taken)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: Clear Z flag by doing MOVEQ #1,D0
+    cpu.write_word(0x400, 0x7001);  // MOVEQ #1,D0 (clears Z flag)
+    cpu.write_word(0x402, 0x660A);  // BNE.S +10
+
+    cpu.execute();  // Execute MOVEQ
+    cpu.execute();  // Execute BNE
+
+    // PC should be at 0x402 + 2 + 10 = 0x40E
+    zassert_equal(cpu.getPC(), 0x40E, "PC should be at 0x40E after BNE taken");
+    printk("✓ BNE.S (taken) test passed\n");
+}
+
+ZTEST(branch_instructions, test_jmp_absolute)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // JMP 0x500  (0x4EF9 followed by long address)
+    cpu.write_word(0x400, 0x4EF9);  // JMP (xxx).L
+    cpu.write_long(0x402, 0x00000500);  // target address
+
+    cpu.execute();
+
+    zassert_equal(cpu.getPC(), 0x500, "PC should be at 0x500 after JMP");
+    printk("✓ JMP 0x500 test passed\n");
+}
+
+ZTEST(branch_instructions, test_jsr_rts)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    uint32_t initial_sp = cpu.readA(7);
+
+    // JSR 0x500  (0x4EB9 followed by long address)
+    cpu.write_word(0x400, 0x4EB9);  // JSR (xxx).L
+    cpu.write_long(0x402, 0x00000500);  // target address
+
+    // At 0x500: RTS
+    cpu.write_word(0x500, 0x4E75);  // RTS
+
+    cpu.execute();  // Execute JSR
+
+    // Check that return address was pushed
+    uint32_t sp_after_jsr = cpu.readA(7);
+    zassert_equal(sp_after_jsr, initial_sp - 4, "SP should decrease by 4 after JSR");
+    zassert_equal(cpu.getPC(), 0x500, "PC should be at 0x500 after JSR");
+
+    cpu.execute();  // Execute RTS
+
+    // Check that we returned to the instruction after JSR
+    zassert_equal(cpu.getPC(), 0x406, "PC should be at 0x406 after RTS");
+    zassert_equal(cpu.readA(7), initial_sp, "SP should be restored after RTS");
+    printk("✓ JSR/RTS test passed\n");
+}
+
+ZTEST(branch_instructions, test_lea_absolute)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // LEA 0x2000,A2  (0x45F9 followed by long address)
+    cpu.write_word(0x400, 0x45F9);  // LEA (xxx).L,A2
+    cpu.write_long(0x402, 0x00002000);  // address
+
+    cpu.execute();
+
+    zassert_equal(cpu.readA(2), 0x2000, "A2 should contain 0x2000");
+    printk("✓ LEA 0x2000,A2 test passed\n");
+}
+
+ZTEST(branch_instructions, test_lea_pc_relative)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // LEA (PC,disp16),A3  (0x47FA followed by displacement)
+    cpu.write_word(0x400, 0x47FA);  // LEA (d16,PC),A3
+    cpu.write_word(0x402, 0x0010);  // displacement = +16
+
+    cpu.execute();
+
+    // Effective address = PC (0x402) + 16 = 0x412
+    zassert_equal(cpu.readA(3), 0x412, "A3 should contain 0x412");
+    printk("✓ LEA (d16,PC),A3 test passed\n");
+}
+
+ZTEST(branch_instructions, test_bcc_unsigned_higher)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: Compare two values where D0 > D1 (unsigned)
+    // MOVEQ #10,D0
+    cpu.write_word(0x400, 0x700A);  // MOVEQ #10,D0
+    // MOVEQ #5,D1
+    cpu.write_word(0x402, 0x7205);  // MOVEQ #5,D1
+    // CMP.B D1,D0
+    cpu.write_word(0x404, 0xB001);  // CMP.B D1,D0
+    // BHI.S +6  (0x6200 | displacement)
+    cpu.write_word(0x406, 0x6206);  // BHI.S +6
+
+    cpu.execute();  // MOVEQ #10,D0
+    cpu.execute();  // MOVEQ #5,D1
+    cpu.execute();  // CMP.B D1,D0
+    cpu.execute();  // BHI
+
+    // PC should be at 0x406 + 2 + 6 = 0x40E
+    zassert_equal(cpu.getPC(), 0x40E, "PC should be at 0x40E after BHI taken");
+    printk("✓ BHI.S (taken) test passed\n");
+}
+
+ZTEST(branch_instructions, test_bls_unsigned_lower_or_same)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    cpu.reset();
+
+    // Setup: Compare two equal values
+    // MOVEQ #7,D0
+    cpu.write_word(0x400, 0x7007);  // MOVEQ #7,D0
+    // MOVEQ #7,D1
+    cpu.write_word(0x402, 0x7207);  // MOVEQ #7,D1
+    // CMP.B D1,D0
+    cpu.write_word(0x404, 0xB001);  // CMP.B D1,D0
+    // BLS.S +8
+    cpu.write_word(0x406, 0x6308);  // BLS.S +8
+
+    cpu.execute();  // MOVEQ #7,D0
+    cpu.execute();  // MOVEQ #7,D1
+    cpu.execute();  // CMP.B D1,D0
+    cpu.execute();  // BLS
+
+    // PC should be at 0x406 + 2 + 8 = 0x410
+    zassert_equal(cpu.getPC(), 0x410, "PC should be at 0x410 after BLS taken");
+    printk("✓ BLS.S (taken) test passed\n");
+}

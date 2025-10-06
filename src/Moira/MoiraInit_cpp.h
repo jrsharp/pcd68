@@ -7,6 +7,7 @@
 // See https://www.gnu.org for license information
 // -----------------------------------------------------------------------------
 
+#if !USE_MINIMAL_DISPATCH
 // Adds a single entry to the instruction jump table
 
 #define TPARAM(x,y,z) <x,y,z>
@@ -1369,3 +1370,5 @@ Moira::createJumpTables2()
     opcode = parse("0100 1110 0101 1---");
     _____________XXX(opcode, UNLK, MODE_IP, Word, Unlk);
 }
+
+#endif // !USE_MINIMAL_DISPATCH

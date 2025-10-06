@@ -1,0 +1,221 @@
+/*
+ * Arithmetic Instruction Tests
+ * Tests ADD, ADDA, ADDQ, SUB, SUBA, SUBQ, CMP instructions
+ */
+
+#include <zephyr/ztest.h>
+#include "test_helper.h"
+
+ZTEST_SUITE(arithmetic_instructions, NULL, NULL, NULL, NULL, NULL);
+
+ZTEST(arithmetic_instructions, test_addq_dn)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    // Setup: D0 = 10
+    cpu.writeD(0, 10);
+
+    // ADDQ #5,D0  (0x5040 | (5-1) << 9 | D0)
+    cpu.write_word(0x400, 0x5A40);  // ADDQ #5,D0
+
+    cpu.reset();  // Reset AFTER writing instructions
+    cpu.execute();
+
+    zassert_equal(cpu.readD(0), 15, "D0 should contain 15");
+    printk("✓ ADDQ #5,D0 test passed\n");
+}
+
+ZTEST(arithmetic_instructions, test_subq_dn)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    // Setup: D1 = 20
+    cpu.writeD(1, 20);
+
+    // SUBQ #3,D1  (0x5140 | (3-1) << 9 | D1)
+    cpu.write_word(0x400, 0x5541);  // SUBQ #3,D1
+
+    cpu.reset();  // Reset AFTER writing instructions
+    cpu.execute();
+
+    zassert_equal(cpu.readD(1), 17, "D1 should contain 17");
+    printk("✓ SUBQ #3,D1 test passed\n");
+}
+
+ZTEST(arithmetic_instructions, test_add_dn_dn_word)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    // Setup: D0 = 100, D1 = 50
+    cpu.writeD(0, 100);
+    cpu.writeD(1, 50);
+
+    // ADD.W D1,D0  (0xD040 | D1)
+    cpu.write_word(0x400, 0xD041);  // ADD.W D1,D0
+
+    cpu.reset();  // Reset AFTER writing instructions
+    cpu.execute();
+
+    zassert_equal(cpu.readD(0), 150, "D0 should contain 150");
+    printk("✓ ADD.W D1,D0 test passed\n");
+}
+
+ZTEST(arithmetic_instructions, test_add_dn_dn_long)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    // Setup: D2 = 0x10000, D3 = 0x20000
+    cpu.writeD(2, 0x10000);
+    cpu.writeD(3, 0x20000);
+
+    // ADD.L D3,D2  (0xD480 | D3)
+    cpu.write_word(0x400, 0xD483);  // ADD.L D3,D2
+
+    cpu.reset();  // Reset AFTER writing instructions
+    cpu.execute();
+
+    zassert_equal(cpu.readD(2), 0x30000, "D2 should contain 0x30000");
+    printk("✓ ADD.L D3,D2 test passed\n");
+}
+
+ZTEST(arithmetic_instructions, test_sub_dn_dn_word)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    // Setup: D0 = 100, D1 = 30
+    cpu.writeD(0, 100);
+    cpu.writeD(1, 30);
+
+    // SUB.W D1,D0  (0x9040 | D1)
+    cpu.write_word(0x400, 0x9041);  // SUB.W D1,D0
+
+    cpu.reset();  // Reset AFTER writing instructions
+    cpu.execute();
+
+    zassert_equal(cpu.readD(0), 70, "D0 should contain 70");
+    printk("✓ SUB.W D1,D0 test passed\n");
+}
+
+ZTEST(arithmetic_instructions, test_sub_dn_dn_long)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    // Setup: D2 = 0x50000, D3 = 0x10000
+    cpu.writeD(2, 0x50000);
+    cpu.writeD(3, 0x10000);
+
+    // SUB.L D3,D2  (0x9480 | D3)
+    cpu.write_word(0x400, 0x9483);  // SUB.L D3,D2
+
+    cpu.reset();  // Reset AFTER writing instructions
+    cpu.execute();
+
+    zassert_equal(cpu.readD(2), 0x40000, "D2 should contain 0x40000");
+    printk("✓ SUB.L D3,D2 test passed\n");
+}
+
+ZTEST(arithmetic_instructions, test_adda_word)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    // Setup: A2 = 0x1000, D0 = 0x100
+    cpu.writeA(2, 0x1000);
+    cpu.writeD(0, 0x100);
+
+    // ADDA.W D0,A2  (0xD4C0 | D0)
+    cpu.write_word(0x400, 0xD4C0);  // ADDA.W D0,A2
+
+    cpu.reset();  // Reset AFTER writing instructions
+    cpu.execute();
+
+    zassert_equal(cpu.readA(2), 0x1100, "A2 should contain 0x1100");
+    printk("✓ ADDA.W D0,A2 test passed\n");
+}
+
+ZTEST(arithmetic_instructions, test_adda_long)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    // Setup: A3 = 0x10000, D1 = 0x5000
+    cpu.writeA(3, 0x10000);
+    cpu.writeD(1, 0x5000);
+
+    // ADDA.L D1,A3  (0xD7C1)
+    cpu.write_word(0x400, 0xD7C1);  // ADDA.L D1,A3
+
+    cpu.reset();  // Reset AFTER writing instructions
+    cpu.execute();
+
+    zassert_equal(cpu.readA(3), 0x15000, "A3 should contain 0x15000");
+    printk("✓ ADDA.L D1,A3 test passed\n");
+}
+
+ZTEST(arithmetic_instructions, test_suba_word)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    // Setup: A4 = 0x2000, D2 = 0x500
+    cpu.writeA(4, 0x2000);
+    cpu.writeD(2, 0x500);
+
+    // SUBA.W D2,A4  (0x98C2)
+    cpu.write_word(0x400, 0x98C2);  // SUBA.W D2,A4
+
+    cpu.reset();  // Reset AFTER writing instructions
+    cpu.execute();
+
+    zassert_equal(cpu.readA(4), 0x1B00, "A4 should contain 0x1B00");
+    printk("✓ SUBA.W D2,A4 test passed\n");
+}
+
+ZTEST(arithmetic_instructions, test_suba_long)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    // Setup: A5 = 0x20000, D3 = 0x8000
+    cpu.writeA(5, 0x20000);
+    cpu.writeD(3, 0x8000);
+
+    // SUBA.L D3,A5  (0x9BC3)
+    cpu.write_word(0x400, 0x9BC3);  // SUBA.L D3,A5
+
+    cpu.reset();  // Reset AFTER writing instructions
+    cpu.execute();
+
+    zassert_equal(cpu.readA(5), 0x18000, "A5 should contain 0x18000");
+    printk("✓ SUBA.L D3,A5 test passed\n");
+}
+
+ZTEST(arithmetic_instructions, test_cmp_dn_dn)
+{
+    TestMemory cpu;
+    cpu.write_long(0, 0x00001000);
+    cpu.write_long(4, 0x00000400);
+    // Setup: D0 = 50, D1 = 50
+    cpu.writeD(0, 50);
+    cpu.writeD(1, 50);
+
+    // CMP.W D1,D0  (0xB040 | D1)
+    cpu.write_word(0x400, 0xB041);  // CMP.W D1,D0
+
+    // NOP to allow inspection
+    cpu.write_word(0x402, 0x4E71);
+
+    cpu.reset();  // Reset AFTER writing instructions
+    cpu.execute();
+
+    // Values should be unchanged (CMP doesn't modify operands)
+    zassert_equal(cpu.readD(0), 50, "D0 should still be 50");
+    zassert_equal(cpu.readD(1), 50, "D1 should still be 50");
+    printk("✓ CMP.W D1,D0 test passed\n");
+}
