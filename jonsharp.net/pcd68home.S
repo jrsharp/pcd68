@@ -992,14 +992,16 @@ process_keyboard_input:
     beq     process_key_quit
     cmpb    #KEY_A, %d0        /* 'a' for Art mode */
     beq     process_key_picture
-    cmpb    #KEY_C, %d0        /* 'c' for Chat mode */
-    beq     process_key_chat
+    /* DISABLED: Chat mode - under development */
+    /* cmpb    #KEY_C, %d0        'c' for Chat mode */
+    /* beq     process_key_chat */
     cmpb    #KEY_D, %d0        /* 'd' for Debug mode */
     beq     process_key_debug
     cmpb    #KEY_U, %d0        /* 'u' for UART2 mode */
     beq     process_key_uart2
-    cmpb    #KEY_N, %d0        /* 'n' for Network/AT modem mode */
-    beq     process_key_uart1_at
+    /* DISABLED: Network/AT mode - use Chat mode (C) instead */
+    /* cmpb    #KEY_N, %d0        'n' for Network/AT modem mode */
+    /* beq     process_key_uart1_at */
     cmpb    #KEY_J, %d0        /* 'j' for scroll down */
     beq     process_key_scroll_down
     cmpb    #KEY_K, %d0        /* 'k' for scroll up */
@@ -2198,7 +2200,7 @@ version_text:
 .equ version_text_length, 23
 
 footer_commands:
-    .string "Keys: j=down, k=up, 0=top, 1-9=sections, a=art, c=chat, n=network, u=uart2"
+    .string "Keys: j=down, k=up, 0=top, 1-9=sections, a=art, u=uart"
 status_text:
     .string "Loc: "
 selection_text:
@@ -2332,6 +2334,14 @@ uart2_input_length:
     .dc.l    0               /* Current length of UART2 input buffer */
 uart2_interrupt_counter:
     .dc.l    0               /* Count of UART2 interrupts (for debugging) */
+uart2_response_buffer:
+    .ds.b    512             /* Buffer for UART2 response data */
+uart2_response_length:
+    .dc.l    0               /* Current length of UART2 response buffer */
+uart2_response_line:
+    .dc.l    8               /* Current line number for response display (starts at line 8) */
+uart2_echo_buffer:
+    .ds.b    128             /* Buffer for local echo display */
 
 /* UART1 AT modem input variables */
 uart1_at_input_buffer:
@@ -2783,20 +2793,50 @@ aether_init_with_timeout:
 /* Aether connect with timeout protection - INTERRUPT DRIVEN VERSION */
 aether_connect_with_timeout:
     movel   %d1, -(%sp)
-    
+
     /* Send AT+NETALIAS command */
     jsr     send_netalias_command_async
-    
-    /* Also send AT+INIT command */
+
+    /* Wait 2 seconds for response */
+    jsr     delay_2_seconds
+
+    /* Send AT+INIT command */
     jsr     send_init_command_async
-    
-    /* Also send AT+NETJOIN command */
+
+    /* Wait 2 seconds for response */
+    jsr     delay_2_seconds
+
+    /* Send AT+NETJOIN command */
     jsr     send_netjoin_command_async
-    
+
+    /* Wait 2 seconds for response */
+    jsr     delay_2_seconds
+
     /* Return success - actual response will come via interrupt */
     moveq   #0, %d0  /* Return AT_OK */
-    
+
     movel   (%sp)+, %d1
+    rts
+
+/* Delay approximately 2 seconds */
+delay_2_seconds:
+    movel   %d0, -(%sp)
+    movel   %d1, -(%sp)
+
+    /* Outer loop: 2000 iterations */
+    movel   #2000, %d0
+delay_2s_outer:
+    /* Inner loop: 10000 iterations per outer loop */
+    movel   #10000, %d1
+delay_2s_inner:
+    subql   #1, %d1
+    bne     delay_2s_inner
+
+    subql   #1, %d0
+    bne     delay_2s_outer
+
+    movel   (%sp)+, %d1
+    movel   (%sp)+, %d0
     rts
 
 /* Send AT command asynchronously (non-blocking) */
@@ -2816,11 +2856,16 @@ send_at_command_async:
 send_netalias_command_async:
     movel   %d0, -(%sp)
     movel   %a0, -(%sp)
-    
+
+    /* Display what we're sending */
+    lea     log_sending_netalias, %a0
+    jsr     add_chat_line
+    jsr     display_chat_history
+
     /* Send AT+NETALIAS=PCD68xxx command */
     lea     str_netalias_cmd, %a0
     jsr     send_string_async
-    
+
     movel   (%sp)+, %a0
     movel   (%sp)+, %d0
     rts
@@ -2829,11 +2874,16 @@ send_netalias_command_async:
 send_init_command_async:
     movel   %d0, -(%sp)
     movel   %a0, -(%sp)
-    
+
+    /* Display what we're sending */
+    lea     log_sending_init, %a0
+    jsr     add_chat_line
+    jsr     display_chat_history
+
     /* Send AT+INIT command */
     lea     str_init_cmd, %a0
     jsr     send_string_async
-    
+
     movel   (%sp)+, %a0
     movel   (%sp)+, %d0
     rts
@@ -2842,11 +2892,16 @@ send_init_command_async:
 send_netjoin_command_async:
     movel   %d0, -(%sp)
     movel   %a0, -(%sp)
-    
+
+    /* Display what we're sending */
+    lea     log_sending_netjoin, %a0
+    jsr     add_chat_line
+    jsr     display_chat_history
+
     /* Send AT+NETJOIN command */
     lea     str_netjoin_cmd, %a0
     jsr     send_string_async
-    
+
     movel   (%sp)+, %a0
     movel   (%sp)+, %d0
     rts
@@ -3337,6 +3392,158 @@ copy_string_done_bounds:
     movem.l (%sp)+, %d0-%d7/%a0-%a6
     rts
 
+/*
+ * SHARED UART DISPLAY UTILITY FUNCTIONS
+ * Used by both UART1 AT mode and UART2 terminal mode
+ */
+
+/* Scroll text display area upward by one line
+ * Parameters:
+ *   d0.l = start line (e.g., 8 or 9)
+ *   d1.l = end line (e.g., 17)
+ * Scrolls lines: copies line N+1 to line N, oldest line disappears
+ * Preserves all registers except d0-d5, a0-a1
+ */
+.align 2
+scroll_text_display_area:
+    movem.l %d2-%d5/%a0-%a1, -(%sp)
+
+    movel   %d0, %d3                    /* d3 = current line (starts at start_line) */
+scroll_lines_loop:
+    cmpl    %d1, %d3                    /* Compare with end_line */
+    bge     scroll_lines_done           /* Done if current >= end */
+
+    /* Calculate source address: line (d3+1) * 80 + TDABase + 1 */
+    movel   %d3, %d4
+    addql   #1, %d4                     /* Source is next line down */
+    movel   %d4, %d5
+    lsll    #6, %d4                     /* d4 = (line+1) * 64 */
+    lsll    #4, %d5                     /* d5 = (line+1) * 16 */
+    addl    %d5, %d4                    /* d4 = (line+1) * 80 */
+    addl    #1, %d4                     /* Skip first column */
+    moveal  #TDABase, %a0
+    addal   %d4, %a0                    /* a0 = source address */
+
+    /* Calculate destination address: line d3 * 80 + TDABase + 1 */
+    movel   %d3, %d4
+    movel   %d4, %d5
+    lsll    #6, %d4                     /* d4 = line * 64 */
+    lsll    #4, %d5                     /* d5 = line * 16 */
+    addl    %d5, %d4                    /* d4 = line * 80 */
+    addl    #1, %d4                     /* Skip first column */
+    moveal  #TDABase, %a1
+    addal   %d4, %a1                    /* a1 = destination address */
+
+    /* Copy 80 characters from source to destination */
+    moveq   #80, %d2
+scroll_copy_chars:
+    moveb   (%a0)+, (%a1)+
+    subql   #1, %d2
+    bne     scroll_copy_chars
+
+    /* Move to next line */
+    addql   #1, %d3
+    bra     scroll_lines_loop
+
+scroll_lines_done:
+    movem.l (%sp)+, %d2-%d5/%a0-%a1
+    rts
+
+/* Display a text line with automatic scrolling
+ * Parameters:
+ *   a0 = pointer to null-terminated string to display
+ *   d0.l = start line of display area (e.g., 8 or 9)
+ *   d1.l = end line of display area (e.g., 17)
+ *   d2.l = current display line (will be updated)
+ *   d3.l = flags: bit 0 = add border '|', bit 1 = add "RX: " prefix
+ * Returns:
+ *   d2.l = updated display line number
+ * Modifies: d0-d5, a0-a1
+ */
+.align 2
+display_text_line_with_scroll:
+    movem.l %d0-%d1/%d3-%d5/%a0-%a1, -(%sp)
+
+    /* Save parameters */
+    movel   %d0, -(%sp)                 /* start line */
+    movel   %d1, -(%sp)                 /* end line */
+    movel   %d2, -(%sp)                 /* current line */
+    movel   %d3, -(%sp)                 /* flags */
+    movel   %a0, -(%sp)                 /* string pointer */
+
+    /* Check if we need to scroll */
+    cmpl    %d1, %d2                    /* current line >= end line? */
+    blt     display_no_scroll_needed
+
+    /* Need to scroll - restore start/end for scroll function */
+    movel   4*4(%sp), %d0               /* start line */
+    movel   4*3(%sp), %d1               /* end line */
+    jsr     scroll_text_display_area
+
+    /* Set display line to end line (bottom) */
+    movel   4*3(%sp), %d2               /* end line */
+    movel   %d2, 4*2(%sp)               /* update saved current line */
+
+display_no_scroll_needed:
+    /* Get current line and calculate screen position */
+    movel   4*2(%sp), %d2               /* current line */
+    movel   %d2, %d4
+    movel   %d4, %d5
+    lsll    #6, %d4                     /* d4 = line * 64 */
+    lsll    #4, %d5                     /* d5 = line * 16 */
+    addl    %d5, %d4                    /* d4 = line * 80 */
+    addl    #1, %d4                     /* Skip first column */
+    moveal  #TDABase, %a1
+    addal   %d4, %a1
+
+    /* Clear the line */
+    moveq   #80, %d0
+display_clear_line:
+    moveb   #' ', (%a1)+
+    subql   #1, %d0
+    bne     display_clear_line
+
+    /* Reset to start of line */
+    subal   #80, %a1
+
+    /* Add border if requested (bit 0 of flags) */
+    movel   4*1(%sp), %d3               /* flags */
+    btst    #0, %d3
+    beq     display_no_border
+    moveb   #'|', (%a1)+
+    moveb   #' ', (%a1)+
+
+display_no_border:
+    /* Add "RX: " prefix if requested (bit 1 of flags) */
+    btst    #1, %d3
+    beq     display_no_prefix
+    moveb   #'R', (%a1)+
+    moveb   #'X', (%a1)+
+    moveb   #':', (%a1)+
+    moveb   #' ', (%a1)+
+
+display_no_prefix:
+    /* Display the string */
+    movel   4*0(%sp), %a0               /* string pointer */
+    jsr     copy_string_to_screen
+
+    /* Update current line for next call */
+    movel   4*2(%sp), %d2               /* current line */
+    movel   4*3(%sp), %d1               /* end line */
+    cmpl    %d1, %d2
+    bge     display_keep_at_bottom
+    addql   #1, %d2                     /* Increment if not at bottom */
+    movel   %d2, 4*2(%sp)               /* Save updated line */
+
+display_keep_at_bottom:
+    /* Return updated line number in d2 */
+    movel   4*2(%sp), %d2
+
+    /* Clean up stack */
+    addl    #20, %sp                    /* Remove 5 saved parameters */
+
+    movem.l (%sp)+, %d0-%d1/%d3-%d5/%a0-%a1
+    rts
 
 
 /* Display simple network status (2 lines only for chat mode) */
@@ -3953,7 +4160,7 @@ line_copy_done:
 /* Chat mode strings */
 .section .rodata
 chat_header_msg:
-    .string "=== Aether Network party-line chat ==="
+    .string "=== Aether Network party-line chat ===      "
 chat_bare_bones_header_msg:
     .string "=== BARE-BONES CHAT MODE (network disabled) ==="
 chat_status_prefix:
@@ -4012,6 +4219,12 @@ str_init_cmd:
     .string "AT+INIT"
 str_netjoin_cmd:
     .string "AT+NETJOIN"
+log_sending_netalias:
+    .string ">> AT+NETALIAS=PCD68test"
+log_sending_init:
+    .string ">> AT+INIT"
+log_sending_netjoin:
+    .string ">> AT+NETJOIN"
 log_uart_control_set:
     .string "[NET] UART control register configured"
 log_uart_interrupt:
@@ -5642,7 +5855,7 @@ str_netjoin_disconnected:
     .string "+NETJOIN: DISCONNECTED"
 
 str_quickmsg_prefix:
-    .string "AT+QUICKMSG="
+    .string "AT+SEND="
 
 /* AT command buffer for message sending */
 at_quickmsg_buffer:
@@ -5668,17 +5881,21 @@ process_uart2_mode:
     
     /* Enter UART2 mode */
     movel   #1, uart2_mode_active
-    
+
     /* Initialize UART2 */
     jsr     uart2_init
-    
+
     /* Clear screen and display UART2 interface */
     jsr     clear_text_screen
     jsr     display_uart2_interface
-    
+
     /* Clear input buffer */
     movel   #0, uart2_input_length
-    
+
+    /* Clear response buffer and reset display line */
+    movel   #0, uart2_response_length
+    movel   #8, uart2_response_line
+
     bra     uart2_mode_done
     
 toggle_uart2_off:
@@ -5706,22 +5923,22 @@ display_uart2_interface:
     movel   %d0, -(%sp)
     movel   %a0, -(%sp)
     movel   %a1, -(%sp)
-    
+
     /* Display header */
     moveal  #TDABase + 1, %a1
     lea     uart2_header_msg, %a0
     jsr     copy_string_to_screen
-    
-    /* Display instructions */
-    moveal  #TDABase + 1 + (2 * ScreenWidth), %a1
+
+    /* Display instructions centered (50 chars, offset by 15) */
+    moveal  #TDABase + 1 + (2 * ScreenWidth) + 15, %a1
     lea     uart2_instructions_msg, %a0
     jsr     copy_string_to_screen
-    
+
     /* Draw input line */
     moveal  #TDABase + 1 + (21 * ScreenWidth), %a1
     lea     uart2_prompt_msg, %a0
     jsr     copy_string_to_screen
-    
+
     movel   (%sp)+, %a1
     movel   (%sp)+, %a0
     movel   (%sp)+, %d0
@@ -5917,17 +6134,70 @@ uart2_backspace:
     /* Remove last character */
     cmpl    #0, uart2_input_length
     beq     finish_uart2_key_input
+
+    /* Decrement length */
     subql   #1, uart2_input_length
+
+    /* Clear the character in the buffer to prevent artifacts */
+    movel   uart2_input_length, %d0
+    lea     uart2_input_buffer, %a1
+    moveb   #0, (%a1,%d0)
+
+    /* Update display */
     jsr     uart2_update_input_display
     bra     finish_uart2_key_input
 
 uart2_send_line:
-    /* Send CR+LF */
+    /* Check if we have any input to echo */
+    movel   uart2_input_length, %d0
+    cmpl    #0, %d0
+    beq     uart2_just_send_crlf
+
+    /* Build local echo with ">> " prefix in temp buffer */
+    lea     uart2_echo_buffer, %a0
+    moveb   #'>', (%a0)+
+    moveb   #'>', (%a0)+
+    moveb   #' ', (%a0)+
+
+    /* Copy input buffer to echo buffer */
+    lea     uart2_input_buffer, %a1
+    movel   uart2_input_length, %d1
+uart2_copy_echo:
+    cmpl    #0, %d1
+    beq     uart2_echo_copied
+    moveb   (%a1)+, (%a0)+
+    subql   #1, %d1
+    bra     uart2_copy_echo
+
+uart2_echo_copied:
+    /* Null terminate */
+    moveb   #0, (%a0)
+
+    /* Display the echo in scrolling area */
+    lea     uart2_echo_buffer, %a0
+    movel   #8, %d0                     /* Start line */
+    movel   #17, %d1                    /* End line */
+    movel   uart2_response_line, %d2    /* Current line */
+    movel   #0, %d3                     /* Flags: no border, no prefix */
+    jsr     display_text_line_with_scroll
+    movel   %d2, uart2_response_line    /* Save updated line number */
+
+uart2_just_send_crlf:
+    /* Send CR+LF (characters already sent as typed) */
     moveb   #13, UART2_TX      /* CR */
     moveb   #10, UART2_TX      /* LF */
-    
-    /* Clear input buffer */
+
+    /* Clear input buffer properly */
     movel   #0, uart2_input_length
+
+    /* Zero out the buffer to prevent artifacts */
+    lea     uart2_input_buffer, %a1
+    moveq   #80, %d0
+uart2_clear_buffer:
+    moveb   #0, (%a1)+
+    subql   #1, %d0
+    bne     uart2_clear_buffer
+
     jsr     uart2_update_input_display
     bra     finish_uart2_key_input
 
@@ -5947,24 +6217,32 @@ uart2_update_input_display:
     movel   %d1, -(%sp)
     movel   %a0, -(%sp)
     movel   %a1, -(%sp)
-    
-    /* Clear input line */
+
+    /* Clear entire input line first (line 21) */
+    moveal  #TDABase + 1 + (21 * ScreenWidth), %a1
+    moveq   #80, %d0
+uart2_clear_input_line:
+    moveb   #' ', (%a1)+
+    subql   #1, %d0
+    bne     uart2_clear_input_line
+
+    /* Reset pointer and write prompt */
     moveal  #TDABase + 1 + (21 * ScreenWidth), %a1
     lea     uart2_prompt_msg, %a0
     jsr     copy_string_to_screen
-    
-    /* Display current input */
-    moveal  #TDABase + 1 + (21 * ScreenWidth) + 3, %a1  /* After "> " */
+
+    /* Display current input after prompt */
+    moveal  #TDABase + 1 + (21 * ScreenWidth) + 2, %a1  /* After "> " */
     lea     uart2_input_buffer, %a0
     movel   uart2_input_length, %d1
-    
+
 uart2_copy_input_loop:
     tst.l   %d1
     beq     uart2_input_done
     moveb   (%a0)+, (%a1)+
     subql   #1, %d1
     bra     uart2_copy_input_loop
-    
+
 uart2_input_done:
     movel   (%sp)+, %a1
     movel   (%sp)+, %a0
@@ -5972,112 +6250,142 @@ uart2_input_done:
     movel   (%sp)+, %d0
     rts
 
-/* Poll UART2 for incoming data */
+/* Poll UART2 for incoming data - with line buffering */
 .align 2
 uart2_poll_incoming:
     movel   %d0, -(%sp)
     movel   %d1, -(%sp)
+    movel   %d2, -(%sp)
+    movel   %d3, -(%sp)
+    movel   %d4, -(%sp)
+    movel   %d5, -(%sp)
     movel   %a0, -(%sp)
-    
+    movel   %a1, -(%sp)
+
+    /* Loop to read all available data (not just one character) */
+    movel   #0, %d4                     /* Circuit breaker counter */
+uart2_poll_loop:
+    addql   #1, %d4
+    cmpl    #50, %d4                    /* Max 50 reads per poll */
+    bge     uart2_poll_done
+
     /* Check if data available */
     moveb   UART2_STATUS, %d0
-    btst    #0, %d0            /* STAT_RX_READY bit */
+    btst    #0, %d0                     /* STAT_RX_READY bit */
     beq     uart2_poll_done
-    
+
     /* Read the data */
     moveb   UART2_RX, %d1
-    
-    /* Display it on screen at fixed location (line 10) */
-    moveal  #TDABase + 1 + (10 * ScreenWidth), %a1
-    lea     uart2_rx_prefix, %a0
-    jsr     copy_string_to_screen
-    
-    /* Add the character */
-    moveal  #TDABase + 1 + (10 * ScreenWidth) + 5, %a1  /* After "RX: " */
-    moveb   %d1, (%a1)
-    
+
+    /* Add to response buffer */
+    movel   uart2_response_length, %d2
+    cmpl    #510, %d2                   /* Check buffer overflow (leave room for null) */
+    bge     uart2_poll_done
+
+    lea     uart2_response_buffer, %a0
+    moveb   %d1, (%a0,%d2)
+    addql   #1, uart2_response_length
+
+    /* Check for line ending (CR or LF) */
+    cmpb    #13, %d1                    /* CR */
+    beq     uart2_display_line
+    cmpb    #10, %d1                    /* LF */
+    beq     uart2_check_skip            /* Skip LF if follows CR */
+    bra     uart2_poll_loop             /* Continue reading */
+
+uart2_check_skip:
+    /* If previous char was CR, skip this LF */
+    cmpl    #1, %d2
+    ble     uart2_display_line
+    lea     uart2_response_buffer, %a0
+    moveb   -2(%a0,%d2), %d3
+    cmpb    #13, %d3
+    beq     uart2_skip_lf
+    bra     uart2_display_line
+
+uart2_skip_lf:
+    /* Remove the LF from buffer */
+    subql   #1, uart2_response_length
+    bra     uart2_poll_loop
+
+uart2_display_line:
+    /* Null-terminate the response buffer (remove CR/LF) */
+    movel   uart2_response_length, %d2
+    lea     uart2_response_buffer, %a0
+    subql   #1, %d2                     /* Remove the CR/LF */
+    moveb   #0, (%a0,%d2)
+
+    /* Use shared display routine with scrolling */
+    /* Parameters: a0=string, d0=start, d1=end, d2=current, d3=flags */
+    lea     uart2_response_buffer, %a0  /* String to display */
+    movel   #8, %d0                     /* Start line */
+    movel   #17, %d1                    /* End line */
+    movel   uart2_response_line, %d2    /* Current line */
+    movel   #0, %d3                     /* Flags: no border, no prefix */
+    jsr     display_text_line_with_scroll
+    movel   %d2, uart2_response_line    /* Save updated line number */
+
+    /* Clear response buffer for next line */
+    movel   #0, uart2_response_length
+
+    /* Continue polling for more data */
+    bra     uart2_poll_loop
+
 uart2_poll_done:
+    movel   (%sp)+, %a1
     movel   (%sp)+, %a0
+    movel   (%sp)+, %d5
+    movel   (%sp)+, %d4
+    movel   (%sp)+, %d3
+    movel   (%sp)+, %d2
     movel   (%sp)+, %d1
     movel   (%sp)+, %d0
     rts
 
 /* UART2 interrupt handler (Level 5) */
+/* Note: Simplified - polling function now handles all RX buffering and display */
 .align 2
 uart2_interrupt_handler:
     /* Save registers */
     movel   %d0, -(%sp)
-    movel   %d1, -(%sp)
-    movel   %a0, -(%sp)
-    
+
     /* DEBUG: Increment interrupt counter to show we're being called */
     addql   #1, uart2_interrupt_counter
-    
-    /* DEBUG: Show 'I' at top-right to indicate interrupt fired */
-    moveal  #TDABase + 1 + 78, %a0    /* Position (78, 0) */
-    moveb   #'I', (%a0)
-    
-    /* Check if RX data available */
+
+    /* Check if RX data available - no need to read it, polling will handle it */
     moveb   UART2_STATUS, %d0
     btst    #0, %d0                  /* Test RX_READY bit */
     beq     uart2_int_check_tx
-    
-    /* Read received data */
-    moveb   UART2_RX, %d1
-    
-    /* DEBUG: Show the received character at position (70, 0) */
-    moveal  #TDABase + 1 + 70, %a0
-    moveb   %d1, (%a0)
-    
-    /* Only display if we're in UART2 mode */
-    cmpl    #1, uart2_mode_active
-    bne     uart2_int_check_tx
-    
-    /* Show 'R' at position (75, 0) to indicate RX data processed */
-    moveal  #TDABase + 1 + 75, %a0
-    moveb   #'R', (%a0)
-    
-    /* Display received character in UART2 terminal area (line 8) */
-    moveal  #TDABase + 1 + (8 * ScreenWidth), %a1
-    lea     uart2_rx_prefix, %a0
-    jsr     copy_string_to_screen
-    
-    /* Add the received character after "RX: " */
-    moveal  #TDABase + 1 + (8 * ScreenWidth) + 4, %a1
-    moveb   %d1, (%a1)
-    
-    /* Add a newline by moving to next line for next RX */
-    moveal  #TDABase + 1 + (9 * ScreenWidth), %a1
-    moveb   #' ', (%a1)  /* Clear next line for future use */
-    
+
+    /* Data is available - the polling function will read and buffer it */
+    /* We just acknowledge the interrupt here */
+
 uart2_int_check_tx:
     /* Check if transmitter empty */
     btst    #1, %d0                  /* Test TX_EMPTY bit */
     beq     uart2_int_done
-    
-    /* Show 'T' at position (76, 0) to indicate TX interrupt */
-    moveal  #TDABase + 1 + 76, %a0
-    moveb   #'T', (%a0)
-    
+
+    /* TX interrupt acknowledged */
+
 uart2_int_done:
     /* Restore registers */
-    movel   (%sp)+, %a0
-    movel   (%sp)+, %d1
     movel   (%sp)+, %d0
     rte
 
 /* UART2 Mode String Constants */
 uart2_header_msg:
-    .string "=== PCD68 UART2 Terminal Mode === Direct Serial Communication"
+    .string "===================== PCD68 UART2 Terminal ====================="
 uart2_instructions_msg:
-    .string "Type to send via UART2 | Enter=newline | ESC=exit | Null-modem ready!"
+    .string "Type to send via UART2 | Enter=newline | ESC=exit"
 uart2_prompt_msg:
     .string "> "
 uart2_rx_prefix:
     .string "RX: "
 
+.align 2  /* Ensure proper alignment after strings */
+
 /*
- * UART1 AT MODEM MODE FUNCTIONS  
+ * UART1 AT MODEM MODE FUNCTIONS
  */
 
 /* Process UART1 AT mode activation */
@@ -6448,55 +6756,19 @@ uart1_at_display_line:
     lea     uart1_at_response_buffer, %a0
     subql   #1, %d2                     /* Remove the CR/LF */
     moveb   #0, (%a0,%d2)
-    
-    /* Display on current response line */
-    movel   uart1_at_response_line, %d3
-    cmpl    #17, %d3                    /* Max line 17 (end of content area) */
-    bge     uart1_at_reset_display
-    
-    /* Calculate TDA position for this line */
-    movel   %d3, %d4
-    /* Multiply line number by 80 (ScreenWidth) */
-    movel   %d4, %d5
-    lsll    #6, %d4                     /* d4 = line * 64 */
-    lsll    #4, %d5                     /* d5 = line * 16 */
-    addl    %d5, %d4                    /* d4 = line * 80 */
-    addl    #1, %d4                     /* Skip first column */
-    moveal  #TDABase, %a1
-    addal   %d4, %a1
-    
-    /* Clear the line first */
-    moveq   #80, %d0
-uart1_at_clear_line:
-    moveb   #' ', (%a1)+
-    subql   #1, %d0
-    bne     uart1_at_clear_line
-    
-    /* Reset pointer to start of line */
-    subal   #80, %a1
-    
-    /* Add left border */
-    moveb   #'|', (%a1)+
-    moveb   #' ', (%a1)+
-    
-    /* Display "RX: " prefix */
-    lea     uart1_at_rx_short, %a0
-    jsr     copy_string_to_screen
-    
-    /* Display the response text */
-    lea     uart1_at_response_buffer, %a0
-    jsr     copy_string_to_screen
-    
+
+    /* Use shared display routine with scrolling */
+    /* Parameters: a0=string, d0=start, d1=end, d2=current, d3=flags */
+    lea     uart1_at_response_buffer, %a0  /* String to display */
+    movel   #9, %d0                     /* Start line */
+    movel   #17, %d1                    /* End line */
+    movel   uart1_at_response_line, %d2 /* Current line */
+    movel   #3, %d3                     /* Flags: border + RX prefix */
+    jsr     display_text_line_with_scroll
+    movel   %d2, uart1_at_response_line /* Save updated line number */
+
     /* Clear response buffer for next line */
     movel   #0, uart1_at_response_length
-    
-    /* Move to next line */
-    addql   #1, uart1_at_response_line
-    bra     uart1_at_poll_done
-    
-uart1_at_reset_display:
-    /* Reset to line 9 if we've filled the content area */
-    movel   #9, uart1_at_response_line
 
 uart1_at_poll_done:
     movem.l (%sp)+, %d0-%d7/%a0-%a6
