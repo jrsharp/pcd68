@@ -3,9 +3,12 @@ zig-out/
 *.swp
 .DS_Store
 build
+untracked
 
 # Build artifacts
+pcd68
 *.bin
+*.o
 *.hex
 *.data
 jonsharp.net/pcd68home
