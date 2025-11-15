@@ -474,8 +474,8 @@ int main(int argc, char** argv) {
 
 #ifdef __EMSCRIPTEN__
     // Connect UART to websocket for Emscripten target
-    const char* webSocketUrl1 = "ws://localhost:8080";
-    const char* webSocketUrl2 = "ws://localhost:8081";
+    const char* webSocketUrl1 = "wss://aether.frstcomputer.net:8080/at";
+    const char* webSocketUrl2 = "wss://aether.frstcomputer.net:8080/at";
     std::cout << "Attempting to connect UART to WebSockets (non-fatal if this fails):" << std::endl;
     std::cout << "  UART1: " << webSocketUrl1 << std::endl;
     std::cout << "  UART2: " << webSocketUrl2 << std::endl;

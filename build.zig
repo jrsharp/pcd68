@@ -20,9 +20,15 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     moira_lib.linkLibCpp();
+    moira_lib.linkLibC();
+
+    // Add include paths for Moira library
+    moira_lib.addIncludePath(.{ .cwd_relative = "." });
+    moira_lib.addSystemIncludePath(.{ .cwd_relative = "/usr/include/x86_64-linux-gnu" });
+
     moira_lib.addCSourceFiles(.{
         .files = &.{ "src/Moira/Moira.cpp", "src/Moira/MoiraDebugger.cpp" },
-        .flags = &.{},
+        .flags = &.{ "-std=c++17", "-nostdinc++", "-isystem/usr/include/c++/11", "-isystem/usr/include/x86_64-linux-gnu/c++/11", "-isystem/usr/include/x86_64-linux-gnu" },
     });
 
     // Create PCD68 executable
@@ -33,6 +39,7 @@ pub fn build(b: *std.Build) void {
     });
     exe.linkLibrary(moira_lib);
     exe.linkLibCpp();
+    exe.linkLibC();
 
     // Add include paths
     exe.addIncludePath(.{ .cwd_relative = "." });
@@ -56,8 +63,10 @@ pub fn build(b: *std.Build) void {
         .flags = &.{ "-std=c++17", "-Wno-narrowing", "-DUSE_SDL=1" },
     });
 
-    // Install executable
-    b.installArtifact(exe);
+    // Install executable (skip if building for web)
+    if (!build_web) {
+        b.installArtifact(exe);
+    }
 
     // Web build using Emscripten
     if (build_web) {

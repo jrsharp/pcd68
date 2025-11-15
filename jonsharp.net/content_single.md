@@ -55,9 +55,9 @@ brilliant artist-engineers of the personal computing era.
 My 4" watercolor books represent one of my primary artistic outlets - tiny
 paintings created during moments I might otherwise be tempted to scroll on a
 smartphone.  And just to demonstrate that PCD-68 can do "fancy" graphics,
-I've included two of my watercolors (in all their 1-bit glory!) in this ROM.  
-The 'a' key activates "art mode", allowing you to navigate ('j'/'k') between 
-the two stored images.  Use the 't' key to return to "text mode".
+I've included two of my watercolors (in all their 1-bit glory!) in this ROM.
+The 'a' key activates 'art mode', allowing you to navigate ('j'/'k') between
+the two stored images.  Use the 't' key to return to 'text mode'.
 
 I also believe deeply that uptime is overrated, entropy is good (and so is
 Lisp) and that software complexity will kill us all.
@@ -79,7 +79,7 @@ embrace plain text.
 
 ## Gopher stickers
 
-If you send $2 to my PO Box, I'll send you a "Gopher: Good. Enough." sticker
+If you send $2 to my PO Box, I'll send you a 'Gopher: Good. Enough.' sticker
 for that fancy MacBook of yours! ;)
 
 --
@@ -88,5 +88,16 @@ Email: jon@jonsharp.net
 Mastodon: @jrsharp@mastodon.sdf.org
 GitHub: @jrsharp
 --
+
+## One more thing...
+
+I've added a 'UART' mode to this ROM.  For the wasm deployment of my pcd68
+emulator, this will open a websocket connection to my 'Aether' mesh protocol
+simulation / gateway.  This service presents an AT command-style interface,
+emulating a custom LoRa radio modem.  If this is working correctly, it will
+plop you down in the middle of a simulated mesh network with other interactive
+users, allowing you to chat with other users:
+
+AT+HELP -> AT+INIT -> AT+NETALIAS=username -> AT+NETJOIN -> AT+SEND=hi!
 
 EOL

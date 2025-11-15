@@ -56,8 +56,8 @@ combined_content:
     .ascii " paintings created during moments I might otherwise be tempted to scroll on a\n"
     .ascii " smartphone.  And just to demonstrate that PCD-68 can do \"fancy\" graphics,\n"
     .ascii " I've included two of my watercolors (in all their 1-bit glory!) in this ROM.\n"
-    .ascii " The 'a' key activates \"art mode\", allowing you to navigate ('j'/'k') between\n"
-    .ascii " the two stored images.  Use the 't' key to return to \"text mode\".\n\n"
+    .ascii " The 'a' key activates 'art mode', allowing you to navigate ('j'/'k') between\n"
+    .ascii " the two stored images.  Use the 't' key to return to 'text mode'.\n\n"
     .ascii " I also believe deeply that uptime is overrated, entropy is good (and so is\n"
     .ascii " Lisp) and that software complexity will kill us all.\n\n"
     
@@ -75,7 +75,7 @@ combined_content:
     .ascii " embrace plain text.\n\n"
     
     .ascii " ## Gopher stickers\n\n"
-    .ascii " If you send $2 to my PO Box, I'll send you a \"Gopher: Good. Enough.\" sticker\n"
+    .ascii " If you send $2 to my PO Box, I'll send you a 'Gopher: Good. Enough.' sticker\n"
     .ascii " for that fancy MacBook of yours! ;)\n\n"
     
     .ascii " --\n"
@@ -85,6 +85,17 @@ combined_content:
     .ascii " GitHub: @jrsharp\n"
     .ascii " --\n\n"
     
+    .ascii " ## One more thing...\n\n"
+
+    .ascii " I've added a 'UART' mode to this ROM.  For the wasm deployment of my pcd68\n"
+    .ascii " emulator, this will open a websocket connection to my 'Aether' mesh protocol\n"
+    .ascii " simulation / gateway.  This service presents an AT command-style interface,\n"
+    .ascii " emulating a custom LoRa radio modem.  If this is working correctly, it will\n"
+    .ascii " plop you down in the middle of a simulated mesh network with other\n"
+    .ascii " interactive clients, allowing you to chat with other users:\n\n"
+
+    .ascii " > AT+HELP -> AT+INIT -> AT+NETALIAS=username -> AT+NETJOIN -> AT+SEND=hi!\n\n"
+
     .ascii " EOL\n"
     .asciz ""
 

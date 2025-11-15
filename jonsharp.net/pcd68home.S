@@ -6143,6 +6143,12 @@ uart2_backspace:
     lea     uart2_input_buffer, %a1
     moveb   #0, (%a1,%d0)
 
+    /* Send backspace sequence to UART2 to erase on remote end */
+    /* Standard terminal backspace: BS + SPACE + BS */
+    moveb   #8, UART2_TX      /* Backspace */
+    moveb   #32, UART2_TX     /* Space (erase character) */
+    moveb   #8, UART2_TX      /* Backspace (move cursor back) */
+
     /* Update display */
     jsr     uart2_update_input_display
     bra     finish_uart2_key_input
@@ -6306,7 +6312,7 @@ uart2_check_skip:
 uart2_skip_lf:
     /* Remove the LF from buffer */
     subql   #1, uart2_response_length
-    bra     uart2_poll_loop
+    bra     uart2_poll_done
 
 uart2_display_line:
     /* Null-terminate the response buffer (remove CR/LF) */
@@ -6328,8 +6334,9 @@ uart2_display_line:
     /* Clear response buffer for next line */
     movel   #0, uart2_response_length
 
-    /* Continue polling for more data */
-    bra     uart2_poll_loop
+    /* Done processing this line - exit and let main loop call us again */
+    /* This prevents hanging in WASM by yielding control back to browser */
+    bra     uart2_poll_done
 
 uart2_poll_done:
     movel   (%sp)+, %a1
