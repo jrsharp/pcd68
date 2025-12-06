@@ -1,0 +1,105 @@
+# Makefile for PCD-68 DOS port using DJGPP
+#
+# Build requirements:
+# - DJGPP with GCC 12+ (for C++14 binary literal support)
+# - Get modern DJGPP from: https://github.com/andrewwutw/build-djgpp/releases
+# - CWSDPMI.EXE for running the executable (provided with DJGPP)
+#
+# Usage:
+#   make -f Makefile.dos           # Build pcd68.exe
+#   make -f Makefile.dos clean     # Clean build artifacts
+#   make -f Makefile.dos debug     # Build with debug symbols
+
+# Compiler settings
+# For cross-compiling from Linux, use i586-pc-msdosdjgpp-g++
+# For native DJGPP, use gpp or g++
+CXX = i586-pc-msdosdjgpp-g++
+CC = i586-pc-msdosdjgpp-gcc
+
+# Compiler flags - requires GCC 12+ for C++17 (Moira uses if constexpr)
+# Use -O3 and -flto for maximum performance
+CXXFLAGS = -O3 -std=gnu++17 -fno-exceptions -fno-rtti
+CXXFLAGS += -I./src -I./src/Moira
+CXXFLAGS += -DNDEBUG
+CXXFLAGS += -fomit-frame-pointer -ffast-math
+CXXFLAGS += -Wall -Wextra -Wno-unused-parameter -Wno-narrowing
+
+# Linker flags
+LDFLAGS =
+
+# Debug build flags
+DEBUG_CXXFLAGS = -g -O0 -std=gnu++17
+DEBUG_CXXFLAGS += -I./src -I./src/Moira
+DEBUG_CXXFLAGS += -Wall -Wextra -Wno-unused-parameter -Wno-narrowing
+
+# C++ Source files - DOS specific
+DOS_SOURCES = \
+    src/Screen_DOS.cpp \
+    src/KeyboardInputDOS.cpp \
+    src/UART_DOS.cpp
+
+# C++ Source files - platform agnostic
+COMMON_SOURCES = \
+    src/main_dos.cpp \
+    src/PCD68_CPU.cpp \
+    src/Screen.cpp \
+    src/KeyboardInput.cpp \
+    src/TDA.cpp \
+    src/KCTL.cpp
+
+# Moira CPU core (requires GCC 12+ for C++14 binary literals)
+MOIRA_SOURCES = \
+    src/Moira/Moira.cpp \
+    src/Moira/MoiraDebugger.cpp
+
+# All sources
+SOURCES = $(DOS_SOURCES) $(COMMON_SOURCES) $(MOIRA_SOURCES)
+
+# Object files
+OBJECTS = $(SOURCES:.cpp=.o)
+
+# Output executable
+TARGET = pcd68.exe
+
+# Default target
+all: check-gcc $(TARGET)
+
+# Check GCC version (need 12+ for C++14 binary literals)
+check-gcc:
+	@echo "Checking GCC version..."
+	@$(CXX) --version | head -1
+	@echo ""
+
+# Link all objects
+$(TARGET): $(OBJECTS)
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $^
+	@echo ""
+	@echo "Build complete: $(TARGET)"
+	@echo "Don't forget CWSDPMI.EXE to run on DOS!"
+
+# Compile C++ files
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
+# Debug build
+debug: CXXFLAGS = $(DEBUG_CXXFLAGS)
+debug: $(TARGET)
+
+# Clean
+clean:
+	rm -f $(OBJECTS) $(TARGET)
+	rm -f src/*.o src/Moira/*.o
+
+# Dependencies
+src/main_dos.o: src/main_dos.cpp src/PCD68_CPU.h src/Screen_DOS.h src/TDA.h src/KCTL.h src/UART_DOS.h
+src/Screen_DOS.o: src/Screen_DOS.cpp src/Screen_DOS.h src/Screen.h
+src/KeyboardInputDOS.o: src/KeyboardInputDOS.cpp src/KeyboardInputDOS.h src/KeyboardInput.h
+src/PCD68_CPU.o: src/PCD68_CPU.cpp src/PCD68_CPU.h src/Moira/Moira.h
+src/Screen.o: src/Screen.cpp src/Screen.h
+src/TDA.o: src/TDA.cpp src/TDA.h
+src/KCTL.o: src/KCTL.cpp src/KCTL.h
+src/UART_DOS.o: src/UART_DOS.cpp src/UART_DOS.h
+src/Moira/Moira.o: src/Moira/Moira.cpp src/Moira/Moira.h
+src/Moira/MoiraDebugger.o: src/Moira/MoiraDebugger.cpp src/Moira/MoiraDebugger.h
+
+.PHONY: all debug clean check-gcc
