@@ -44,6 +44,9 @@
 #define VGA_SEQ_MAP_MASK    0x02
 #define VGA_GC_MODE         0x05
 #define VGA_GC_BIT_MASK     0x08
+#define VGA_GC_SET_RESET    0x00
+#define VGA_GC_ENABLE_SR    0x01
+#define VGA_GC_DATA_ROTATE  0x03
 
 // VESA constants
 #define VESA_MODE_640x400   0x100
@@ -183,6 +186,14 @@ bool Screen_DOS::initMode12h() {
     // Set write mode 0 (direct write)
     outportb(VGA_GC_INDEX, VGA_GC_MODE);
     outportb(VGA_GC_DATA, 0x00);
+
+    // Disable Set/Reset (use CPU data directly)
+    outportb(VGA_GC_INDEX, VGA_GC_ENABLE_SR);
+    outportb(VGA_GC_DATA, 0x00);  // Disable Set/Reset for all planes
+
+    // Disable Data Rotate
+    outportb(VGA_GC_INDEX, VGA_GC_DATA_ROTATE);
+    outportb(VGA_GC_DATA, 0x00);  // No rotation, logical function = replace
 
     // Set bit mask to all bits
     outportb(VGA_GC_INDEX, VGA_GC_BIT_MASK);
@@ -527,16 +538,23 @@ void Screen_DOS::blitMode12hTile(int tileX, int tileY) {
 
 // Full optimized blit for Mode 12h with dirty-rect tracking
 void Screen_DOS::blitMode12hOptimized() {
-    // Set up VGA for bulk writes
+    // Set up VGA for bulk writes in Write Mode 0
     outportb(VGA_SEQ_INDEX, VGA_SEQ_MAP_MASK);
     outportb(VGA_SEQ_DATA, 0x0F);  // All planes
+
+    // Ensure write mode 0 and no Set/Reset interference
+    outportb(VGA_GC_INDEX, VGA_GC_MODE);
+    outportb(VGA_GC_DATA, 0x00);  // Write mode 0
+    outportb(VGA_GC_INDEX, VGA_GC_ENABLE_SR);
+    outportb(VGA_GC_DATA, 0x00);  // Disable Set/Reset
+    outportb(VGA_GC_INDEX, VGA_GC_DATA_ROTATE);
+    outportb(VGA_GC_DATA, 0x00);  // No rotation
     outportb(VGA_GC_INDEX, VGA_GC_BIT_MASK);
     outportb(VGA_GC_DATA, 0xFF);  // All bits
 
-    // Check which tiles are dirty
+#if 0
+    // Optimized path: only blit dirty tiles
     checkDirtyTiles();
-
-    // Blit only dirty tiles
     for (int ty = 0; ty < TILES_Y; ty++) {
         for (int tx = 0; tx < TILES_X; tx++) {
             if (isTileDirty(tx, ty)) {
@@ -544,12 +562,38 @@ void Screen_DOS::blitMode12hOptimized() {
             }
         }
     }
-
-    // Update last frame buffer for next comparison
     memcpy(lastFrame, framebufferMem, SCREEN_WIDTH * SCREEN_HEIGHT);
-
-    // Clear dirty flags
     clearDirtyTiles();
+#else
+    // Debug path: blit entire framebuffer every frame
+    int dstByteOffsetX = offsetX / 8;  // 15 bytes
+
+    for (int y = 0; y < SCREEN_HEIGHT; y++) {
+        int dstY = y + offsetY;
+        int dstLineOffset = dstY * MODE_12H_STRIDE + dstByteOffsetX;
+
+        for (int byteX = 0; byteX < SCREEN_WIDTH / 8; byteX++) {
+            int srcOffset = y * SCREEN_WIDTH + byteX * 8;
+            uint8_t packed = packPixels8(&framebufferMem[srcOffset]);
+            _farpokeb(_dos_ds, VGA_MEMORY_BASE + dstLineOffset + byteX, packed);
+        }
+    }
+
+    // Debug: draw test pattern AFTER framebuffer blit to verify VGA writes work
+    // This should show a checkerboard in top-left corner of the PCD68 display area
+    static int frameCount = 0;
+    frameCount++;
+    if (frameCount < 100) {  // Show for first 100 frames then let actual content show
+        for (int y = 0; y < 16; y++) {
+            int dstY = y + offsetY;
+            int dstLineOffset = dstY * MODE_12H_STRIDE + dstByteOffsetX;
+            // 0xAA = 10101010 (alternating pixels), 0x55 = 01010101
+            uint8_t pattern = (y & 1) ? 0x55 : 0xAA;
+            _farpokeb(_dos_ds, VGA_MEMORY_BASE + dstLineOffset, pattern);
+            _farpokeb(_dos_ds, VGA_MEMORY_BASE + dstLineOffset + 1, pattern ^ 0xFF);
+        }
+    }
+#endif
 }
 
 int Screen_DOS::refresh() {
