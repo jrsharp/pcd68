@@ -1,0 +1,91 @@
+# PCD68 Cross-Compilation with Clang
+# For OpenBSD amd64 -> PowerPC
+
+# Clang cross-compilation
+CC = clang --target=powerpc-unknown-elf
+CXX = clang++ --target=powerpc-unknown-elf
+AS = clang --target=powerpc-unknown-elf
+LD = ld.lld
+OBJCOPY = llvm-objcopy
+
+# Architecture flags
+ARCH = -mcpu=7450 -mabi=elfv1 -mbig-endian
+
+# Freestanding environment
+FREESTANDING = -ffreestanding -nostdlib -nostartfiles -fno-builtin
+
+# C++ specific
+CXXFLAGS = -fno-exceptions -fno-rtti -std=c++11
+
+# Optimization
+OPT = -O2 -g
+
+# Defines
+DEFINES = -DMOIRA_NO_THROW -DFREESTANDING
+
+# Include paths
+INCLUDES = -I./src -I./src/Moira
+
+# Combined flags
+CFLAGS = $(ARCH) $(FREESTANDING) $(OPT) $(DEFINES) $(INCLUDES)
+CXXFLAGS += $(CFLAGS)
+
+# Source files
+SRCS_CPP = \
+    src/main_of_standalone.cpp \
+    src/freestanding.cpp \
+    src/openfirmware.cpp \
+    src/PCD68_CPU.cpp \
+    src/Screen.cpp \
+    src/Screen_OF.cpp \
+    src/KeyboardInput.cpp \
+    src/KeyboardInputOF.cpp \
+    src/KCTL.cpp \
+    src/TDA.cpp \
+    src/UART.cpp \
+    src/Moira/Moira.cpp \
+    src/Moira/MoiraDebugger.cpp
+
+# Object files
+OBJS = start.o $(SRCS_CPP:.cpp=.o)
+
+# Target
+TARGET = pcd68.elf
+
+all: $(TARGET)
+
+# Compile C++
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Startup code
+start.o: start.s
+	$(AS) $(ARCH) -c $< -o $@
+
+start.s:
+	@echo '.text' > $@
+	@echo '.globl _start' >> $@
+	@echo '_start:' >> $@
+	@echo '    mr 31, 3' >> $@
+	@echo '    bl pcd68_start' >> $@
+	@echo '    blr' >> $@
+
+# Link
+$(TARGET): $(OBJS)
+	$(LD) -m elf32ppc -T link.ld -o $@ $(OBJS)
+
+# Linker script
+link.ld:
+	@echo 'ENTRY(_start)' > $@
+	@echo 'SECTIONS {' >> $@
+	@echo '    . = 0x100000;' >> $@
+	@echo '    .text : { *(.text*) }' >> $@
+	@echo '    .rodata : { *(.rodata*) }' >> $@
+	@echo '    .data : { *(.data*) }' >> $@
+	@echo '    .bss : { *(.bss*) }' >> $@
+	@echo '}' >> $@
+
+clean:
+	rm -f $(OBJS) $(TARGET) start.s link.ld
+
+.PHONY: all clean

@@ -1,0 +1,220 @@
+# PCD68 Freestanding Build - Native PowerPC GCC
+# Build directly on PowerBook G4 running OpenBSD/Linux/macOS
+
+# Use native compiler (adjust for your OS)
+CC = gcc
+CXX = g++
+AS = as
+LD = ld
+OBJCOPY = objcopy
+
+# For OpenBSD on PowerBook G4
+ifeq ($(shell uname),OpenBSD)
+    CC = egcc
+    CXX = eg++
+    OBJCOPY = gobjcopy
+endif
+
+# CPU-specific flags for G4 (7450)
+ARCH_FLAGS = -mcpu=7450 -mtune=7450 -maltivec -mabi=altivec
+
+# Freestanding flags - no OS dependencies
+FREESTANDING_FLAGS = \
+    -ffreestanding \
+    -nostdlib \
+    -nostartfiles \
+    -nodefaultlibs \
+    -fno-builtin \
+    -fno-stack-protector \
+    -fno-pic \
+    -fno-pie \
+    -static
+
+# C++ specific flags
+CXX_FREESTANDING_FLAGS = \
+    -fno-exceptions \
+    -fno-rtti \
+    -fno-threadsafe-statics \
+    -fno-use-cxa-atexit
+
+# Optimization and warnings
+OPT_FLAGS = -O2 -g -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable
+
+# Combine all flags
+CFLAGS = $(ARCH_FLAGS) $(FREESTANDING_FLAGS) $(OPT_FLAGS) -std=gnu99
+CXXFLAGS = $(ARCH_FLAGS) $(FREESTANDING_FLAGS) $(CXX_FREESTANDING_FLAGS) $(OPT_FLAGS) -std=c++11
+
+# Defines
+DEFINES = -DMOIRA_NO_THROW -DFREESTANDING -DPOWERPC -DG4_7450
+
+# Include paths
+INCLUDES = -I./src -I./src/Moira
+
+# Source files
+SRCS_CPP = \
+    src/main_of.cpp \
+    src/openfirmware.cpp \
+    src/PCD68_CPU.cpp \
+    src/Screen.cpp \
+    src/Screen_OF.cpp \
+    src/KeyboardInput.cpp \
+    src/KeyboardInputOF.cpp \
+    src/KCTL.cpp \
+    src/TDA.cpp \
+    src/UART.cpp \
+    src/Moira/Moira.cpp \
+    src/Moira/MoiraDebugger.cpp
+
+# Assembly startup code
+SRCS_ASM = src/start_of.s
+
+# Object files
+OBJS_CPP = $(SRCS_CPP:.cpp=.o)
+OBJS_ASM = $(SRCS_ASM:.s=.o)
+OBJS = $(OBJS_ASM) $(OBJS_CPP)
+
+# Target binaries
+TARGET_ELF = pcd68.elf
+TARGET_BIN = pcd68.bin
+TARGET_XCOFF = pcd68.xcf
+
+# Default target
+all: $(TARGET_ELF) $(TARGET_BIN)
+
+# Assembly files
+%.o: %.s
+	$(AS) $(ARCH_FLAGS) $< -o $@
+
+# C++ files
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) $(DEFINES) $(INCLUDES) -c $< -o $@
+
+# Link ELF binary
+$(TARGET_ELF): $(OBJS) linker_of.ld
+	$(LD) -T linker_of.ld -o $@ $(OBJS) \
+	    -Map=pcd68.map \
+	    --gc-sections \
+	    --print-gc-sections
+
+# Convert to raw binary
+$(TARGET_BIN): $(TARGET_ELF)
+	$(OBJCOPY) -O binary $< $@
+	@echo "Binary size: " `wc -c < $(TARGET_BIN)` " bytes"
+
+# Convert to XCOFF (if needed)
+$(TARGET_XCOFF): $(TARGET_ELF)
+	$(OBJCOPY) -O aixcoff-rs6000 $< $@ 2>/dev/null || \
+	    echo "XCOFF conversion not supported on this platform"
+
+# Generate assembly listing
+%.lst: %.o
+	$(OBJDUMP) -d $< > $@
+
+# Clean
+clean:
+	rm -f $(OBJS) $(TARGET_ELF) $(TARGET_BIN) $(TARGET_XCOFF)
+	rm -f pcd68.map *.lst
+	rm -f linker_of.ld start_of.s
+
+# Generate linker script
+linker_of.ld: Makefile.freestanding
+	@echo "/* PCD68 OF Linker Script */" > $@
+	@echo "OUTPUT_FORMAT(\"elf32-powerpc\")" >> $@
+	@echo "OUTPUT_ARCH(powerpc)" >> $@
+	@echo "ENTRY(_start)" >> $@
+	@echo "" >> $@
+	@echo "MEMORY {" >> $@
+	@echo "    ram : ORIGIN = 0x100000, LENGTH = 16M" >> $@
+	@echo "}" >> $@
+	@echo "" >> $@
+	@echo "SECTIONS {" >> $@
+	@echo "    . = 0x100000;" >> $@
+	@echo "" >> $@
+	@echo "    .text : {" >> $@
+	@echo "        *(.text.startup)" >> $@
+	@echo "        *(.text*)" >> $@
+	@echo "        *(.rodata*)" >> $@
+	@echo "    } > ram" >> $@
+	@echo "" >> $@
+	@echo "    .data : {" >> $@
+	@echo "        *(.data*)" >> $@
+	@echo "        *(.sdata*)" >> $@
+	@echo "    } > ram" >> $@
+	@echo "" >> $@
+	@echo "    .bss : {" >> $@
+	@echo "        __bss_start = .;" >> $@
+	@echo "        *(.bss*)" >> $@
+	@echo "        *(.sbss*)" >> $@
+	@echo "        *(COMMON)" >> $@
+	@echo "        __bss_end = .;" >> $@
+	@echo "    } > ram" >> $@
+	@echo "" >> $@
+	@echo "    /DISCARD/ : {" >> $@
+	@echo "        *(.comment)" >> $@
+	@echo "        *(.note*)" >> $@
+	@echo "        *(.eh_frame*)" >> $@
+	@echo "    }" >> $@
+	@echo "}" >> $@
+
+# Generate startup assembly
+src/start_of.s: Makefile.freestanding
+	@echo "# PowerPC Open Firmware Startup Code" > $@
+	@echo "    .section .text.startup" >> $@
+	@echo "    .global _start" >> $@
+	@echo "" >> $@
+	@echo "_start:" >> $@
+	@echo "    # Entry from OF: r3 = client interface" >> $@
+	@echo "    # r1 = stack pointer (already set by OF)" >> $@
+	@echo "" >> $@
+	@echo "    # Save OF client interface" >> $@
+	@echo "    mr      r31, r3" >> $@
+	@echo "" >> $@
+	@echo "    # Clear BSS" >> $@
+	@echo "    lis     r4, __bss_start@ha" >> $@
+	@echo "    addi    r4, r4, __bss_start@l" >> $@
+	@echo "    lis     r5, __bss_end@ha" >> $@
+	@echo "    addi    r5, r5, __bss_end@l" >> $@
+	@echo "    li      r6, 0" >> $@
+	@echo "1:" >> $@
+	@echo "    cmpw    r4, r5" >> $@
+	@echo "    bge     2f" >> $@
+	@echo "    stw     r6, 0(r4)" >> $@
+	@echo "    addi    r4, r4, 4" >> $@
+	@echo "    b       1b" >> $@
+	@echo "2:" >> $@
+	@echo "" >> $@
+	@echo "    # Call main" >> $@
+	@echo "    mr      r3, r31" >> $@
+	@echo "    bl      pcd68_start" >> $@
+	@echo "" >> $@
+	@echo "    # Return to OF" >> $@
+	@echo "    blr" >> $@
+
+# Test build
+test: $(TARGET_BIN)
+	@echo "Build successful!"
+	@echo "ELF size: " `wc -c < $(TARGET_ELF)` " bytes"
+	@echo "BIN size: " `wc -c < $(TARGET_BIN)` " bytes"
+	@file $(TARGET_ELF)
+
+# Install to disk (customize for your setup)
+install: $(TARGET_BIN)
+	@echo "To install on PowerBook:"
+	@echo "  1. Copy to USB: cp $(TARGET_BIN) /mnt/usb/"
+	@echo "  2. Or network: scp $(TARGET_BIN) powerbook:~/"
+	@echo "  3. In OF: boot ud:,\\pcd68.bin"
+
+.PHONY: all clean test install
+
+# Help
+help:
+	@echo "PCD68 Freestanding Build"
+	@echo "========================"
+	@echo "Targets:"
+	@echo "  all      - Build ELF and binary"
+	@echo "  clean    - Remove build artifacts"
+	@echo "  test     - Build and show sizes"
+	@echo "  install  - Show installation instructions"
+	@echo ""
+	@echo "This Makefile builds PCD68 as a freestanding binary"
+	@echo "suitable for loading directly by Open Firmware."

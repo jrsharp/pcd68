@@ -1,0 +1,90 @@
+# PCD68 Open Firmware Build
+# For PowerPC/PowerBook G4
+
+# Cross compiler for PowerPC
+CC = powerpc-linux-gnu-gcc
+CXX = powerpc-linux-gnu-g++
+AS = powerpc-linux-gnu-as
+LD = powerpc-linux-gnu-ld
+OBJCOPY = powerpc-linux-gnu-objcopy
+
+# Compiler flags
+CFLAGS = -ffreestanding -nostdlib -fno-builtin -fno-exceptions -fno-rtti \
+         -mcpu=7450 -mtune=7450 -mabi=elfv1 -mbig-endian \
+         -O2 -g -Wall -Wno-unused-variable \
+         -DMOIRA_NO_THROW
+
+CXXFLAGS = $(CFLAGS)
+
+# Include paths
+INCLUDES = -I./src -I./src/Moira
+
+# Source files
+SRCS_CPP = \
+    src/main_of.cpp \
+    src/openfirmware.cpp \
+    src/PCD68_CPU.cpp \
+    src/Screen.cpp \
+    src/Screen_OF.cpp \
+    src/KeyboardInput.cpp \
+    src/KeyboardInputOF.cpp \
+    src/KCTL.cpp \
+    src/TDA.cpp \
+    src/UART.cpp \
+    src/Moira/Moira.cpp \
+    src/Moira/MoiraDebugger.cpp
+
+# Object files
+OBJS = $(SRCS_CPP:.cpp=.o)
+
+# Target binary
+TARGET = pcd68.elf
+TARGET_XCOFF = pcd68.xcf
+
+# Build rules
+all: $(TARGET_XCOFF)
+
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
+
+$(TARGET): $(OBJS) of.ld
+	$(LD) -T of.ld -o $@ $(OBJS)
+
+$(TARGET_XCOFF): $(TARGET)
+	$(OBJCOPY) -O aixcoff-rs6000 $< $@
+
+# Linker script
+of.ld: Makefile.of
+	@echo "Creating OF linker script..."
+	@echo "OUTPUT_FORMAT(\"elf32-powerpc\", \"elf32-powerpc\", \"elf32-powerpc\")" > $@
+	@echo "OUTPUT_ARCH(powerpc:common)" >> $@
+	@echo "ENTRY(pcd68_start)" >> $@
+	@echo "SECTIONS {" >> $@
+	@echo "  . = 0x100000;" >> $@
+	@echo "  .text : {" >> $@
+	@echo "    *(.text*)" >> $@
+	@echo "    *(.rodata*)" >> $@
+	@echo "  }" >> $@
+	@echo "  .data : {" >> $@
+	@echo "    *(.data*)" >> $@
+	@echo "  }" >> $@
+	@echo "  .bss : {" >> $@
+	@echo "    *(.bss*)" >> $@
+	@echo "    *(COMMON)" >> $@
+	@echo "  }" >> $@
+	@echo "}" >> $@
+
+# Clean
+clean:
+	rm -f $(OBJS) $(TARGET) $(TARGET_XCOFF) of.ld
+
+# Install to disk image (customize path)
+install: $(TARGET_XCOFF)
+	@echo "Copy $(TARGET_XCOFF) to your PowerBook's disk"
+	@echo "Example: dd if=$(TARGET_XCOFF) of=/dev/disk2s12 bs=512"
+
+# Test in QEMU (if you have qemu-system-ppc)
+test-qemu: $(TARGET)
+	qemu-system-ppc -M mac99 -m 256 -prom-env "boot-command=load $(TARGET) go" -nographic
+
+.PHONY: all clean install test-qemu
